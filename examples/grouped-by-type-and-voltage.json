@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "Plans Grouped by Type and Voltage"
+  },
+  "groups": {
+    "external": true
+  },
+  "device_states": {
+    "logic_low": {},
+    "logic_high": {}
+  },
+  "test_plan_generation": {
+    "rules": [
+      {
+        "id": "grouped_signal_tests",
+        "groups": {
+          "select": {
+            "where": {
+              "group_type": {
+                "in": ["INPUT", "OUTPUT", "IO"]
+              }
+            }
+          },
+          "partition": {
+            "mode": "group_by",
+            "fields": ["group_type", "v_max"]
+          }
+        },
+        "dimensions": [
+          {
+            "name": "logic_level",
+            "values": [
+              {
+                "value": "LOW",
+                "set": {
+                  "device_state": "logic_low"
+                }
+              },
+              {
+                "value": "HIGH",
+                "set": {
+                  "device_state": "logic_high"
+                }
+              }
+            ]
+          },
+          {
+            "name": "polarity",
+            "values": ["POSITIVE", "NEGATIVE"]
+          }
+        ],
+        "template": {
+          "test_type": "SIGNAL",
+          "name": {
+            "template": "{partition.group_type}_{partition.v_max}_{logic_level}_{polarity}"
+          },
+          "stress_parameters": {
+            "stress_voltage": {
+              "from": "group.v_max",
+              "multiply_by": [1.0, 1.1, 1.2]
+            },
+            "compliance": 0.1,
+            "hold_time": 0.1
+          }
+        },
+        "overrides": [
+          {
+            "scope": "group",
+            "when": {
+              "group.group_type": "OUTPUT"
+            },
+            "set": {
+              "stress_parameters.compliance": 0.05
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

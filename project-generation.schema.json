@@ -1,0 +1,1084 @@
+{
+  "$defs": {
+    "AllPartitionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "all",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "AllPartitionDefinition",
+      "type": "object"
+    },
+    "AllocationDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "direct",
+            "automatic",
+            "hybrid"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "strategy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Strategy"
+        },
+        "reserve": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reserve",
+          "type": "array"
+        },
+        "ganging_policy": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ganging Policy"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "AllocationDefinition",
+      "type": "object"
+    },
+    "BiasDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "level": {
+          "default": null,
+          "title": "Level"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "BiasDefinition",
+      "type": "object"
+    },
+    "CsvSource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "csv",
+          "default": "csv",
+          "title": "Type",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "CsvSource",
+      "type": "object"
+    },
+    "DeviceStateDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "extends": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Extends"
+        },
+        "power_domains": {
+          "items": {
+            "$ref": "#/$defs/PowerDomainDefinition"
+          },
+          "title": "Power Domains",
+          "type": "array"
+        },
+        "allocation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AllocationDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/DeviceStateRuleDefinition"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "DeviceStateDefinition",
+      "type": "object"
+    },
+    "DeviceStateRuleDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "when": {
+          "additionalProperties": true,
+          "title": "When",
+          "type": "object"
+        },
+        "set": {
+          "additionalProperties": true,
+          "title": "Set",
+          "type": "object"
+        }
+      },
+      "required": [
+        "when",
+        "set"
+      ],
+      "title": "DeviceStateRuleDefinition",
+      "type": "object"
+    },
+    "DimensionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DimensionValueDefinition"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Values",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "values"
+      ],
+      "title": "DimensionDefinition",
+      "type": "object"
+    },
+    "DimensionValueDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "title": "Value"
+        },
+        "set": {
+          "additionalProperties": true,
+          "title": "Set",
+          "type": "object"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "DimensionValueDefinition",
+      "type": "object"
+    },
+    "DutDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "pins": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NamedSourceReference"
+            },
+            {
+              "$ref": "#/$defs/InlineSourceReference"
+            }
+          ],
+          "title": "Pins"
+        }
+      },
+      "required": [
+        "name",
+        "pins"
+      ],
+      "title": "DutDefinition",
+      "type": "object"
+    },
+    "EachPartitionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "each",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "EachPartitionDefinition",
+      "type": "object"
+    },
+    "ExcelSource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "excel",
+          "default": "excel",
+          "title": "Type",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sheet": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sheet"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "ExcelSource",
+      "type": "object"
+    },
+    "ExplicitGroupDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "group_type": {
+          "title": "Group Type",
+          "type": "string"
+        },
+        "pins": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pins",
+          "type": "array"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name",
+        "group_type",
+        "pins"
+      ],
+      "title": "ExplicitGroupDefinition",
+      "type": "object"
+    },
+    "ExplicitTestGroupDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "group": {
+          "title": "Group",
+          "type": "string"
+        },
+        "stress_points": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Stress Points",
+          "type": "array"
+        }
+      },
+      "required": [
+        "group",
+        "stress_points"
+      ],
+      "title": "ExplicitTestGroupDefinition",
+      "type": "object"
+    },
+    "ExplicitTestPlanDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "test_type": {
+          "title": "Test Type",
+          "type": "string"
+        },
+        "dimensions": {
+          "additionalProperties": true,
+          "title": "Dimensions",
+          "type": "object"
+        },
+        "device_state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Device State"
+        },
+        "test_groups": {
+          "items": {
+            "$ref": "#/$defs/ExplicitTestGroupDefinition"
+          },
+          "title": "Test Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "test_type",
+        "test_groups"
+      ],
+      "title": "ExplicitTestPlanDefinition",
+      "type": "object"
+    },
+    "FormatterDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        },
+        "separator": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Separator"
+        },
+        "decimal_places": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Decimal Places"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "FormatterDefinition",
+      "type": "object"
+    },
+    "GroupByPartitionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "const": "group_by",
+          "title": "Mode",
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fields",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "fields"
+      ],
+      "title": "GroupByPartitionDefinition",
+      "type": "object"
+    },
+    "GroupGenerationRule": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "select": {
+          "$ref": "#/$defs/SelectionDefinition"
+        },
+        "group_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Group By",
+          "type": "array"
+        },
+        "set": {
+          "additionalProperties": true,
+          "title": "Set",
+          "type": "object"
+        },
+        "name": {
+          "$ref": "#/$defs/NameTemplateDefinition"
+        }
+      },
+      "required": [
+        "id",
+        "group_by",
+        "name"
+      ],
+      "title": "GroupGenerationRule",
+      "type": "object"
+    },
+    "GroupsDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "external": {
+          "default": false,
+          "title": "External",
+          "type": "boolean"
+        },
+        "explicit": {
+          "items": {
+            "$ref": "#/$defs/ExplicitGroupDefinition"
+          },
+          "title": "Explicit",
+          "type": "array"
+        },
+        "generation": {
+          "items": {
+            "$ref": "#/$defs/GroupGenerationRule"
+          },
+          "title": "Generation",
+          "type": "array"
+        }
+      },
+      "title": "GroupsDefinition",
+      "type": "object"
+    },
+    "InlineSource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "inline",
+          "default": "inline",
+          "title": "Type",
+          "type": "string"
+        },
+        "records": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Records",
+          "type": "array"
+        }
+      },
+      "required": [
+        "records"
+      ],
+      "title": "InlineSource",
+      "type": "object"
+    },
+    "InlineSourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "discriminator": {
+            "mapping": {
+              "csv": "#/$defs/CsvSource",
+              "excel": "#/$defs/ExcelSource",
+              "inline": "#/$defs/InlineSource",
+              "json": "#/$defs/JsonSource"
+            },
+            "propertyName": "type"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/InlineSource"
+            },
+            {
+              "$ref": "#/$defs/JsonSource"
+            },
+            {
+              "$ref": "#/$defs/CsvSource"
+            },
+            {
+              "$ref": "#/$defs/ExcelSource"
+            }
+          ],
+          "title": "Source"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "InlineSourceReference",
+      "type": "object"
+    },
+    "JsonSource": {
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "json",
+          "default": "json",
+          "title": "Type",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "select": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Select"
+        },
+        "mapping": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Mapping",
+          "type": "object"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "JsonSource",
+      "type": "object"
+    },
+    "NameFieldDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "mapping": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapping"
+        },
+        "formatter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Formatter"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "NameFieldDefinition",
+      "type": "object"
+    },
+    "NameTemplateDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "template": {
+          "title": "Template",
+          "type": "string"
+        },
+        "fields": {
+          "additionalProperties": {
+            "$ref": "#/$defs/NameFieldDefinition"
+          },
+          "title": "Fields",
+          "type": "object"
+        }
+      },
+      "required": [
+        "template"
+      ],
+      "title": "NameTemplateDefinition",
+      "type": "object"
+    },
+    "NamedSourceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "NamedSourceReference",
+      "type": "object"
+    },
+    "OverrideDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "$ref": "#/$defs/OverrideScope",
+          "default": "plan"
+        },
+        "when": {
+          "additionalProperties": true,
+          "title": "When",
+          "type": "object"
+        },
+        "set": {
+          "additionalProperties": true,
+          "title": "Set",
+          "type": "object"
+        },
+        "exclude": {
+          "default": false,
+          "title": "Exclude",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "when"
+      ],
+      "title": "OverrideDefinition",
+      "type": "object"
+    },
+    "OverrideScope": {
+      "enum": [
+        "plan",
+        "group"
+      ],
+      "title": "OverrideScope",
+      "type": "string"
+    },
+    "PowerDomainDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Groups",
+          "type": "array"
+        },
+        "assignment": {
+          "title": "Assignment",
+          "type": "string"
+        },
+        "bias": {
+          "$ref": "#/$defs/BiasDefinition"
+        },
+        "timing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TimingDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "name",
+        "groups",
+        "assignment",
+        "bias"
+      ],
+      "title": "PowerDomainDefinition",
+      "type": "object"
+    },
+    "PowerOnTimingDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "delay": {
+          "default": 0.0,
+          "title": "Delay",
+          "type": "number"
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "After"
+        }
+      },
+      "title": "PowerOnTimingDefinition",
+      "type": "object"
+    },
+    "PowerResourceDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object"
+        }
+      },
+      "title": "PowerResourceDefinition",
+      "type": "object"
+    },
+    "ProjectMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "metadata": {
+          "additionalProperties": true,
+          "title": "Metadata",
+          "type": "object"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ProjectMetadata",
+      "type": "object"
+    },
+    "SelectionDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "where": {
+          "additionalProperties": true,
+          "title": "Where",
+          "type": "object"
+        }
+      },
+      "title": "SelectionDefinition",
+      "type": "object"
+    },
+    "TestGroupsDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "select": {
+          "$ref": "#/$defs/SelectionDefinition"
+        },
+        "partition": {
+          "discriminator": {
+            "mapping": {
+              "all": "#/$defs/AllPartitionDefinition",
+              "each": "#/$defs/EachPartitionDefinition",
+              "group_by": "#/$defs/GroupByPartitionDefinition"
+            },
+            "propertyName": "mode"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/EachPartitionDefinition"
+            },
+            {
+              "$ref": "#/$defs/AllPartitionDefinition"
+            },
+            {
+              "$ref": "#/$defs/GroupByPartitionDefinition"
+            }
+          ],
+          "title": "Partition"
+        }
+      },
+      "required": [
+        "partition"
+      ],
+      "title": "TestGroupsDefinition",
+      "type": "object"
+    },
+    "TestPlanGenerationDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "rules": {
+          "items": {
+            "$ref": "#/$defs/TestPlanRuleDefinition"
+          },
+          "title": "Rules",
+          "type": "array"
+        }
+      },
+      "title": "TestPlanGenerationDefinition",
+      "type": "object"
+    },
+    "TestPlanRuleDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "groups": {
+          "$ref": "#/$defs/TestGroupsDefinition"
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/DimensionDefinition"
+          },
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "template": {
+          "additionalProperties": true,
+          "title": "Template",
+          "type": "object"
+        },
+        "overrides": {
+          "items": {
+            "$ref": "#/$defs/OverrideDefinition"
+          },
+          "title": "Overrides",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "groups",
+        "template"
+      ],
+      "title": "TestPlanRuleDefinition",
+      "type": "object"
+    },
+    "TimingDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "power_on": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PowerOnTimingDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "TimingDefinition",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "project": {
+      "$ref": "#/$defs/ProjectMetadata"
+    },
+    "constants": {
+      "additionalProperties": true,
+      "title": "Constants",
+      "type": "object"
+    },
+    "mappings": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Mappings",
+      "type": "object"
+    },
+    "formatters": {
+      "additionalProperties": {
+        "$ref": "#/$defs/FormatterDefinition"
+      },
+      "title": "Formatters",
+      "type": "object"
+    },
+    "sources": {
+      "additionalProperties": {
+        "discriminator": {
+          "mapping": {
+            "csv": "#/$defs/CsvSource",
+            "excel": "#/$defs/ExcelSource",
+            "inline": "#/$defs/InlineSource",
+            "json": "#/$defs/JsonSource"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/InlineSource"
+          },
+          {
+            "$ref": "#/$defs/JsonSource"
+          },
+          {
+            "$ref": "#/$defs/CsvSource"
+          },
+          {
+            "$ref": "#/$defs/ExcelSource"
+          }
+        ]
+      },
+      "title": "Sources",
+      "type": "object"
+    },
+    "dut": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/DutDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "groups": {
+      "$ref": "#/$defs/GroupsDefinition"
+    },
+    "power_resources": {
+      "additionalProperties": {
+        "$ref": "#/$defs/PowerResourceDefinition"
+      },
+      "title": "Power Resources",
+      "type": "object"
+    },
+    "device_states": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DeviceStateDefinition"
+      },
+      "title": "Device States",
+      "type": "object"
+    },
+    "test_plans": {
+      "items": {
+        "$ref": "#/$defs/ExplicitTestPlanDefinition"
+      },
+      "title": "Test Plans",
+      "type": "array"
+    },
+    "test_plan_generation": {
+      "$ref": "#/$defs/TestPlanGenerationDefinition"
+    },
+    "output": {
+      "additionalProperties": true,
+      "title": "Output",
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema_version",
+    "project"
+  ],
+  "title": "ProjectGenerationDefinition",
+  "type": "object"
+}

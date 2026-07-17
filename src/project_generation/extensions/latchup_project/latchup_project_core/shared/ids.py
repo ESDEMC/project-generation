@@ -1,0 +1,11 @@
+PinID = str
+DeviceID = str
+PinGroupID = str
+TestGroupID = str
+TestPlanID = str
+LeakagePlanID = str
+DeviceStateID = str
+PowerDomainID = str
+PowerSequenceID = str
+ChannelID = str
+Designator = str

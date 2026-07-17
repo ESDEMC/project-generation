@@ -1,0 +1,136 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "Hybrid Allocation Example"
+  },
+  "groups": {
+    "external": true
+  },
+  "power_resources": {
+    "DC1": {
+      "role": "STRESS"
+    },
+    "DC2": {
+      "role": "BIAS"
+    },
+    "DC3": {
+      "role": "BIAS"
+    }
+  },
+  "device_states": {
+    "active": {
+      "power_domains": [
+        {
+          "name": "critical_28v_supply",
+          "groups": ["SU28V0"],
+          "assignment": "DC2",
+          "bias": {
+            "mode": "VOLTAGE",
+            "level": 28.0
+          },
+          "timing": {
+            "power_on": {
+              "delay": 0.002
+            }
+          }
+        }
+      ],
+      "allocation": {
+        "mode": "hybrid",
+        "strategy": "voltage_first",
+        "reserve": ["DC1"],
+        "ganging_policy": "same_voltage"
+      },
+      "rules": [
+        {
+          "when": {
+            "group.group_type": "GROUND"
+          },
+          "set": {
+            "assignment": "GROUND",
+            "bias": {
+              "mode": "GROUND"
+            }
+          }
+        },
+        {
+          "when": {
+            "group.group_type": {
+              "in": ["INPUT", "OUTPUT", "IO"]
+            }
+          },
+          "set": {
+            "bias": {
+              "mode": "VOLTAGE",
+              "level": {
+                "from": "group.v_max"
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "test_plan_generation": {
+    "rules": [
+      {
+        "id": "hybrid_tests",
+        "groups": {
+          "select": {
+            "where": {
+              "group_type": {
+                "in": ["INPUT", "OUTPUT", "IO"]
+              }
+            }
+          },
+          "partition": {
+            "mode": "each"
+          }
+        },
+        "dimensions": [
+          {
+            "name": "polarity",
+            "values": ["POSITIVE", "NEGATIVE"]
+          }
+        ],
+        "template": {
+          "test_type": "SIGNAL",
+          "device_state": "active",
+          "name": {
+            "template": "{group.name}_{polarity}"
+          },
+          "stress_parameters": {
+            "stress_voltage": {
+              "from": "group.v_max",
+              "multiply_by": [1.0, 1.1, 1.2]
+            },
+            "compliance": 0.1,
+            "hold_time": 0.1
+          }
+        },
+        "overrides": [
+          {
+            "when": {
+              "group.name": "UNSUPPORTED_GROUP",
+              "polarity": "NEGATIVE"
+            },
+            "exclude": true
+          },
+          {
+            "scope": "group",
+            "when": {
+              "group.name": "SPECIAL_INPUT",
+              "polarity": "POSITIVE"
+            },
+            "set": {
+              "stress_parameters.stress_voltage": {
+                "values": [5.5, 6.0, 6.25]
+              },
+              "stress_parameters.compliance": 0.02
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
