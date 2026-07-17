@@ -22,24 +22,33 @@ class InlineSource(DefinitionModel):
     records: list[dict[str, JsonValue]]
 
 
+class SourceFieldMapping(DefinitionModel):
+    from_: str = Field(alias="from")
+    mapping: str | None = None
+    formatter: str | None = None
+
+
+SourceFieldMappingDefinition = str | SourceFieldMapping
+
+
 class JsonSource(DefinitionModel):
     type: Literal["json"] = "json"
     path: str
     select: str | None = None
-    mapping: dict[str, str] = Field(default_factory=dict)
+    mapping: dict[str, SourceFieldMappingDefinition] = Field(default_factory=dict)
 
 
 class CsvSource(DefinitionModel):
     type: Literal["csv"] = "csv"
     path: str
-    mapping: dict[str, str] = Field(default_factory=dict)
+    mapping: dict[str, SourceFieldMappingDefinition] = Field(default_factory=dict)
 
 
 class ExcelSource(DefinitionModel):
     type: Literal["excel"] = "excel"
     path: str
     sheet: str | int | None = None
-    mapping: dict[str, str] = Field(default_factory=dict)
+    mapping: dict[str, SourceFieldMappingDefinition] = Field(default_factory=dict)
 
 
 SourceDefinition = Annotated[InlineSource | JsonSource | CsvSource | ExcelSource, Field(discriminator="type")]
@@ -281,7 +290,27 @@ class ProjectGenerationDefinition(DefinitionModel):
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "ProjectGenerationDefinition":
         path = pathlib.Path(path)
-        return cls.model_validate_json(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
+        suffix = path.suffix.lower()
+
+        if suffix == ".json":
+            return cls.model_validate_json(text)
+        if suffix in {".yaml", ".yml"}:
+            try:
+                import yaml
+            except ImportError as error:
+                raise RuntimeError(
+                    "YAML generation files require PyYAML. Install project-generation[yaml] or PyYAML directly."
+                ) from error
+
+            data = yaml.safe_load(text)
+            if data is None:
+                data = {}
+            if not isinstance(data, dict):
+                raise ValueError(f"Generation definition must contain a top-level object: {path}")
+            return cls.model_validate(data)
+
+        raise ValueError(f"Unsupported generation definition format {suffix!r}; expected .json, .yaml, or .yml")
 
     def write_schema(self, path: str | pathlib.Path) -> None:
         path = pathlib.Path(path)

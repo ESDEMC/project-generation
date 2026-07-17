@@ -2,8 +2,6 @@ import json
 import pathlib
 import typing
 
-import yaml
-
 DocumentT = typing.TypeVar("DocumentT", bound=typing.Any)
 
 

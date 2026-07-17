@@ -20,6 +20,7 @@ from project_generation.models import (
     JsonSource,
     ProjectGenerationDefinition,
     SourceDefinition,
+    SourceFieldMapping,
 )
 from project_generation.processing import (
     GroupRecord,
@@ -183,7 +184,12 @@ class ProjectGenerationProcessor:
         if definition.dut is None:
             return []
         source = self._resolve_pin_source(definition, definition.dut)
-        records = load_source_records(source, base_directory=base_directory)
+        records = load_source_records(
+            source,
+            base_directory=base_directory,
+            mappings=definition.mappings,
+            formatters=definition.formatters,
+        )
         namespace = uuid.uuid5(_PROJECT_GENERATION_NAMESPACE, f"{definition.project.name}:{definition.dut.name}")
         pins: list[GeneratedPin] = []
         designators: set[str] = set()
@@ -296,8 +302,11 @@ class ProjectGenerationProcessor:
         generated: list[GeneratedGroup] = []
         for key, bucket in buckets.items():
             partition = build_partition_context(rule.group_by, key)
-            context = {"partition": partition}
-            values = resolve_value_tree(rule.set, context)
+            context = {
+                "partition": partition,
+                "members": [pin.context() for pin in bucket],
+            }
+            values = resolve_value_tree(rule.set, context, definition=definition)
             name = render_group_name(definition, rule, context)
             group_type = values.pop("group_type", None)
             if group_type is None:
@@ -357,7 +366,7 @@ class ProjectGenerationProcessor:
                 context = {"group": group.as_group_record().context()}
                 for rule in state_definition.rules:
                     if matches(rule.when, context):
-                        merge_value_tree(values, resolve_value_tree(rule.set, context))
+                        merge_value_tree(values, resolve_value_tree(rule.set, context, definition=definition))
 
             for domain in state_definition.power_domains:
                 missing = [group_name for group_name in domain.groups if group_name not in by_name]
@@ -373,7 +382,7 @@ class ProjectGenerationProcessor:
                         group_ids=tuple(group.id for group in domain_groups),
                         group_names=tuple(domain.groups),
                         assignment=domain.assignment,
-                        bias=resolve_value_tree(domain.bias.model_dump(), {}),
+                        bias=resolve_value_tree(domain.bias.model_dump(), {}, definition=definition),
                         timing=domain.timing.model_dump() if domain.timing else None,
                     )
                 )
@@ -749,7 +758,13 @@ class ProjectGenerationProcessor:
         )
 
 
-def load_source_records(source: SourceDefinition, *, base_directory: pathlib.Path) -> list[dict[str, Any]]:
+def load_source_records(
+    source: SourceDefinition,
+    *,
+    base_directory: pathlib.Path,
+    mappings: Mapping[str, Mapping[str, Any]] | None = None,
+    formatters: Mapping[str, FormatterDefinition] | None = None,
+) -> list[dict[str, Any]]:
     if isinstance(source, InlineSource):
         records = source.records
     elif isinstance(source, JsonSource):
@@ -776,7 +791,10 @@ def load_source_records(source: SourceDefinition, *, base_directory: pathlib.Pat
         raise TypeError(f"Unsupported source type: {type(source).__name__}")
 
     mapping = getattr(source, "mapping", {})
-    return [apply_record_mapping(record, mapping) if mapping else dict(record) for record in records]
+    return [
+        apply_record_mapping(record, mapping, mappings=mappings, formatters=formatters) if mapping else dict(record)
+        for record in records
+    ]
 
 
 def select_json_records(data: Any, selector: str | None) -> list[dict[str, Any]]:
@@ -801,10 +819,38 @@ def select_json_records(data: Any, selector: str | None) -> list[dict[str, Any]]
     return [dict(record) for record in selected]
 
 
-def apply_record_mapping(record: Mapping[str, Any], mapping: Mapping[str, str]) -> dict[str, Any]:
+def apply_record_mapping(
+    record: Mapping[str, Any],
+    mapping: Mapping[str, str | SourceFieldMapping],
+    *,
+    mappings: Mapping[str, Mapping[str, Any]] | None = None,
+    formatters: Mapping[str, FormatterDefinition] | None = None,
+) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    for target, source in mapping.items():
-        value = resolve_required_path(record, source, "source mapping")
+    for target, field_mapping in mapping.items():
+        if isinstance(field_mapping, str):
+            source_path = field_mapping
+            value_mapping_name = None
+            formatter_name = None
+        else:
+            source_path = field_mapping.from_
+            value_mapping_name = field_mapping.mapping
+            formatter_name = field_mapping.formatter
+
+        value = resolve_required_path(record, source_path, "source mapping")
+        if value_mapping_name:
+            try:
+                value = (mappings or {})[value_mapping_name][str(value)]
+            except KeyError as error:
+                raise ProjectGenerationError(
+                    f'Value "{value}" is not present in mapping "{value_mapping_name}"'
+                ) from error
+        if formatter_name:
+            try:
+                formatter = (formatters or {})[formatter_name]
+            except KeyError as error:
+                raise ProjectGenerationError(f'Unknown formatter "{formatter_name}"') from error
+            value = apply_formatter(value, formatter)
         set_path(result, target, value)
     return result
 
@@ -816,18 +862,71 @@ def build_partition_context(fields: list[str], key: tuple[Any, ...]) -> dict[str
     return result
 
 
-def resolve_value_tree(value: Any, context: Mapping[str, Any]) -> Any:
+def resolve_value_tree(
+    value: Any,
+    context: Mapping[str, Any],
+    *,
+    definition: ProjectGenerationDefinition | None = None,
+) -> Any:
     if isinstance(value, Mapping):
-        if set(value) == {"from"}:
-            return resolve_required_path(context, str(value["from"]), "value reference")
+        reference_keys = {"from", "aggregate", "mapping", "formatter"}
+        if "from" in value and set(value).issubset(reference_keys):
+            resolved = resolve_value_reference(value, context)
+            mapping_name = value.get("mapping")
+            if mapping_name:
+                if definition is None:
+                    raise ProjectGenerationError("Mapped value references require a project definition")
+                try:
+                    resolved = definition.mappings[str(mapping_name)][str(resolved)]
+                except KeyError as error:
+                    raise ProjectGenerationError(
+                        f'Value "{resolved}" is not present in mapping "{mapping_name}"'
+                    ) from error
+            formatter_name = value.get("formatter")
+            if formatter_name:
+                if definition is None:
+                    raise ProjectGenerationError("Formatted value references require a project definition")
+                try:
+                    formatter = definition.formatters[str(formatter_name)]
+                except KeyError as error:
+                    raise ProjectGenerationError(f'Unknown formatter "{formatter_name}"') from error
+                resolved = apply_formatter(resolved, formatter)
+            return resolved
+
         result: dict[str, Any] = {}
         for key, child in value.items():
-            resolved = resolve_value_tree(child, context)
+            resolved = resolve_value_tree(child, context, definition=definition)
             set_path(result, key, resolved)
         return result
     if isinstance(value, list):
-        return [resolve_value_tree(child, context) for child in value]
+        return [resolve_value_tree(child, context, definition=definition) for child in value]
     return value
+
+
+def resolve_value_reference(reference: Mapping[str, Any], context: Mapping[str, Any]) -> Any:
+    path = str(reference["from"])
+    aggregate = reference.get("aggregate")
+    if aggregate is None:
+        return resolve_required_path(context, path, "value reference")
+
+    collection_name, separator, member_path = path.partition(".")
+    collection = context.get(collection_name)
+    if not separator or not isinstance(collection, list):
+        raise ProjectGenerationError(
+            f'Aggregate value reference "{path}" must start with a list-valued context field'
+        )
+    values = [resolve_required_path(item, member_path, "aggregate value reference") for item in collection]
+    if not values:
+        raise ProjectGenerationError(f'Aggregate value reference "{path}" has no values')
+
+    aggregate_name = str(aggregate)
+    if aggregate_name == "min":
+        return min(values)
+    if aggregate_name == "max":
+        return max(values)
+    if aggregate_name == "first":
+        return values[0]
+    raise ProjectGenerationError(f'Unsupported aggregate "{aggregate_name}"')
 
 
 def merge_value_tree(target: dict[str, Any], source: Mapping[str, Any]) -> dict[str, Any]:

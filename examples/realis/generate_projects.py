@@ -2,50 +2,69 @@ import argparse
 import json
 import pathlib
 import re
-import shutil
 from typing import Any
 
 from project_generation.extensions.latchup_project.latchup_project_core.project import ProjectBuilder, ProjectPackageBuilder
 from project_generation.extensions.latchup_project.latchup_project_core.shared import JsonDocumentCodec
 
-from project_generation import adapt_to_latchup_project, process_project_definition
+from project_generation import ProjectGenerationProcessor, adapt_to_latchup_project, load_project_definition
 
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
-DEFAULT_DEFINITION_DIRECTORY = EXAMPLE_DIRECTORY / "projects"
+DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"
+DEFAULT_INPUT_DIRECTORY = EXAMPLE_DIRECTORY / "input"
 DEFAULT_OUTPUT_DIRECTORY = EXAMPLE_DIRECTORY / "generated_projects"
-GENERATION_FILE_NAME = "generation.json"
 REALIS_SOURCE_NAME = "realis_pins"
+INPUT_PATH_TOKEN = "{input_file}"
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate latch-up projects from concrete REALIS generation definitions.")
-    parser.add_argument("definition_directory", nargs="?", type=pathlib.Path, default=DEFAULT_DEFINITION_DIRECTORY)
-    parser.add_argument("output_directory", nargs="?", type=pathlib.Path, default=DEFAULT_OUTPUT_DIRECTORY)
+    parser = argparse.ArgumentParser(
+        description="Generate latch-up projects from REALIS exports using one shared generation definition."
+    )
+    parser.add_argument("inputs", nargs="*", type=pathlib.Path, help="REALIS JSON files; defaults to every JSON file in input")
+    parser.add_argument("--definition", type=pathlib.Path, default=DEFAULT_DEFINITION_PATH)
+    parser.add_argument("--output-directory", type=pathlib.Path, default=DEFAULT_OUTPUT_DIRECTORY)
     args = parser.parse_args()
 
-    generation_paths = sorted(args.definition_directory.glob(f"*/{GENERATION_FILE_NAME}"))
-    if not generation_paths:
-        raise SystemExit(f"No {GENERATION_FILE_NAME} files found below {args.definition_directory}")
+    input_paths = args.inputs or sorted(DEFAULT_INPUT_DIRECTORY.glob("*.json"))
+    if not input_paths:
+        parser.error("No REALIS JSON input files were provided or found in the input directory")
 
-    for generation_path in generation_paths:
-        output_directory = args.output_directory / generation_path.parent.name
-        project_path = generate_project(generation_path, output_directory)
+    for input_path in input_paths:
+        project_path = generate_project(args.definition, input_path, args.output_directory)
         print(f"Created {project_path}")
 
 
-def generate_project(generation_path: pathlib.Path, output_directory: pathlib.Path) -> pathlib.Path:
-    definition = json.loads(generation_path.read_text(encoding="utf-8"))
-    input_path = resolve_realis_export_path(generation_path, definition)
+def generate_project(definition_path: pathlib.Path, input_path: pathlib.Path, output_root: pathlib.Path) -> pathlib.Path:
+    definition_path = definition_path.resolve()
+    input_path = input_path.resolve()
     source = json.loads(input_path.read_text(encoding="utf-8"))
+    project_name, dut_name = names_from_realis(input_path, source)
 
-    generated = process_project_definition(generation_path)
+    definition = load_project_definition(definition_path)
+    realis_source = definition.sources[REALIS_SOURCE_NAME]
+    if realis_source.path != INPUT_PATH_TOKEN:
+        raise ValueError(
+            f"{definition_path} must use {INPUT_PATH_TOKEN!r} as sources.{REALIS_SOURCE_NAME}.path, "
+            f"not {realis_source.path!r}"
+        )
+
+    definition = definition.model_copy(
+        update={
+            "project": definition.project.model_copy(update={"name": project_name}),
+            "dut": definition.dut.model_copy(update={"name": dut_name}) if definition.dut else None,
+            "sources": {
+                **definition.sources,
+                REALIS_SOURCE_NAME: realis_source.model_copy(update={"path": str(input_path)}),
+            },
+        }
+    )
+
+    generated = ProjectGenerationProcessor().process(definition, base_directory=definition_path.parent)
     artifacts = adapt_to_latchup_project(generated)
-    project_name = file_name(generated.name)
-
-    if output_directory.exists():
-        shutil.rmtree(output_directory)
-    output_directory.mkdir(parents=True)
+    output_directory = output_root.resolve() / file_name(project_name)
+    output_directory.mkdir(parents=True, exist_ok=True)
 
     project = ProjectBuilder().set_project_data(
         source="REALIS",
@@ -60,7 +79,10 @@ def generate_project(generation_path: pathlib.Path, output_directory: pathlib.Pa
 
     package = ProjectPackageBuilder(project)
     package.stage(
-        "dut", artifacts.dut, relative_path=f"{project_name}.LuDut", writer=JsonDocumentCodec(type(artifacts.dut))
+        "dut",
+        artifacts.dut,
+        relative_path=f"{file_name(project_name)}.LuDut",
+        writer=JsonDocumentCodec(type(artifacts.dut)),
     )
     for test_plan in artifacts.test_plans:
         package.stage(
@@ -70,25 +92,20 @@ def generate_project(generation_path: pathlib.Path, output_directory: pathlib.Pa
             writer=JsonDocumentCodec(type(test_plan)),
         )
 
-    return package.build(output_directory / f"{project_name}.Prj")
+    return package.build(output_directory / f"{file_name(project_name)}.Prj")
 
 
-def resolve_realis_export_path(generation_path: pathlib.Path, definition: dict[str, Any]) -> pathlib.Path:
-    try:
-        source_definition = definition["sources"][REALIS_SOURCE_NAME]
-        source_path = source_definition["path"]
-    except (KeyError, TypeError) as error:
-        raise ValueError(f'{generation_path} must define sources.{REALIS_SOURCE_NAME}.path') from error
-
-    input_path = (generation_path.parent / source_path).resolve()
-    if not input_path.is_file():
-        raise FileNotFoundError(f"REALIS export not found: {input_path}")
-    return input_path
+def names_from_realis(input_path: pathlib.Path, source: dict[str, Any]) -> tuple[str, str]:
+    file_identity = input_path.name.split(".", 1)[0]
+    _, separator, dut_name = file_identity.partition("_")
+    dut_name = dut_name if separator else file_identity
+    project_name = f"{source.get('LabTrackingNo', file_identity)}_{dut_name}"
+    return project_name, dut_name
 
 
 def file_name(value: str) -> str:
-    value = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
-    return value.strip("._") or "project"
+    normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
+    return normalized.strip("._") or "project"
 
 
 if __name__ == "__main__":
