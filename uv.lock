@@ -143,6 +143,7 @@ name = "project-generation"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "dataclasses-json" },
     { name = "pydantic" },
 ]
 
@@ -160,6 +161,7 @@ latchup = [
 
 [package.metadata]
 requires-dist = [
+    { name = "dataclasses-json", specifier = ">=0.5" },
     { name = "dataclasses-json", marker = "extra == 'latchup'", specifier = ">=0.5" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4" },
     { name = "openpyxl", marker = "extra == 'excel'", specifier = ">=3.1" },
