@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: project-generation
 Version: 0.1.0
-Summary: Declarative generation.json parsing, validation, and processing
+Summary: Declarative JSON and YAML project-generation parsing, validation, and processing
 Requires-Python: >=3.11
 Requires-Dist: pydantic>=2.8
 Provides-Extra: dev
@@ -11,3 +11,5 @@ Provides-Extra: excel
 Requires-Dist: openpyxl>=3.1; extra == "excel"
 Provides-Extra: latchup
 Requires-Dist: dataclasses-json>=0.5; extra == "latchup"
+Provides-Extra: yaml
+Requires-Dist: PyYAML>=6.0; extra == "yaml"

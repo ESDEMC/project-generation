@@ -32,3 +32,23 @@ def test_unknown_definition_extension_is_rejected(tmp_path: pathlib.Path) -> Non
 
     with pytest.raises(ValueError, match="Unsupported generation definition format"):
         load_project_definition(definition_path)
+
+
+def test_realis_project_metadata_is_loaded_from_input() -> None:
+    from project_generation import ProjectGenerationProcessor
+
+    definition = load_project_definition(EXAMPLE_DIRECTORY / "generation.yaml")
+    input_path = next((EXAMPLE_DIRECTORY / "input").glob("L8550_*.json")).resolve()
+    token_sources = {
+        name: source.model_copy(update={"path": str(input_path)})
+        for name, source in definition.sources.items()
+        if getattr(source, "path", None) == "{input_file}"
+    }
+    definition = definition.model_copy(update={"sources": {**definition.sources, **token_sources}})
+
+    generated = ProjectGenerationProcessor().process(definition, base_directory=EXAMPLE_DIRECTORY)
+
+    assert generated.name == "Q25FMA14_FMA103"
+    assert generated.metadata["test_id"] == 3263975
+    assert generated.metadata["lab_tracking_number"] == "VQ254216.13-FMA103U"
+    assert generated.metadata["sales_code"] == "BTS80320-SSPL-4ES"

@@ -9,3 +9,6 @@ openpyxl>=3.1
 
 [latchup]
 dataclasses-json>=0.5
+
+[yaml]
+PyYAML>=6.0

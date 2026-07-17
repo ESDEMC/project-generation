@@ -152,6 +152,7 @@ class GeneratedTestPlan:
 @dataclass(frozen=True, kw_only=True)
 class GeneratedProject:
     name: str
+    metadata: Mapping[str, Any]
     dut_name: str | None
     pins: tuple[GeneratedPin, ...]
     groups: tuple[GeneratedGroup, ...]
@@ -167,18 +168,72 @@ class ProjectGenerationProcessor:
         base_directory: str | pathlib.Path = ".",
     ) -> GeneratedProject:
         base_directory = pathlib.Path(base_directory)
-        pins = self._load_pins(definition, base_directory)
-        groups = self._generate_groups(definition, pins)
-        device_states = self._generate_device_states(definition, groups)
-        test_plans = self._generate_test_plans(definition, groups, device_states)
+        project_name, project_metadata = self._load_project_metadata(definition, base_directory)
+        effective_definition = definition.model_copy(
+            update={"project": definition.project.model_copy(update={"name": project_name, "metadata": project_metadata})}
+        )
+        pins = self._load_pins(effective_definition, base_directory)
+        groups = self._generate_groups(effective_definition, pins)
+        device_states = self._generate_device_states(effective_definition, groups)
+        test_plans = self._generate_test_plans(effective_definition, groups, device_states)
         return GeneratedProject(
-            name=definition.project.name,
-            dut_name=definition.dut.name if definition.dut else None,
+            name=project_name,
+            metadata=project_metadata,
+            dut_name=effective_definition.dut.name if effective_definition.dut else None,
             pins=tuple(pins),
             groups=tuple(groups),
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
         )
+
+
+    def _load_project_metadata(
+        self,
+        definition: ProjectGenerationDefinition,
+        base_directory: pathlib.Path,
+    ) -> tuple[str, dict[str, Any]]:
+        project_values: dict[str, Any] = {
+            "name": definition.project.name,
+            "metadata": dict(definition.project.metadata),
+        }
+        if definition.project.source is not None:
+            try:
+                source = definition.sources[definition.project.source]
+            except KeyError as error:
+                raise ProjectGenerationError(
+                    f'Unknown project source "{definition.project.source}"',
+                    code="project.unknown_source",
+                    location="project.source",
+                ) from error
+            records = load_source_records(
+                source,
+                base_directory=base_directory,
+                mappings=definition.mappings,
+                formatters=definition.formatters,
+            )
+            if len(records) != 1:
+                raise ProjectGenerationError(
+                    f'Project source "{definition.project.source}" must resolve to exactly one record; received {len(records)}',
+                    code="project.invalid_source_count",
+                    location="project.source",
+                )
+            merge_value_tree(project_values, records[0])
+
+        name = project_values.get("name")
+        if name is None or not str(name).strip():
+            raise ProjectGenerationError(
+                "Project metadata does not define a name",
+                code="project.missing_name",
+                location="project.name",
+            )
+        metadata = project_values.get("metadata", {})
+        if not isinstance(metadata, Mapping):
+            raise ProjectGenerationError(
+                "Project metadata must resolve to an object",
+                code="project.invalid_metadata",
+                location="project.metadata",
+            )
+        return str(name), dict(metadata)
 
     def _load_pins(self, definition: ProjectGenerationDefinition, base_directory: pathlib.Path) -> list[GeneratedPin]:
         if definition.dut is None:

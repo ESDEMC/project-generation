@@ -13,8 +13,15 @@ class DefinitionModel(BaseModel):
 
 
 class ProjectMetadata(DefinitionModel):
-    name: str
+    name: str | None = None
+    source: str | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def require_name_or_source(self) -> "ProjectMetadata":
+        if self.name is None and self.source is None:
+            raise ValueError("project requires either name or source")
+        return self
 
 
 class InlineSource(DefinitionModel):

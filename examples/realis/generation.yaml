@@ -1,11 +1,6 @@
 schema_version: '1.0'
 project:
-  name: REALIS Project
-  metadata:
-    source: REALIS
-    test_id: 3263975
-    lab_tracking_number: VQ254216.13-FMA103U
-    standard: AEC-Q100-004
+  source: realis_project
 mappings:
   realis_pin_type:
     I: INPUT
@@ -30,6 +25,34 @@ formatters:
     separator: V
     decimal_places: 1
 sources:
+  realis_project:
+    type: json
+    path: '{input_file}'
+    select: $
+    mapping:
+      name: ProjectName
+      metadata.stress_operation_name: StressOperationName
+      metadata.test_id: TestId
+      metadata.project_id: ProjectId
+      metadata.lab_tracking_number: LabTrackingNo
+      metadata.project_owner: ProjectOwner
+      metadata.department: Department
+      metadata.reason_type: ReasonType
+      metadata.priority: Priority
+      metadata.development_code: DevelopmentCode
+      metadata.product_basic_type: ProdBasicType
+      metadata.sales_code: SalesCode
+      metadata.package: Package
+      metadata.pin_count: PinCount
+      metadata.test_type: TestType
+      metadata.test_sub_type: TestSubType
+      metadata.standard: ActualStandard
+      metadata.machine: Machine
+      metadata.verifier_board: VerifierBoard
+      metadata.operator: Operator
+      metadata.temperature: Temperature
+      metadata.stress_current: StressCurrent
+      metadata.program_name: ProgramName
   realis_pins:
     type: json
     path: '{input_file}'
