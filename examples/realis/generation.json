@@ -130,7 +130,13 @@
     "DC3": {
       "role": "BIAS"
     },
-    "DC4": {
+    "DC5": {
+      "role": "BIAS"
+    },
+    "DC6": {
+      "role": "BIAS"
+    },
+    "DC7": {
       "role": "BIAS"
     }
   },
@@ -158,7 +164,12 @@
         },
         {
           "when": {
-            "group.group_type": "NC"
+            "group.group_type": {
+              "in": [
+                "OUTPUT",
+                "NC"
+              ]
+            }
           },
           "set": {
             "assignment": "FLOATING",
@@ -185,7 +196,6 @@
             "group.group_type": {
               "in": [
                 "INPUT",
-                "OUTPUT",
                 "IO"
               ]
             }
@@ -222,7 +232,12 @@
         },
         {
           "when": {
-            "group.group_type": "NC"
+            "group.group_type": {
+              "in": [
+                "OUTPUT",
+                "NC"
+              ]
+            }
           },
           "set": {
             "assignment": "FLOATING",
@@ -236,7 +251,6 @@
             "group.group_type": {
               "in": [
                 "INPUT",
-                "OUTPUT",
                 "IO",
                 "POWER"
               ]
