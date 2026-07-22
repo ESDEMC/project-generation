@@ -294,6 +294,10 @@ class ProjectGenerationDefinition(DefinitionModel):
     test_plan_generation: TestPlanGenerationDefinition = Field(default_factory=TestPlanGenerationDefinition)
     output: dict[str, JsonValue] = Field(default_factory=dict)
 
+    @property
+    def name(self):
+        return self.project.name
+
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "ProjectGenerationDefinition":
         path = pathlib.Path(path)

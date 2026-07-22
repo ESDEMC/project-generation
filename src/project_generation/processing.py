@@ -14,7 +14,13 @@ class GroupRecord:
     parameters: Mapping[str, Any] = field(default_factory=dict)
 
     def context(self) -> dict[str, Any]:
-        return {"name": self.name, "group_type": self.group_type, **dict(self.parameters)}
+        parameters = dict(self.parameters)
+        return {
+            "name": self.name,
+            "group_type": self.group_type,
+            "parameters": parameters,
+            **parameters,
+        }
 
 
 @dataclass(frozen=True, kw_only=True)
