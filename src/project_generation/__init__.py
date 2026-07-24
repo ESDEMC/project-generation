@@ -9,11 +9,6 @@ from project_generation.ganging import (
     SameVoltageGangingPolicy,
     get_ganging_policy,
 )
-from .extensions.latchup_project.latchup_adapter import (
-    adapt_to_latchup_project,
-    LatchUpProjectArtifacts,
-    LatchUpProjectCoreAdapter,
-)
 from project_generation.models import ProjectGenerationDefinition
 from project_generation.processing import (
     GroupPartition,
@@ -69,8 +64,6 @@ def write_json_schema(path: str | pathlib.Path) -> None:
 
 __all__ = [
     "GangingCandidate",
-    "LatchUpProjectArtifacts",
-    "LatchUpProjectCoreAdapter",
     "GangingPolicy",
     "NoGangingPolicy",
     "SameVoltageGangingPolicy",
@@ -93,7 +86,6 @@ __all__ = [
     "ProjectGenerationProcessor",
     "StressPoint",
     "TestPlanCandidate",
-    "adapt_to_latchup_project",
     "apply_record_mapping",
     "expand_dimensions",
     "expand_rule",
