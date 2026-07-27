@@ -10,6 +10,8 @@ requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.8",
     "dataclasses-json>=0.5",
+    "pyyaml",
+    "mashumaro",
 ]
 
 [project.optional-dependencies]
