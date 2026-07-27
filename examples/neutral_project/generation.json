@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "Minimal Explicit Project"
+  },
+  "dut": {
+    "name": "Example DUT",
+    "pins": {
+      "source": {
+        "type": "inline",
+        "records": [
+          {
+            "designator": "1",
+            "name": "VDD",
+            "parameters": {
+              "pin_type": "POWER",
+              "v_max": 5.5
+            }
+          },
+          {
+            "designator": "2",
+            "name": "IN_A",
+            "parameters": {
+              "pin_type": "INPUT",
+              "v_max": 5.5,
+              "v_min": 0.0
+            }
+          },
+          {
+            "designator": "3",
+            "name": "GND",
+            "parameters": {
+              "pin_type": "GROUND"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "groups": {
+    "explicit": [
+      {
+        "name": "SU5V5",
+        "group_type": "POWER",
+        "pins": ["1"],
+        "parameters": {
+          "v_max": 5.5
+        }
+      },
+      {
+        "name": "IN5V5",
+        "group_type": "INPUT",
+        "pins": ["2"],
+        "parameters": {
+          "v_max": 5.5,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "GND",
+        "group_type": "GROUND",
+        "pins": ["3"]
+      }
+    ]
+  },
+  "power_resources": {
+    "DC1": {
+      "role": "STRESS"
+    },
+    "DC2": {
+      "role": "BIAS"
+    }
+  },
+  "device_states": {
+    "logic_high": {
+      "power_domains": [
+        {
+          "name": "ground",
+          "groups": ["GND"],
+          "assignment": "GROUND",
+          "bias": {
+            "mode": "GROUND"
+          }
+        },
+        {
+          "name": "logic_5v5",
+          "groups": ["SU5V5", "IN5V5"],
+          "assignment": "DC2",
+          "bias": {
+            "mode": "VOLTAGE",
+            "level": 5.5
+          }
+        }
+      ]
+    }
+  },
+  "test_plans": [
+    {
+      "name": "IN5V5_HIGH_POSITIVE",
+      "test_type": "SIGNAL",
+      "dimensions": {
+        "logic_level": "HIGH",
+        "polarity": "POSITIVE"
+      },
+      "device_state": "logic_high",
+      "test_groups": [
+        {
+          "group": "IN5V5",
+          "stress_points": [
+            {
+              "stress_voltage": 5.5,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            },
+            {
+              "stress_voltage": 6.0,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            },
+            {
+              "stress_voltage": 6.5,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

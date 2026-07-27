@@ -1,106 +1,217 @@
 # Project Generation
 
-A standalone processor for declarative `generation.json` files.
+Project Generation converts declarative project definitions and customer source data into validated latch-up project packages.
+A neutral generated model remains available for inspection and for future custom project formats, but the latch-up implementation is the default concrete output.
 
-The core package owns parsing, normalization, semantic validation, dynamic dimension expansion, test-group partitioning, ordered overrides, and stress-series expansion. It deliberately does not depend on concrete latch-up project classes or file formats.
+The package is intended for repeatable project creation from structured customer data such as REALIS exports. Instead of writing a
+custom script for every device, a generation definition describes how to:
 
-## Public API
+- load and normalize project and pin data;
+- create deterministic pins and groups;
+- resolve device states and power assignments;
+- generate test plans from reusable rules;
+- expand dimensions, overrides, and stress series;
+- validate the complete result before files are delivered; and
+- adapt the neutral model to the customer's project format.
 
-```python
-from project_generation import load_project_definition, validate_project_definition
+## Documentation
 
-definition = load_project_definition("generation.json")
-diagnostics = validate_project_definition(definition)
+| Guide | Purpose |
+| --- | --- |
+| [Getting started](docs/getting-started.md) | Install the package and process a first definition. |
+| [Examples](docs/examples.md) | Run complete neutral, latch-up, batch, explicit-test-plan, and REALIS generation workflows. |
+| [Configuration guide](docs/configuration.md) | Understand the major sections of a generation definition. |
+| [Processing model](docs/processing-model.md) | See how source data becomes a deterministic generated project. |
+| [REALIS integration](docs/realis-integration.md) | Generate customer latch-up projects from REALIS JSON exports. |
+| [Diagnostics and validation](docs/diagnostics.md) | Troubleshoot schema, mapping, allocation, and processing errors. |
+| [Customer delivery guide](docs/customer-delivery.md) | Prepare, verify, and package a customer handoff. |
+| [Development guide](docs/development.md) | Run tests, update the schema, and extend the implementation. |
+| [Format specification](docs/project-generation-spec.md) | Detailed reference for the declarative format and compiler behavior. |
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Customer source data] --> B[Generation definition]
+    B --> C[Load and normalize]
+    C --> D[Validate and resolve]
+    D --> E[GeneratedProject]
+    E --> F[Inspection JSON]
+    E --> G[Default LatchUpProjectFormat]
+    G --> H[Latch-up project package]
 ```
 
-Rule processing operates on neutral group records:
+A definition is processed in two layers:
 
-```python
-from project_generation import GroupRecord, expand_rule
+1. **Core generation** produces a neutral `GeneratedProject` containing pins, groups, device states, power sequences, and test plans.
+2. **Concrete project generation** writes that model using a `ProjectFormat`. `LatchUpProjectFormat` is the default implementation.
 
-candidates = expand_rule(rule, groups=[GroupRecord(name="IN5V5", group_type="INPUT", parameters={"v_max": 5.5})])
+This preserves a stable extension point for another project format later without making callers select the latch-up implementation today.
+
+## Installation
+
+Project Generation requires Python 3.11 or newer.
+
+```bash
+python -m pip install -e .
 ```
 
-Concrete `.LuDut`, `.LuTstPlan`, or project generation belongs in an external adapter consuming the eventual neutral generated-project model.
-
-## Development
+For development:
 
 ```bash
 python -m pip install -e ".[dev]"
 pytest
 ```
 
-## Processing a definition
+Optional Excel source support is available through the `excel` extra:
+
+```bash
+python -m pip install -e ".[excel]"
+```
+
+## First example
+
+Generate the default concrete latch-up project package:
+
+```python
+from project_generation import generate_project
+
+project_path = generate_project(
+    "examples/latchup_project/generation.json",
+    "generated",
+)
+print(f"Created {project_path}")
+```
+
+The result contains a `.Prj` file, a `.LuDut` file, and one or more `.LuTstPlan` files. Use
+`process_project_definition()` and `write_generated_project()` only when a neutral inspection file is useful.
+
+## Runnable generation examples
+
+The repository includes several complete programs that create neutral projects or packaged latch-up projects. Run these commands from the repository root, not from `docs/`; the scripts live in the top-level `examples/` directory.
+
+```bash
+python examples/neutral_project/generate_project.py
+python examples/customer_project/generate_project.py
+python examples/explicit_test_plan_project/generate_project.py
+python examples/multiple_neutral_projects/generate_projects.py
+python examples/latchup_project/generate_project.py
+python examples/multiple_latchup_projects/generate_projects.py
+python examples/realis/generate_single_project.py
+```
+
+Generated output defaults to `./generated`. Set `PROJECT_GENERATION_OUTPUT_DIRECTORY` to redirect all Python-example output. See the [examples guide](docs/examples.md) for the purpose and expected artifacts of each program.
+
+## REALIS customer workflow
+
+The repository includes a complete example that uses one shared YAML definition for multiple REALIS JSON exports:
+
+```bash
+python examples/realis/generate_projects.py
+```
+
+To process selected exports or choose another destination:
+
+```bash
+python examples/realis/generate_projects.py path/to/device-a.json path/to/device-b.json \
+    --output-directory path/to/generated-projects
+```
+
+For each input, the example:
+
+1. loads `examples/realis/generation.yaml`;
+2. substitutes the current REALIS export into sources that use `{input_file}`;
+3. validates and processes the definition;
+4. calls the default `generate_project()` workflow; and
+5. writes a latch-up package with DUT and test-plan artifacts.
+
+See [REALIS integration](docs/realis-integration.md) for the mapping and operational details.
+
+## Public API
+
+### Generate the default latch-up project
+
+```python
+from project_generation import generate_project
+
+project_path = generate_project("generation.yaml", "generated")
+```
+
+`generate_project()` uses `LatchUpProjectFormat` by default. A future format can implement `ProjectFormat` and be passed through the
+`project_format` argument.
+
+### Load and validate a definition
+
+```python
+from project_generation import load_project_definition, raise_for_diagnostics, validate_project_definition
+
+definition = load_project_definition("generation.yaml")
+raise_for_diagnostics(validate_project_definition(definition))
+```
+
+### Process a definition
 
 ```python
 from project_generation import process_project_definition
 
-generated = process_project_definition("generation.json")
-
-for pin in generated.pins:
-    print(pin.designator, pin.name, pin.id)
-
-for group in generated.groups:
-    print(group.name, group.group_type, group.pin_ids)
+generated = process_project_definition("generation.yaml")
 ```
 
-The processor supports inline, JSON, CSV, and optional Excel pin sources, target-to-source record mappings, deterministic
-pin and group IDs, explicit and generated groups, resolved device states, and generated test plans. Device states include
-inheritance, explicit power domains, per-group rules, deterministic power assignments, and deterministic plan references.
-Automatic and hybrid allocation preserve explicit assignments while excluding reserved and stress resources. Named power-domain
-timing is compiled into deterministic `power_on_sequence` and `power_off_sequence` steps with resolved `after` dependencies and delays. Concrete latch-up
-project files remain outside this package and can consume the neutral `GeneratedProject` model through adapters.
-
-## Current processing coverage
-
-`ProjectGenerationProcessor` now produces neutral pins, groups, and test plans. Test-plan processing includes explicit plans, group partitioning, dynamic dimensions, ordered plan and group overrides, exclusions, name-template rendering, and concrete per-group stress points.
-
-Tests resolve example files relative to the test module rather than the process working directory, and the suite is verified both from the repository root and from an unrelated working directory.
-
-## Project tracking
-
-- `CHANGELOG.md` records implemented behavior and notable changes.
-- `ROADMAP.md` tracks feature slices without committing the package to speculative infrastructure.
-
-## Power ganging
-
-Automatic and hybrid allocation support `ganging_policy: "none"` and `ganging_policy: "same_voltage"`. The same-voltage policy only reuses a physical resource when the complete resolved bias objects are equal.
-
-
-## Power sequencing
-
-Each generated device state includes a deterministic sequence compiled from its named power domains:
+### Inspect or serialize the result
 
 ```python
-for step in state.power_on_sequence:
-    print(step.index, step.domain_name, step.after, step.delay)
+from project_generation import generated_project_to_json, write_generated_project
 
-for step in state.power_off_sequence:
-    print(step.index, step.domain_name, step.after, step.delay)
+print(generated_project_to_json(generated))
+write_generated_project(generated, "generated-project.json")
 ```
 
-Power-on domains without dependencies preserve declaration order. When no explicit power-off timing is provided, power-off defaults
-to the reverse of the resolved power-on sequence. `timing.power_off.after` can define an explicit shutdown dependency graph. Missing
-references, self-references, and circular dependencies fail during project processing.
-
-## Generated-project inspection
-
-The neutral generated model can be inspected or handed to another process as JSON:
+### Convert to latch-up domain objects
 
 ```python
-from project_generation import process_project_definition, write_generated_project
+from project_generation import adapt_to_latchup_project
 
-project = process_project_definition("generation.json")
-write_generated_project(project, "generated-project.json")
+artifacts = adapt_to_latchup_project(generated)
+print(artifacts.dut)
+print(artifacts.test_plans)
 ```
 
-## Structured diagnostics
+The latch-up imports are lazy. Core parsing and neutral generation do not require the external latch-up packages.
 
-Processing failures remain ordinary `ValueError` exceptions, but now expose a structured diagnostic payload:
+## Supported capabilities
+
+The current implementation supports:
+
+- JSON and YAML generation definitions;
+- inline, JSON, CSV, and optional Excel sources;
+- JSONPath-like record selection used by the supplied examples;
+- nested source-to-target mappings and named value mappings;
+- deterministic pin, group, device-state, and test-plan identities;
+- explicit and rule-generated groups;
+- explicit and generated test plans;
+- group selection and `each`, `group_by`, or `all` partitioning;
+- dynamic dimensions and deterministic name templates;
+- ordered plan-level and group-level overrides;
+- scalar, explicit, ranged, multiplied, and offset stress series;
+- device-state inheritance and per-group rules;
+- direct, automatic, and hybrid power allocation;
+- reserved and stress-resource exclusion;
+- `none` and exact same-bias ganging policies;
+- deterministic power-on and power-off sequences; and
+- structured processing diagnostics.
+
+The detailed behavior and precedence rules are documented in the
+[format specification](docs/project-generation-spec.md).
+
+## Diagnostics
+
+Processing failures raise `ProjectGenerationError`, a `ValueError` subclass with structured context:
 
 ```python
+from project_generation import ProjectGenerationError, process_project_definition
+
 try:
-    project = process_project_definition("generation.json")
+    process_project_definition("generation.yaml")
 except ProjectGenerationError as error:
     print(error.code)
     print(error.location)
@@ -109,32 +220,23 @@ except ProjectGenerationError as error:
     print(error.format_diagnostic())
 ```
 
-The plain exception message is preserved for compatibility with existing callers and tests.
+Use the formatted diagnostic when reporting a customer data or configuration issue. It provides more actionable information than the
+plain exception message alone.
 
+## Repository layout
 
-## Latch-up project-core adapter
-
-When `latchup-core` and `latchup-project-core` are installed, the neutral model can be converted to the real application domain objects:
-
-```python
-from project_generation import adapt_to_latchup_project, process_project_definition
-
-generated = process_project_definition("generation.json")
-artifacts = adapt_to_latchup_project(generated)
-
-print(artifacts.dut)
-print(artifacts.test_plans)
+```text
+project-generation/
+├── docs/                         User, integration, delivery, and format documentation
+├── examples/                     Small definitions and the end-to-end REALIS example
+├── src/project_generation/       Core package and optional adapters
+├── tests/                        Unit and integration tests
+├── project-generation.schema.json
+├── CHANGELOG.md
+└── ROADMAP.md
 ```
 
-The imports are lazy, so these packages are not mandatory for parsing or neutral generation. The first adapter maps DUT pins and groups,
-device states, power assignments, power-on/off timing, plan dimensions, and plan group selection. Provisional stress points are retained in
-`LatchUpTestPlan.metadata["generated_stress_points"]`; executable `StressPlan` conversion is intentionally deferred until the real stress
-calculation is implemented.
+## Project status
 
-
-The latch-up adapter creates a real `StressPlan` on each generated `LatchUpTestPlan`. Direct stress points map `stress_voltage`/`peak`, `compliance`, and `hold_time` into `LatchUpPulseParameters`; optional pulse and measurement timing fields are also supported.
-
-## REALIS project-generation example
-
-Run `python examples/realis/generate_projects.py` to generate latch-up project packages from the JSON files in
-`examples/realis/input`. An alternate input and output directory can be supplied as positional arguments.
+Implemented behavior is recorded in [CHANGELOG.md](CHANGELOG.md). Planned feature slices and intentionally deferred work are tracked
+in [ROADMAP.md](ROADMAP.md).

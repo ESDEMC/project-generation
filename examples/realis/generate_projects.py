@@ -1,86 +1,53 @@
 import argparse
 import pathlib
-import re
 
-from project_generation.extensions.latchup_project.latchup_project_core.project import ProjectBuilder, ProjectPackageBuilder
-from project_generation.extensions.latchup_project.latchup_project_core.shared import JsonDocumentCodec
-
-from project_generation import ProjectGenerationProcessor, adapt_to_latchup_project, load_project_definition, \
-    validate_project_definition
+from project_generation import (
+    load_project_definition,
+    raise_for_diagnostics,
+    replace_source_paths,
+    validate_project_definition,
+    generate_project,
+)
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"
 DEFAULT_INPUT_DIRECTORY = EXAMPLE_DIRECTORY / "input"
 DEFAULT_OUTPUT_DIRECTORY = EXAMPLE_DIRECTORY / "generated_projects"
-INPUT_PATH_TOKEN = "{input_file}"
+REALIS_SOURCE_NAMES = ("realis_project", "realis_pins")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate latch-up projects from REALIS exports using one shared generation definition."
+        description="Generate latch-up project packages from REALIS exports using one shared definition."
     )
-    parser.add_argument("inputs", nargs="*", type=pathlib.Path, help="REALIS JSON files; defaults to every JSON file in input")
+    parser.add_argument("inputs", nargs="*", type=pathlib.Path, help="REALIS JSON files; defaults to input/*.json")
     parser.add_argument("--definition", type=pathlib.Path, default=DEFAULT_DEFINITION_PATH)
     parser.add_argument("--output-directory", type=pathlib.Path, default=DEFAULT_OUTPUT_DIRECTORY)
     args = parser.parse_args()
 
     input_paths = args.inputs or sorted(DEFAULT_INPUT_DIRECTORY.glob("*.json"))
     if not input_paths:
-        parser.error("No REALIS JSON input files were provided or found in the input directory")
+        parser.error("No REALIS JSON input files were provided or found")
 
     for input_path in input_paths:
-        project_path = generate_project(args.definition, input_path, args.output_directory)
+        project_path = generate_realis_project(args.definition, input_path, args.output_directory)
         print(f"Created {project_path}")
 
 
-def generate_project(definition_path: pathlib.Path, input_path: pathlib.Path, output_root: pathlib.Path) -> pathlib.Path:
+def generate_realis_project(definition_path: pathlib.Path, input_path: pathlib.Path, output_root: pathlib.Path) -> pathlib.Path:
     definition_path = definition_path.resolve()
     input_path = input_path.resolve()
+
     definition = load_project_definition(definition_path)
-    validate_project_definition(definition)
-    token_sources = {
-        name: source.model_copy(update={"path": str(input_path)})
-        for name, source in definition.sources.items()
-        if getattr(source, "path", None) == INPUT_PATH_TOKEN
-    }
-    if not token_sources:
-        raise ValueError(f"{definition_path} does not contain a source path using {INPUT_PATH_TOKEN!r}")
-    definition = definition.model_copy(update={"sources": {**definition.sources, **token_sources}})
+    definition = replace_source_paths(definition, {name: input_path for name in REALIS_SOURCE_NAMES})
+    raise_for_diagnostics(validate_project_definition(definition))
 
-    generated = ProjectGenerationProcessor().process(definition, base_directory=definition_path.parent)
-    project_name = generated.name
-    artifacts = adapt_to_latchup_project(generated)
-    output_directory = output_root.resolve() / file_name(project_name)
-    output_directory.mkdir(parents=True, exist_ok=True)
-
-    project = ProjectBuilder().set_project_data(
-        **generated.metadata,
-        source_file=input_path.name,
-    ).build()
-
-    package = ProjectPackageBuilder(project)
-    package.stage(
-        "dut",
-        artifacts.dut,
-        relative_path=f"{file_name(project_name)}.LuDut",
-        writer=JsonDocumentCodec(type(artifacts.dut)),
+    return generate_project(
+        definition,
+        output_root,
+        base_directory=definition_path.parent,
+        project_metadata={"source_file": input_path.name},
     )
-    for test_plan in artifacts.test_plans:
-        print(test_plan._stresses)
-        assert test_plan._stresses
-        package.stage(
-            "latch_up_test_plan",
-            test_plan,
-            relative_path=f"Testing/{file_name(test_plan.name)}.LuTstPlan",
-            writer=JsonDocumentCodec(type(test_plan)),
-        )
-
-    return package.build(output_directory / f"{file_name(project_name)}.Prj")
-
-
-def file_name(value: str) -> str:
-    normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
-    return normalized.strip("._") or "project"
 
 
 if __name__ == "__main__":

@@ -1,0 +1,9 @@
+{
+  "pins": [
+    {"pin_number": "1", "signal_name": "VDD", "latch_up_type": "POWER", "v_max": 5.5, "v_min": 0.0},
+    {"pin_number": "2", "signal_name": "IN_A", "latch_up_type": "INPUT", "v_max": 5.5, "v_min": 0.0},
+    {"pin_number": "3", "signal_name": "IN_B", "latch_up_type": "INPUT", "v_max": 5.5, "v_min": 0.0},
+    {"pin_number": "4", "signal_name": "OUT_A", "latch_up_type": "OUTPUT", "v_max": 3.3, "v_min": 0.0},
+    {"pin_number": "5", "signal_name": "GND", "latch_up_type": "GROUND", "v_max": 0.0, "v_min": 0.0}
+  ]
+}

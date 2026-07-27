@@ -68,3 +68,10 @@ All notable changes to this package are tracked here while the declarative gener
 - Added optional integration tests against the supplied latch-up domain packages.
 
 - Added a runnable REALIS JSON-to-latch-up-project example that writes normalized generation definitions and packaged project artifacts.
+
+## Unreleased
+
+- Added `generate_project()` as the primary concrete generation workflow.
+- Made `LatchUpProjectFormat` the default concrete project format.
+- Added the `ProjectFormat` extension point for future custom project formats.
+- Updated concrete generation examples, including REALIS, to use the public `generate_project()` API.

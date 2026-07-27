@@ -1,5 +1,7 @@
 import json
 import pathlib
+from collections.abc import Mapping
+from typing import Any
 
 from project_generation.diagnostics import GenerationDiagnostic, GenerationDiagnostics, ProjectGenerationError
 from project_generation.ganging import (
@@ -50,6 +52,9 @@ from project_generation.serialization import (
     write_generated_project,
 )
 from project_generation.validation import validate_project_definition
+from project_generation.workflows import raise_for_diagnostics, replace_source_paths
+from project_generation.latchup_packaging import safe_file_name, write_latchup_project_package
+from project_generation.project_formats import DEFAULT_PROJECT_FORMAT, LatchUpProjectFormat, ProjectFormat
 
 
 def load_project_definition(path: str | pathlib.Path) -> ProjectGenerationDefinition:
@@ -62,6 +67,31 @@ def process_project_definition(path: str | pathlib.Path) -> GeneratedProject:
     return ProjectGenerationProcessor().process(definition, base_directory=path.parent)
 
 
+
+def generate_project(
+    definition: str | pathlib.Path | ProjectGenerationDefinition,
+    output_directory: str | pathlib.Path,
+    *,
+    project_format: ProjectFormat | None = None,
+    base_directory: str | pathlib.Path | None = None,
+    project_metadata: Mapping[str, Any] | None = None,
+) -> pathlib.Path:
+    """Generate and write a concrete project.
+
+    The latch-up project package is the default concrete format. Pass another
+    ProjectFormat implementation when additional project formats are introduced.
+    """
+    if isinstance(definition, ProjectGenerationDefinition):
+        if base_directory is None:
+            raise ValueError("base_directory is required when generating from a loaded definition")
+        generated = ProjectGenerationProcessor().process(definition, base_directory=pathlib.Path(base_directory))
+    else:
+        generated = process_project_definition(definition)
+
+    concrete_format = project_format or DEFAULT_PROJECT_FORMAT
+    return concrete_format.write(generated, output_directory, project_metadata=project_metadata)
+
+
 def write_json_schema(path: str | pathlib.Path) -> None:
     path = pathlib.Path(path)
     path.write_text(json.dumps(ProjectGenerationDefinition.model_json_schema(), indent=2), encoding="utf-8")
@@ -69,6 +99,10 @@ def write_json_schema(path: str | pathlib.Path) -> None:
 
 __all__ = [
     "GangingCandidate",
+    "generate_project",
+    "ProjectFormat",
+    "LatchUpProjectFormat",
+    "DEFAULT_PROJECT_FORMAT",
     "LatchUpProjectArtifacts",
     "LatchUpProjectCoreAdapter",
     "GangingPolicy",
@@ -112,4 +146,8 @@ __all__ = [
     "validate_project_definition",
     "write_generated_project",
     "write_json_schema",
+    "raise_for_diagnostics",
+    "replace_source_paths",
+    "safe_file_name",
+    "write_latchup_project_package",
 ]

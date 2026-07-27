@@ -23,9 +23,9 @@ def test_realis_example_generates_project_packages(tmp_path: pathlib.Path) -> No
     assert input_paths
 
     for input_path in input_paths:
-        project_path = module.generate_project(input_path, tmp_path / input_path.stem)
+        project_path = module.generate_project(module.DEFAULT_DEFINITION_PATH, input_path, tmp_path / input_path.stem)
 
         assert project_path.exists()
-        assert (project_path.parent / "generation.json").exists()
+        assert project_path.suffix == ".Prj"
         assert list(project_path.parent.glob("*.LuDut"))
         assert list((project_path.parent / "Testing").glob("*.LuTstPlan"))
