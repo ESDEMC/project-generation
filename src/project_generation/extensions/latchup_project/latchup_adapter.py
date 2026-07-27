@@ -5,7 +5,7 @@ from typing import Any, Mapping
 from project_generation.extensions.latchup_project import dut, latchup_test_plan
 
 from project_generation.diagnostics import ProjectGenerationError
-from project_generation.project_processor import GeneratedDeviceState, GeneratedProject
+from project_generation.project_processor import GeneratedDeviceState, GeneratedProject, GeneratedTestPlan
 
 
 class Bindings:
@@ -38,7 +38,6 @@ class LatchUpProjectArtifacts:
     dut: Any
     test_plans: tuple[Any, ...]
     device_states: Mapping[str, Any]
-    power_sequences: Mapping[str, Any]
 
 
 class LatchUpProjectCoreAdapter:
@@ -56,36 +55,39 @@ class LatchUpProjectCoreAdapter:
             state.name: self._build_device_state(state, dut, groups_by_id, bindings)
             for state in project.device_states
         }
-        sequences = {
-            state.name: self._build_power_sequence(state, bindings)
-            for state in project.device_states
-        }
         plans = tuple(
-            self._build_test_plan(plan, project, dut, groups_by_id, states, sequences, bindings)
+            self._build_test_plan(
+                plan=plan,
+                project=project,
+                dut=dut,
+                groups_by_id=groups_by_id,
+                states=states,
+                bindings=bindings,
+            )
             for plan in project.test_plans
         )
         return LatchUpProjectArtifacts(
             dut=dut,
             test_plans=plans,
             device_states=states,
-            power_sequences=sequences,
         )
 
     @staticmethod
-    def _build_dut(project: GeneratedProject, b: Any) -> Any:
-        dut = b.Dut(name=project.dut_name or project.name)
+    def _build_dut(project: GeneratedProject, bindings: Any) -> Any:
+        dut = bindings.Dut(name=project.dut_name or project.name)
         for pin in project.pins:
+            pin.parameters["lu_pin_type"] = pin.parameters.pop("pin_type", None)
             dut.pins.append(
-                b.Pin(
-                    id=b.PinID(str(pin.id)),
-                    designator=b.Designator(pin.designator),
+                bindings.Pin(
+                    id=bindings.PinID(str(pin.id)),
+                    designator=bindings.Designator(pin.designator),
                     pin_name=pin.name,
                     parameters=dict(pin.parameters),
                 )
             )
         for group in project.groups:
             try:
-                group_type = b.DevicePinType(group.group_type.upper())
+                group_type = bindings.DevicePinType(group.group_type.upper())
             except ValueError as error:
                 raise ProjectGenerationError(
                     f'Cannot adapt group type "{group.group_type}" to latchup-project-core',
@@ -94,37 +96,42 @@ class LatchUpProjectCoreAdapter:
                     owner=group.name,
                 ) from error
             dut.add_pin_group(
-                b.PinGroup(
-                    pin_group_id=b.PinGroupID(str(group.id)),
+                bindings.PinGroup(
+                    pin_group_id=bindings.PinGroupID(str(group.id)),
                     name=group.name,
-                    pins=[b.PinID(str(pin_id)) for pin_id in group.pin_ids],
+                    pins=[bindings.PinID(str(pin_id)) for pin_id in group.pin_ids],
                     group_type=group_type,
-                    matrix_assignment=b.MatrixAssignment.FLOAT,
+                    matrix_assignment=bindings.MatrixAssignment.FLOAT,
                 )
             )
         return dut
 
-    def _build_device_state(self, state: GeneratedDeviceState, dut: Any, groups_by_id: Mapping[Any, Any], b: Any) -> Any:
-        result = b.DeviceState(device_state_id=b.DeviceStateID(str(state.id)))
-        descriptor_by_id = {group.group_id: group for group in dut.descriptor().test_groups}
+    def _build_device_state(self, state: GeneratedDeviceState, dut: Any, groups_by_id: Mapping[Any, Any], bindings: Any) -> Any:
+        result = bindings.DeviceState(device_state_id=bindings.DeviceStateID(str(state.id)))
+        dut_descriptor = dut.descriptor()
+        descriptor_by_id = {group.group_id: group for group in dut_descriptor.test_groups}
         for assignment in state.power_assignments:
-            group_id = b.PinGroupID(str(assignment.group_id))
+            group_id = bindings.PinGroupID(str(assignment.group_id))
             group = groups_by_id[group_id]
-            matrix_assignment = _matrix_assignment(assignment.assignment, b)
-            if matrix_assignment == b.MatrixAssignment.GND:
-                result.ground_pins.extend(pin for pin in group.pins if pin not in result.ground_pins)
+            matrix_assignment = _matrix_assignment(assignment.assignment, bindings)
+            if matrix_assignment == bindings.MatrixAssignment.GND:
+                result.ground_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.ground_pins)
                 continue
-            if matrix_assignment == b.MatrixAssignment.FLOAT:
-                result.floating_pins.extend(pin for pin in group.pins if pin not in result.floating_pins)
+            if matrix_assignment == bindings.MatrixAssignment.FLOAT:
+                result.floating_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.floating_pins)
                 continue
-            bias = _bias_parameters(assignment.bias, b)
+            bias = _bias_parameters(assignment.bias, bindings)
             result.power_domains.append(
-                b.PowerDomain(
+                bindings.PowerDomain(
                     matrix_assignment=matrix_assignment,
                     test_groups=[descriptor_by_id[group_id]],
                     bias_config=bias,
                 )
             )
+
+        result.set_power_sequence(self._build_power_sequence(state, bindings))
+
+        result.validate()
         return result
 
     @staticmethod
@@ -145,38 +152,46 @@ class LatchUpProjectCoreAdapter:
         return sequence
 
     @staticmethod
-    def _build_test_plan(plan: Any, project: GeneratedProject, dut: Any, groups_by_id: Mapping[Any, Any], states: Mapping[str, Any],
-                         sequences: Mapping[str, Any], b: Any) -> Any:
-        test_groups = [copy.deepcopy(groups_by_id[b.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
+    def _build_test_plan(
+        plan: GeneratedTestPlan,
+        project: GeneratedProject,
+        dut: dut.Dut,
+        groups_by_id: Mapping[Any, Any],
+        states: Mapping[str, latchup_test_plan.DeviceState],
+        bindings: Bindings,
+    ) -> latchup_test_plan.LatchUpTestPlan:
+        test_groups = [copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
         test_pins = [pin for group in test_groups for pin in group.pins]
         metadata = {
             "generation_rule_id": plan.generation_rule_id,
             "dimensions": dict(plan.dimensions),
             "generated_project": project.name,
         }
-        result = b.LatchUpTestPlan(
-            test_plan_id=b.TestPlanID(plan.id),
+        result = bindings.LatchUpTestPlan(
+            test_plan_id=plan.id,
             name=plan.name,
             test_pins=test_pins,
             test_groups=test_groups,
             device_info=dut.descriptor(),
-            test_type=_test_type(plan.test_type, b),
+            test_type=_test_type(plan.test_type, bindings),
             metadata=metadata,
         )
         polarity = plan.dimensions.get("polarity")
         if polarity is not None:
-            result.polarity = b.PolarityEnum(str(polarity).lower())
+            result.polarity = bindings.PolarityEnum(str(polarity).lower())
         logic_level = plan.dimensions.get("logic_level")
         if logic_level is not None:
-            result.logic_level = b.LogicLevelEnum(str(logic_level).title())
-        result.stress_plan = _build_stress_plan(plan, dut, b)
+            result.logic_level = bindings.LogicLevelEnum(str(logic_level).title())
+        if stress_plan := _build_stress_plan(plan, dut, bindings):
+            result._stresses = stress_plan.stresses
         if plan.device_state:
+
             result.device_state = copy.deepcopy(states[plan.device_state])
-            result.power_sequence = copy.deepcopy(sequences[plan.device_state])
+            result.power_sequence = copy.deepcopy(states[plan.device_state].power_sequence())
         return result
 
 
-def _build_stress_plan(plan: Any, dut: Any, b: Any) -> Any | None:
+def _build_stress_plan(plan: GeneratedTestPlan, dut: dut.Dut, b: Bindings) -> latchup_test_plan.StressPlan | None:
     descriptor_by_id = {group.group_id: group for group in dut.descriptor().test_groups}
     stress_plan = b.StressPlan()
     for test_group in plan.test_groups:

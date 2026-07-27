@@ -5,8 +5,8 @@ import re
 from project_generation.extensions.latchup_project.latchup_project_core.project import ProjectBuilder, ProjectPackageBuilder
 from project_generation.extensions.latchup_project.latchup_project_core.shared import JsonDocumentCodec
 
-from project_generation import ProjectGenerationProcessor, adapt_to_latchup_project, load_project_definition
-
+from project_generation import ProjectGenerationProcessor, adapt_to_latchup_project, load_project_definition, \
+    validate_project_definition
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"
@@ -37,6 +37,7 @@ def generate_project(definition_path: pathlib.Path, input_path: pathlib.Path, ou
     definition_path = definition_path.resolve()
     input_path = input_path.resolve()
     definition = load_project_definition(definition_path)
+    validate_project_definition(definition)
     token_sources = {
         name: source.model_copy(update={"path": str(input_path)})
         for name, source in definition.sources.items()
@@ -65,6 +66,8 @@ def generate_project(definition_path: pathlib.Path, input_path: pathlib.Path, ou
         writer=JsonDocumentCodec(type(artifacts.dut)),
     )
     for test_plan in artifacts.test_plans:
+        print(test_plan._stresses)
+        assert test_plan._stresses
         package.stage(
             "latch_up_test_plan",
             test_plan,

@@ -215,12 +215,14 @@ test_plan_generation:
             from: group.v_max
             multiply_by:
             - 1.0
+            - 1.5
       - value: NEGATIVE
         set:
           stress_parameters.peak:
             from: group.v_min
             multiply_by:
             - 1.0
+            - 1.5
     template:
       test_type: SIGNAL
       name:

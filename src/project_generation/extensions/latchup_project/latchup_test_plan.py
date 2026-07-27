@@ -111,6 +111,36 @@ class DeviceState:
     floating_pins: list[PinDescriptor] = field(default_factory=list)
     measurement_timing: MeasurementTiming = MeasurementTiming()
 
+    def validate(self):
+        for domain in self.power_domains:
+            assert isinstance(domain, PowerDomain)
+        for pin in self.ground_pins:
+            assert isinstance(pin, PinDescriptor)
+        for pin in self.floating_pins:
+            assert isinstance(pin, PinDescriptor)
+
+        assert isinstance(self.measurement_timing, MeasurementTiming)
+
+    def power_sequence(self) -> PowerSequence:
+        power_sequence = PowerSequence(measurement_timing=self.measurement_timing)
+        for domain in self.power_domains:
+            power_sequence.add_channel(
+                matrix_assignment=domain.matrix_assignment,
+                power_on_timing=domain.power_on_timing_info,
+                power_off_timing=domain.power_off_timing_info,
+            )
+        return power_sequence
+
+    def set_power_sequence(self, power_sequence: PowerSequence):
+        self.measurement_timing = power_sequence.measurement_timing
+        for domain in self.power_domains:
+            for timing in power_sequence.timing:
+                if timing.matrix_assignment == domain.matrix_assignment:
+                    domain.power_on_timing_info = timing.power_on_timing
+                    domain.power_off_timing_info = timing.power_off_timing
+                    break
+
+
 
 @dataclasses.dataclass(kw_only=True)
 class TemperatureControl:
@@ -155,8 +185,9 @@ class LatchUpTestPlan(DataClassJsonMixin):
     cool_time: float = 0.0
     metadata: dict = field(default_factory=dict)
 
-    def _dump_data(self) -> dict:
-        data: dict = self.to_dict(encode_json=True)
+    def to_dict(self, **kwargs) -> dict:
+        kwargs.setdefault("encode_json", True)
+        data: dict = super().to_dict(**kwargs)
         data.pop("test_plan_id", None)
 
         get_pin_info = get_pin_info_from_device_descriptor(self.device_info)
@@ -172,7 +203,7 @@ class LatchUpTestPlan(DataClassJsonMixin):
         if not file_path.parent.exists():
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = self._dump_data()
+        data = self.to_dict()
 
         with open(file_path, "w") as file:
             json.dump(data, file, indent=2, default=str)  # type: ignore

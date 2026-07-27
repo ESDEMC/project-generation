@@ -44,7 +44,7 @@ class GeneratedPin:
     id: uuid.UUID
     designator: str
     name: str
-    parameters: Mapping[str, Any] = field(default_factory=dict)
+    parameters: dict[str, Any] = field(default_factory=dict)
 
     def context(self) -> dict[str, Any]:
         return {
@@ -125,11 +125,6 @@ class GeneratedDeviceState:
     power_assignments: tuple[GeneratedPowerAssignment, ...]
     power_on_sequence: tuple[GeneratedPowerSequenceStep, ...]
     power_off_sequence: tuple[GeneratedPowerSequenceStep, ...]
-
-    @property
-    def power_sequence(self) -> tuple[GeneratedPowerSequenceStep, ...]:
-        """Backward-compatible alias for the power-on sequence."""
-        return self.power_on_sequence
 
 
 @dataclass(frozen=True, kw_only=True)

@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8", "jsonschema>=4"]
 excel = ["openpyxl>=3.1"]
+yaml = ["pyyaml"]
 latchup = ["dataclasses-json>=0.5"]
 
 [tool.setuptools.packages.find]
