@@ -3,7 +3,7 @@ import pathlib
 import pytest
 
 
-from project_generation.extensions.latchup_project import LogicLevelEnum, LuTestType, MatrixAssignment, PolarityEnum
+from project_generation.infrastructure.latchup_project.models.enums import LogicLevelEnum, LuTestType, MatrixAssignment, PolarityEnum
 
 from project_generation import adapt_to_latchup_project, process_project_definition
 

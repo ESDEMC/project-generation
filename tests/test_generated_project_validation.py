@@ -3,9 +3,9 @@ import uuid
 import pytest
 
 from project_generation.diagnostics import ProjectGenerationError
-from project_generation.models import ProjectGenerationDefinition
-from project_generation.processing import StressPoint
-from project_generation.project_processor import (
+from project_generation.definition.models import ProjectGenerationDefinition
+from project_generation.generation.rules import StressPoint
+from project_generation.generation.processor import (
     GeneratedDeviceState,
     GeneratedGroup,
     GeneratedGroupState,

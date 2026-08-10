@@ -183,6 +183,6 @@ The REALIS example imports exclusively from `project_generation`. Its workflow i
 2. `replace_source_paths()` binds the named `realis_project` and `realis_pins` sources to the current export.
 3. `validate_project_definition()` and `raise_for_diagnostics()` stop generation when semantic errors exist.
 4. `ProjectGenerationProcessor.process()` creates the neutral project model.
-5. `generate_project()` writes the customer project package using the default `LatchUpProjectFormat`.
+5. `generate_project()` writes the customer project package using the default `LatchUpProjectWriter`.
 
 The example does not import project builders, codecs, or adapter implementation modules. Those details remain behind the supported public API.

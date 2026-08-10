@@ -2,7 +2,7 @@ import pathlib
 from collections.abc import Mapping
 
 from project_generation.diagnostics import GenerationDiagnostics, ProjectGenerationError
-from project_generation.models import ProjectGenerationDefinition
+from project_generation.definition.models import ProjectGenerationDefinition
 
 
 def raise_for_diagnostics(diagnostics: GenerationDiagnostics) -> None:

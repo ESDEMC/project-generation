@@ -2,7 +2,7 @@ import json
 
 from jsonschema import Draft202012Validator
 
-from project_generation.models import ProjectGenerationDefinition
+from project_generation.definition.models import ProjectGenerationDefinition
 from conftest import EXAMPLES
 
 

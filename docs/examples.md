@@ -57,7 +57,7 @@ customer_project/
 python examples/customer_project/generate_project.py
 ```
 
-This example uses the default latch-up project format to create the concrete package, then also writes the neutral model as an optional inspection artifact.
+This example uses the default Latch-Up project writer to create the concrete package, then also writes the neutral model as an optional inspection artifact.
 
 
 ## Explicit test-plan project
@@ -78,7 +78,7 @@ Directory: `examples/latchup_project/`
 python examples/latchup_project/generate_project.py
 ```
 
-The script calls `generate_project()` with no format argument. The default `LatchUpProjectFormat` writes `.Prj`, `.LuDut`, and `.LuTstPlan` artifacts.
+The script calls `generate_project()` with no writer argument. The default `LatchUpProjectWriter` writes `.Prj`, `.LuDut`, and `.LuTstPlan` artifacts.
 
 ## Multiple latch-up project packages
 
@@ -88,7 +88,7 @@ Directory: `examples/multiple_latchup_projects/`
 python examples/multiple_latchup_projects/generate_projects.py
 ```
 
-The script processes both local definitions through the default `LatchUpProjectFormat` and writes each latch-up project into its own package directory.
+The script processes both local definitions through the default `LatchUpProjectWriter` and writes each latch-up project into its own package directory.
 
 ## REALIS source data
 

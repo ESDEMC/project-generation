@@ -108,7 +108,7 @@ file behavior to the core processor.
 
 ## Adapter boundary
 
-The default `LatchUpProjectFormat` converts the neutral model into domain objects and files from the latch-up packages. The lower-level latch-up adapter remains available, and its imports are lazy, so the core
+The default `LatchUpProjectWriter` converts the neutral model into domain objects and files from the latch-up packages. The lower-level latch-up adapter remains available, and its imports are lazy, so the core
 package remains usable without those dependencies.
 
 The adapter preserves generated identities, group membership, device-state assignments, power timing, dimensions, and executable stress

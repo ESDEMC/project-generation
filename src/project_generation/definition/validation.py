@@ -3,7 +3,7 @@ from collections import Counter
 from typing import Any
 
 from project_generation.diagnostics import DiagnosticSeverity, GenerationDiagnostic, GenerationDiagnostics
-from project_generation.models import ProjectGenerationDefinition
+from project_generation.definition.models import ProjectGenerationDefinition
 
 _TEMPLATE_FIELD = re.compile(r"\{([^{}|]+)(?:\|[^{}]+)?\}")
 

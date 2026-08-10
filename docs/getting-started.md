@@ -107,7 +107,7 @@ Representative examples include:
 - `examples/validate_definition/validate_definition.py` validates its adjacent `generation.json`.
 - `examples/neutral_project/generate_project.py` writes a neutral generated-project JSON file.
 - `examples/inspect_project/inspect_project.py` demonstrates programmatic inspection.
-- `examples/realis/override_source_path.py` replaces named source paths before processing.
+- `examples/realis/generate_projects.py` replaces the named REALIS source paths for each input before generation.
 - `examples/latchup_project/generate_project.py` writes a complete latch-up project package.
 
 Run an example from the repository root:

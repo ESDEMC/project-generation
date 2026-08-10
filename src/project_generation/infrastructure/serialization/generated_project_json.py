@@ -4,7 +4,7 @@ import uuid
 from dataclasses import fields, is_dataclass
 from typing import Any, Mapping
 
-from project_generation.project_processor import GeneratedProject
+from project_generation.generation.models import GeneratedProject
 
 
 def generated_project_to_dict(project: GeneratedProject) -> dict[str, Any]:

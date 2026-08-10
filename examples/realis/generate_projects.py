@@ -1,4 +1,5 @@
 import argparse
+import os
 import pathlib
 
 from project_generation import (
@@ -12,7 +13,9 @@ from project_generation import (
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"
 DEFAULT_INPUT_DIRECTORY = EXAMPLE_DIRECTORY / "input"
-DEFAULT_OUTPUT_DIRECTORY = EXAMPLE_DIRECTORY / "generated_projects"
+DEFAULT_OUTPUT_DIRECTORY = pathlib.Path(
+    os.environ.get("PROJECT_GENERATION_OUTPUT_DIRECTORY", EXAMPLE_DIRECTORY / "generated_projects")
+)
 REALIS_SOURCE_NAMES = ("realis_project", "realis_pins")
 
 

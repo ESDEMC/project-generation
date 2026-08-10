@@ -72,6 +72,6 @@ All notable changes to this package are tracked here while the declarative gener
 ## Unreleased
 
 - Added `generate_project()` as the primary concrete generation workflow.
-- Made `LatchUpProjectFormat` the default concrete project format.
-- Added the `ProjectFormat` extension point for future custom project formats.
+- Made `LatchUpProjectWriter` the default concrete project format.
+- Added the `ProjectWriter` extension point for future custom project formats.
 - Updated concrete generation examples, including REALIS, to use the public `generate_project()` API.

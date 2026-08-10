@@ -3,10 +3,11 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from project_generation.extensions.latchup_project.latchup_adapter import adapt_to_latchup_project
-from project_generation.extensions.latchup_project.latchup_project_core.project import ProjectBuilder, ProjectPackageBuilder
-from project_generation.extensions.latchup_project.latchup_project_core.shared import JsonDocumentCodec
-from project_generation.project_processor import GeneratedProject
+from project_generation.infrastructure.latchup_project.latchup_adapter import adapt_to_latchup_project
+from project_generation.infrastructure.latchup_project.latchup_project_core.project import ProjectBuilder, ProjectPackageBuilder
+from project_generation.infrastructure.latchup_project.latchup_project_core.shared import JsonDocumentCodec
+from project_generation.application.ports import ProjectWriter
+from project_generation.generation.models import GeneratedProject
 
 
 def safe_file_name(value: str) -> str:
@@ -48,3 +49,16 @@ def write_latchup_project_package(
             writer=JsonDocumentCodec(type(test_plan)),
         )
     return package.build(root / f"{package_name}.Prj")
+
+
+class LatchUpProjectWriter(ProjectWriter):
+    """Concrete format for the latch-up application's project package."""
+
+    def write(
+        self,
+        project: GeneratedProject,
+        output_directory: str | pathlib.Path,
+        *,
+        project_metadata: Mapping[str, Any] | None = None,
+    ) -> pathlib.Path:
+        return write_latchup_project_package(project, output_directory, project_metadata=project_metadata)

@@ -1,7 +1,7 @@
 # Project Generation
 
 Project Generation converts declarative project definitions and customer source data into validated latch-up project packages.
-A neutral generated model remains available for inspection and for future custom project formats, but the latch-up implementation is the default concrete output.
+A neutral generated model remains available for inspection and for other project writers, while the Latch-Up writer is the default infrastructure implementation.
 
 The package is intended for repeatable project creation from structured customer data such as REALIS exports. Instead of writing a
 custom script for every device, a generation definition describes how to:
@@ -12,9 +12,11 @@ custom script for every device, a generation definition describes how to:
 - generate test plans from reusable rules;
 - expand dimensions, overrides, and stress series;
 - validate the complete result before files are delivered; and
-- adapt the neutral model to the customer's project format.
+- adapt the neutral model to the customer's concrete project representation.
 
 ## Documentation
+
+- [Python package architecture](docs/package-architecture.md) — what belongs in `definition`, `generation`, `application`, and `infrastructure`.
 
 | Guide | Purpose |
 | --- | --- |
@@ -37,16 +39,16 @@ flowchart LR
     C --> D[Validate and resolve]
     D --> E[GeneratedProject]
     E --> F[Inspection JSON]
-    E --> G[Default LatchUpProjectFormat]
+    E --> G[Default LatchUpProjectWriter]
     G --> H[Latch-up project package]
 ```
 
 A definition is processed in two layers:
 
 1. **Core generation** produces a neutral `GeneratedProject` containing pins, groups, device states, power sequences, and test plans.
-2. **Concrete project generation** writes that model using a `ProjectFormat`. `LatchUpProjectFormat` is the default implementation.
+2. **Concrete project generation** writes that model using a `ProjectWriter`. `LatchUpProjectWriter` is the default implementation.
 
-This preserves a stable extension point for another project format later without making callers select the latch-up implementation today.
+This keeps neutral generation independent from the concrete Latch-Up infrastructure while preserving a `ProjectWriter` extension point.
 
 ## Installation
 
@@ -94,10 +96,9 @@ The repository includes several complete programs that create neutral projects o
 python examples/neutral_project/generate_project.py
 python examples/customer_project/generate_project.py
 python examples/explicit_test_plan_project/generate_project.py
-python examples/multiple_neutral_projects/generate_projects.py
 python examples/latchup_project/generate_project.py
 python examples/multiple_latchup_projects/generate_projects.py
-python examples/realis/generate_single_project.py
+python examples/realis/generate_projects.py
 ```
 
 Generated output defaults to `./generated`. Set `PROJECT_GENERATION_OUTPUT_DIRECTORY` to redirect all Python-example output. See the [examples guide](docs/examples.md) for the purpose and expected artifacts of each program.
@@ -137,8 +138,8 @@ from project_generation import generate_project
 project_path = generate_project("generation.yaml", "generated")
 ```
 
-`generate_project()` uses `LatchUpProjectFormat` by default. A future format can implement `ProjectFormat` and be passed through the
-`project_format` argument.
+`generate_project()` uses `LatchUpProjectWriter` by default. Another target can implement `ProjectWriter` and be passed through the
+`project_writer` argument.
 
 ### Load and validate a definition
 

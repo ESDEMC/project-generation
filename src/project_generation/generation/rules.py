@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any, Iterable, Mapping
 
-from project_generation.models import DimensionDefinition, OverrideDefinition, TestPlanRuleDefinition
+from project_generation.definition.models import DimensionDefinition, OverrideDefinition, TestPlanRuleDefinition
 
 
 @dataclass(frozen=True, kw_only=True)

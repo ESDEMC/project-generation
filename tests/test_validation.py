@@ -1,5 +1,5 @@
-from project_generation.models import ProjectGenerationDefinition
-from project_generation.validation import validate_project_definition
+from project_generation.definition.models import ProjectGenerationDefinition
+from project_generation.definition.validation import validate_project_definition
 
 
 def test_missing_device_state_is_reported() -> None:

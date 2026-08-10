@@ -56,9 +56,9 @@ def test_generate_project_accepts_custom_format(tmp_path: pathlib.Path) -> None:
     from collections.abc import Mapping
     from typing import Any
 
-    from project_generation import GeneratedProject, ProjectFormat, generate_project
+    from project_generation import GeneratedProject, ProjectWriter, generate_project
 
-    class TextProjectFormat(ProjectFormat):
+    class TextProjectWriter(ProjectWriter):
         def write(
             self,
             project: GeneratedProject,
@@ -74,7 +74,7 @@ def test_generate_project_accepts_custom_format(tmp_path: pathlib.Path) -> None:
     project_path = generate_project(
         ROOT / "examples" / "neutral_project" / "generation.json",
         tmp_path,
-        project_format=TextProjectFormat(),
+        project_writer=TextProjectWriter(),
     )
 
     assert project_path.read_text(encoding="utf-8") == "Minimal Explicit Example"

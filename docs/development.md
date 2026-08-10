@@ -56,7 +56,7 @@ aggregation, allocation strategy, or stress-series form.
 Adapters should consume `GeneratedProject` and produce concrete domain objects or files. They should not modify the semantics of generation
 rules after processing.
 
-A future concrete format should subclass `ProjectFormat` and implement `write()`. Recommended format responsibilities:
+A new concrete project writer should implement `ProjectWriter.write()`. Its infrastructure responsibilities are:
 
 - enum and type conversion;
 - construction of concrete pins, groups, states, plans, and stress objects;
@@ -64,7 +64,7 @@ A future concrete format should subclass `ProjectFormat` and implement `write()`
 - customer-format serialization; and
 - packaging or manifest creation.
 
-Keep optional format imports isolated so neutral processing remains reusable. The current `LatchUpProjectFormat` is the default used by `generate_project()`.
+Keep concrete writer imports in infrastructure so neutral generation remains reusable. `LatchUpProjectWriter` is the default used by `generate_project()`.
 
 ## Regression tests
 

@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "jsonschema>=4"]
+dev = ["pytest>=8", "jsonschema>=4", "black>=23.0"]
 excel = ["openpyxl>=3.1"]
 yaml = ["pyyaml"]
 latchup = ["dataclasses-json>=0.5"]
@@ -27,3 +27,6 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
+
+[tool.black]
+line-length = 120

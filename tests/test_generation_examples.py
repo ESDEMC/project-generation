@@ -15,7 +15,6 @@ EXAMPLES = ROOT / "examples"
             EXAMPLES / "customer_project" / "generate_project.py",
             ("**/*.generated.json", "**/*.Prj", "**/*.LuDut", "**/*.LuTstPlan"),
         ),
-        (EXAMPLES / "multiple_neutral_projects" / "generate_projects.py", ("**/*.generated.json",)),
         (
             EXAMPLES / "explicit_test_plan_project" / "generate_project.py",
             ("**/*.Prj", "**/*.LuDut", "**/*.LuTstPlan"),
@@ -29,7 +28,7 @@ EXAMPLES = ROOT / "examples"
             ("**/*.Prj", "**/*.LuDut", "**/*.LuTstPlan"),
         ),
         (
-            EXAMPLES / "realis" / "generate_single_project.py",
+            EXAMPLES / "realis" / "generate_projects.py",
             ("**/*.Prj", "**/*.LuDut", "**/*.LuTstPlan"),
         ),
     ],
