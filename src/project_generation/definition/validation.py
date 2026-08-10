@@ -128,7 +128,37 @@ def _validate_rules(definition: ProjectGenerationDefinition, diagnostics: Genera
         name_definition = rule.template.get("name")
         if isinstance(name_definition, dict):
             template = name_definition.get("template")
-            if isinstance(template, str):
+            named_fields = name_definition.get("fields", {})
+            if isinstance(named_fields, dict):
+                for field_name, field_definition in named_fields.items():
+                    if not isinstance(field_definition, dict):
+                        continue
+                    mapping_name = field_definition.get("mapping")
+                    formatter_name = field_definition.get("formatter")
+                    source = field_definition.get("source")
+                    if mapping_name and mapping_name not in definition.mappings:
+                        _error(
+                            diagnostics,
+                            "MAPPING_NOT_FOUND",
+                            f'Unknown mapping "{mapping_name}".',
+                            f"test_plan_generation.rules[{rule_index}].template.name.fields.{field_name}.mapping",
+                        )
+                    if formatter_name and formatter_name not in definition.formatters:
+                        _error(
+                            diagnostics,
+                            "FORMATTER_NOT_FOUND",
+                            f'Unknown formatter "{formatter_name}".',
+                            f"test_plan_generation.rules[{rule_index}].template.name.fields.{field_name}.formatter",
+                        )
+                    if isinstance(source, str) and rule.groups.partition.mode != "each" and source.startswith("group."):
+                        _error(
+                            diagnostics,
+                            "SINGULAR_GROUP_CONTEXT_UNAVAILABLE",
+                            "A singular group name field is only valid for partition mode 'each'.",
+                            f"test_plan_generation.rules[{rule_index}].template.name.fields.{field_name}.source",
+                        )
+
+            if isinstance(template, str) and not named_fields:
                 fields = set(_TEMPLATE_FIELD.findall(template))
                 if rule.groups.partition.mode != "each" and any(field.startswith("group.") for field in fields):
                     _error(

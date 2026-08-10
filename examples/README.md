@@ -1,14 +1,39 @@
-# Runnable examples
+# Examples
 
-Each subdirectory is self-contained: its Python script is stored beside the generation definition and any local source data it uses.
+[Documentation home](../docs/README.md) · [Detailed example guide](../docs/user/examples.md)
 
-Run examples from the repository root, which contains `pyproject.toml`:
+Examples are organized by the end-user task they demonstrate. Each folder contains the generation file and the Python script that uses it.
+There are no per-example README files; open the demo script first for a short explanation, then the generation file for the configuration.
 
-```powershell
-Set-Location D:\Python\project-generation
-python .\examples\neutral_project\generate_project.py
+```text
+examples/
+├── basics/
+│   └── explicit_project/                    Write a complete project directly
+├── sources/
+│   └── json_pin_source/                     Load and map pins from external JSON
+├── customizing_generation/
+│   ├── group_generation/                    Generate groups from pin properties
+│   ├── device_states_and_power_allocation/  Generate DUT states and assign DC resources
+│   ├── test_plan_dimensions/                Expand one rule into combinations of test plans
+│   └── stress_series_and_overrides/         Generate stress series and change selected cases
+└── real_world/
+    └── realis/                              Complete REALIS batch-generation workflow
 ```
 
-The examples intentionally remain under the top-level `examples/` directory. The `docs/` directory contains documentation only.
+## Recommended order
 
-See [`docs/examples.md`](../docs/examples.md) for the complete example catalog and expected outputs.
+1. [`basics/explicit_project/generate_project.py`](basics/explicit_project/generate_project.py)
+2. [`sources/json_pin_source/generate_project.py`](sources/json_pin_source/generate_project.py)
+3. [`customizing_generation/group_generation/demo.py`](customizing_generation/group_generation/demo.py)
+4. [`customizing_generation/device_states_and_power_allocation/demo.py`](customizing_generation/device_states_and_power_allocation/demo.py)
+5. [`customizing_generation/test_plan_dimensions/demo.py`](customizing_generation/test_plan_dimensions/demo.py)
+6. [`customizing_generation/stress_series_and_overrides/demo.py`](customizing_generation/stress_series_and_overrides/demo.py)
+7. [`real_world/realis/generate_projects.py`](real_world/realis/generate_projects.py)
+
+Run scripts from the repository root. For example:
+
+```bash
+python examples/customizing_generation/group_generation/demo.py
+```
+
+Use [`docs/user/examples.md`](../docs/user/examples.md) when you want the JSON snippets and explanation for each example.

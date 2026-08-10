@@ -10,9 +10,23 @@ from project_generation.application.ports import ProjectWriter
 from project_generation.generation.models import GeneratedProject
 
 
+def clean_windows_filename(filename: str, replacement: str = "_") -> str:
+    # Match any of the 9 forbidden characters or control codes
+    illegal_chars = r'[<>:"/\\|?*\x00-\x1f]'
+
+    # Replace forbidden characters
+    cleaned = re.sub(illegal_chars, replacement, filename)
+
+    # Strip any trailing spaces or dots
+    cleaned = cleaned.rstrip(". ")
+
+    # Fallback for empty strings or entirely stripped filenames
+    return cleaned if cleaned else "default_filename"
+
+
 def safe_file_name(value: str) -> str:
     """Convert a generated name into a portable project artifact name."""
-    normalized = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
+    normalized = clean_windows_filename(value)
     return normalized.strip("._") or "project"
 
 

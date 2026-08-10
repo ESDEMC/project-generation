@@ -1,45 +1,80 @@
 # Changelog
 
-All notable changes to this package are tracked here while the declarative generation format is being developed.
+All notable changes to Project Generation are recorded here.
 
-## Unreleased
+The project is still under active development. Until the public generation format is declared stable, changes under `Unreleased` may
+include structural changes to the package, examples, and generation definition.
 
-- Build real latch-up `StressPlan` and `StressParameters` objects from generated stress points.
-- Map stress level, compliance, hold time, source mode, pulse base, pulse delay, and measurement timing into the adapted test plan.
+## 0.2.0 - Aug 10, 2026
 
 ### Added
 
-- Deterministic power-off sequences with reverse-power-on defaults.
-- Explicit `timing.power_off.after` dependencies and per-step delays.
-- Neutral `GeneratedProject` serialization through `generated_project_to_dict`, `generated_project_to_json`, and `write_generated_project`.
-- Validation for unknown, self-referential, and circular power-off timing dependencies.
-
-- Deterministic power-on sequences compiled from named power-domain timing.
-- Dependency ordering through `timing.power_on.after` with per-step delays.
-- Validation for unknown timing references, self-references, duplicate inherited domain names, and circular dependencies.
-
-- Explicit `GangingPolicy` abstraction with `none` and `same_voltage` implementations.
-- Deterministic same-bias reuse of automatically and explicitly assigned physical power resources.
-- Validation for unsupported ganging-policy names.
-- Neutral per-group power assignments on generated device states.
-- Direct, automatic, and hybrid power-resource allocation.
-- Deterministic `first_available` and provisional `voltage_first` allocation ordering.
-- Validation for unknown resources, unassigned direct-mode groups, unsupported strategies, and insufficient resources.
-- Automatic exclusion of reserved resources and resources with the `STRESS` role.
-- Neutral generated device states with deterministic IDs.
-- Resolution of explicit power domains to generated group identities.
-- Per-group device-state rule evaluation with support for group parameter references.
-- Device-state inheritance through `extends`.
-- Resolved `device_state_id` references on generated test plans.
-- Validation failures for unknown device-state references, unknown power-domain groups, and circular inheritance.
-- `ROADMAP.md` for feature-oriented planning.
+- Added `generate_project()` as the primary public workflow for generating a concrete project package.
+- Added the `ProjectWriter` application port so additional project-package implementations can be added without changing generation
+  logic.
+- Added `LatchUpProjectWriter` as the default concrete writer used by `generate_project()`.
+- Added conversion from generated project data to Latch-Up DUT, device-state, power-sequence, test-plan, and stress-plan objects.
+- Added deterministic generated device states and per-group power assignments.
+- Added direct, automatic, and hybrid power-resource allocation.
+- Added `first_available` and `voltage_first` allocation strategies.
+- Added reserved-resource and `STRESS`-role exclusion during automatic allocation.
+- Added `none` and `same_voltage` ganging policies.
+- Added device-state inheritance with `extends`.
+- Added deterministic power-on and power-off sequence generation, including `after` dependencies and per-step delays.
+- Added validation for invalid power-sequence references, self-references, duplicate inherited domain names, and dependency cycles.
+- Added generated stress points and Latch-Up `StressPlan`/`StressParameters` construction.
+- Added named test-plan template fields with per-field mappings and formatters, matching generated group-name behavior.
+- Added the REALIS real-world example for generating projects from customer-style JSON exports.
+- Added customer documentation for getting started, configuration, examples, diagnostics, REALIS usage, and delivery.
+- Added developer documentation for package architecture and development conventions.
+- Added documentation tests that verify relative Markdown links and parse fenced JSON snippets.
+- Added architecture-boundary tests for the inner `definition` and `generation` packages.
+- Added `ROADMAP.md` for planned and intentionally deferred work.
 
 ### Changed
 
+- Reorganized the package into responsibility-based modules:
+  - `definition/` for the generation-file schema and definition validation;
+  - `generation/` for generated models, rules, processing, allocation, ganging, and generated-model validation;
+  - `application/` for use-case coordination and external capability ports; and
+  - `infrastructure/` for concrete serialization and Latch-Up project integration.
+- Removed generic architectural package names in favor of explicit responsibilities (`formats`, `output`, and `extensions` were removed).
+- Renamed the concrete output abstraction from `ProjectFormat` to `ProjectWriter` and the default implementation to
+  `LatchUpProjectWriter`.
+- Reorganized the test suite to mirror the package architecture instead of keeping tests in a flat directory.
+- Moved test-only generation definitions into `tests/fixtures/` instead of using customer examples as implicit test fixtures.
+- Reorganized examples around end-user tasks instead of historical implementation variants.
+- Consolidated duplicate examples into a smaller end-user-oriented catalog:
+  - basic explicit project generation and validation;
+  - external JSON pin sources;
+  - group-generation customization;
+  - device-state and power-allocation customization;
+  - test-plan dimension customization;
+  - stress-series and override customization; and
+  - the REALIS real-world workflow.
+- Removed internal/intermediate-model demos that were not useful to end users.
+- Removed redundant per-example README files; `examples/README.md` and `docs/user/examples.md` now provide the example catalog while each
+  runnable Python demo explains itself with a module docstring.
+- Reworked demo docstrings to show concrete input/output behavior using compact tables and mappings.
+- Added focused generation-file snippets to runnable demo docstrings so users can see the configuration that causes each result.
+- Reorganized documentation into `user/`, `real-world/`, `reference/`, and `development/` subfolders.
+- Standardized documentation examples so illustrative data is shown in blocks or tables instead of embedded inline in prose.
+- Updated customer-facing documentation to show JSON snippets when explaining alternative ways to write generation definitions.
+- Kept YAML examples in the REALIS guide where they correspond to the actual `generation.yaml` file.
+- Updated REALIS test-plan names to use compact logic/polarity tokens (`H+`, `L+`, `H-`, `L-`) while preserving semantic dimension values.
+- Updated example scripts and tests to use the reorganized example paths.
+- Updated example output to favor simple, user-readable group-to-pin summaries.
+- Made package-root imports avoid eagerly importing the concrete Latch-Up infrastructure where possible.
 - External-group power domains can participate in generated power sequences even when group UUIDs are intentionally unavailable.
 
-- `GeneratedProject` now contains `device_states` in addition to pins, groups, and test plans.
-- Tests that load examples resolve paths relative to the test files rather than the current working directory.
+### Fixed
+
+- Fixed stale example and test paths left by earlier project reorganization.
+- Fixed example tests whose behavior depended on the current working directory.
+- Fixed a missing `StressPoint` import introduced when generation code was split into modules.
+- Fixed example execution so pytest command-line arguments are not unintentionally passed through to runnable examples.
+- Fixed generation examples so output directories are created when needed.
+- Fixed documentation references after reorganizing and removing duplicate examples.
 
 ## 0.1.0 - Initial implementation
 
@@ -52,26 +87,3 @@ All notable changes to this package are tracked here while the declarative gener
 - Explicit and rule-generated groups with deterministic identities.
 - Explicit and generated test plans.
 - Dynamic dimensions, partitions, ordered overrides, exclusions, and provisional stress-series expansion.
-
-## Unreleased
-
-- Build real latch-up `StressPlan` and `StressParameters` objects from generated stress points.
-- Map stress level, compliance, hold time, source mode, pulse base, pulse delay, and measurement timing into the adapted test plan.
-
-### Added
-
-- Added `LatchUpProjectCoreAdapter` and `adapt_to_latchup_project()` as the first concrete adapter.
-- Added lazy conversion to the real `latchup-project-core` `Dut`, `PinGroup`, `DeviceState`, `PowerSequence`, and
-  `LatchUpTestPlan` domain objects.
-- Preserved generated IDs, group membership, plan dimensions, device-state assignments, and power timing references.
-- Preserved provisional stress points in test-plan metadata until the real stress-plan calculation is implemented.
-- Added optional integration tests against the supplied latch-up domain packages.
-
-- Added a runnable REALIS JSON-to-latch-up-project example that writes normalized generation definitions and packaged project artifacts.
-
-## Unreleased
-
-- Added `generate_project()` as the primary concrete generation workflow.
-- Made `LatchUpProjectWriter` the default concrete project format.
-- Added the `ProjectWriter` extension point for future custom project formats.
-- Updated concrete generation examples, including REALIS, to use the public `generate_project()` API.

@@ -11,11 +11,6 @@ from project_generation.generation.ganging import (
     SameVoltageGangingPolicy,
     get_ganging_policy,
 )
-from project_generation.infrastructure.latchup_project.latchup_adapter import (
-    adapt_to_latchup_project,
-    LatchUpProjectArtifacts,
-    LatchUpProjectCoreAdapter,
-)
 from project_generation.definition.models import ProjectGenerationDefinition
 from project_generation.generation.rules import (
     GroupPartition,
@@ -55,12 +50,7 @@ from project_generation.infrastructure.serialization.generated_project_json impo
 )
 from project_generation.definition.validation import validate_project_definition
 from project_generation.application.workflows import raise_for_diagnostics, replace_source_paths
-from project_generation.infrastructure.latchup_project.writer import safe_file_name, write_latchup_project_package
 from project_generation.application.ports import ProjectWriter
-from project_generation.infrastructure.latchup_project.writer import LatchUpProjectWriter
-
-DEFAULT_PROJECT_WRITER = LatchUpProjectWriter()
-
 
 def load_project_definition(path: str | pathlib.Path) -> ProjectGenerationDefinition:
     return ProjectGenerationDefinition.load(path)
@@ -93,8 +83,12 @@ def generate_project(
     else:
         generated = process_project_definition(definition)
 
-    project_writer_impl = project_writer or DEFAULT_PROJECT_WRITER
-    return project_writer_impl.write(generated, output_directory, project_metadata=project_metadata)
+    if project_writer is None:
+        from project_generation.infrastructure.latchup_project.writer import LatchUpProjectWriter
+
+        project_writer = LatchUpProjectWriter()
+
+    return project_writer.write(generated, output_directory, project_metadata=project_metadata)
 
 
 def write_json_schema(path: str | pathlib.Path) -> None:
@@ -102,12 +96,23 @@ def write_json_schema(path: str | pathlib.Path) -> None:
     path.write_text(json.dumps(ProjectGenerationDefinition.model_json_schema(), indent=2), encoding="utf-8")
 
 
+def __getattr__(name: str) -> Any:
+    if name in {"LatchUpProjectArtifacts", "LatchUpProjectCoreAdapter", "adapt_to_latchup_project"}:
+        from project_generation.infrastructure.latchup_project import latchup_adapter
+
+        return getattr(latchup_adapter, name)
+    if name in {"LatchUpProjectWriter", "safe_file_name", "write_latchup_project_package"}:
+        from project_generation.infrastructure.latchup_project import writer
+
+        return getattr(writer, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 __all__ = [
     "GangingCandidate",
     "generate_project",
     "ProjectWriter",
     "LatchUpProjectWriter",
-    "DEFAULT_PROJECT_WRITER",
     "LatchUpProjectArtifacts",
     "LatchUpProjectCoreAdapter",
     "GangingPolicy",
@@ -151,8 +156,8 @@ __all__ = [
     "validate_project_definition",
     "write_generated_project",
     "write_json_schema",
-    "raise_for_diagnostics",
-    "replace_source_paths",
     "safe_file_name",
     "write_latchup_project_package",
+    "raise_for_diagnostics",
+    "replace_source_paths",
 ]

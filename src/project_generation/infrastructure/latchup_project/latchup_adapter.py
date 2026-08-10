@@ -1,38 +1,14 @@
 import copy
-from dataclasses import MISSING, dataclass, fields
-from typing import Any, Callable, Mapping, TypeVar
+from dataclasses import dataclass
+from typing import Any, Mapping
+
+from project_generation.infrastructure.latchup_project import dut, latchup_test_plan
+
 from project_generation.diagnostics import ProjectGenerationError
 from project_generation.generation.models import GeneratedDeviceState, GeneratedProject, GeneratedTestPlan
-from project_generation.infrastructure.latchup_project.models import dut, latchup_test_plan
-
-T = TypeVar("T")
 
 
-def _value_or_dataclass_default(
-    values: Mapping[str, Any],
-    converter: Callable[[Any], T],
-    dataclass_type: type[Any],
-    field_name: str,
-    *candidates: str,
-) -> T:
-    for candidate in candidates:
-        if candidate in values:
-            return converter(values[candidate])
-
-    dataclass_field = next(field for field in fields(dataclass_type) if field.name == field_name)
-    if dataclass_field.default is not MISSING:
-        return converter(dataclass_field.default)
-    if dataclass_field.default_factory is not MISSING:
-        return converter(dataclass_field.default_factory())
-
-    candidate_names = ", ".join(candidates)
-    raise ValueError(
-        f'No value provided for "{field_name}" from candidates [{candidate_names}], '
-        f"and {dataclass_type.__name__}.{field_name} has no default"
-    )
-
-
-class LatchUpBindings:
+class Bindings:
     Designator = dut.Designator
     DevicePinType = dut.DevicePinType
     DeviceState = latchup_test_plan.DeviceState
@@ -64,407 +40,279 @@ class LatchUpProjectArtifacts:
     device_states: Mapping[str, Any]
 
 
-class LatchUpValueMapper:
+class LatchUpProjectCoreAdapter:
+    """Adapt a neutral GeneratedProject to latchup-project-core domain objects.
 
-    def __init__(self, bindings: LatchUpBindings) -> None:
-        self._bindings = bindings
+    Imports are intentionally lazy so project-generation remains usable without the
+    application domain package installed.
+    """
 
-    def matrix_assignment(self, value: str) -> Any:
-        normalized = {"GROUND": "GND", "FLOATING": "FLOAT"}.get(value.upper(), value.upper())
-        try:
-            return self._bindings.MatrixAssignment[normalized]
-        except KeyError as error:
-            raise ProjectGenerationError(
-                f'Cannot adapt power assignment "{value}" to latchup-project-core',
-                code="adapter.unsupported_assignment",
-                context={"assignment": value},
-            ) from error
-
-    def device_pin_type(self, value: str, *, group_name: str) -> Any:
-        try:
-            return self._bindings.DevicePinType(value.upper())
-        except ValueError as error:
-            raise ProjectGenerationError(
-                f'Cannot adapt group type "{value}" to latchup-project-core',
-                code="adapter.unsupported_group_type",
-                location=f"groups[{group_name}].group_type",
-                owner=group_name,
-            ) from error
-
-    def test_type(self, value: str) -> Any:
-        normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
-        aliases = {"SIGNAL": "SIGNAL_TEST", "SUPPLY": "SUPPLY_TEST", "ITEST": "I_TEST", "ETEST": "E_TEST"}
-        normalized = aliases.get(normalized, normalized)
-        try:
-            return self._bindings.LuTestType[normalized]
-        except KeyError as error:
-            raise ProjectGenerationError(
-                f'Cannot adapt test type "{value}" to latchup-project-core',
-                code="adapter.unsupported_test_type",
-                context={"test_type": value},
-            ) from error
-
-    def polarity(self, value: Any) -> Any:
-        return self._bindings.PolarityEnum(str(value).lower())
-
-    def logic_level(self, value: Any) -> Any:
-        return self._bindings.LogicLevelEnum(str(value).title())
-
-    def bias_parameters(self, values: Mapping[str, Any]) -> Any | None:
-        mode = str(values.get("mode", "")).lower()
-        if mode in {"ground", "floating", ""}:
-            return None
-        level = values.get("level")
-        compliance = values.get("compliance_limit", values.get("compliance"))
-        if level is None or compliance is None:
-            return None
-        return self._bindings.LatchUpBiasParameters(
-            bias_level=float(level), source_mode=mode, compliance_limit=float(compliance)
+    def build(self, project: GeneratedProject) -> LatchUpProjectArtifacts:
+        bindings = Bindings()
+        dut = self._build_dut(project, bindings)
+        groups_by_id = {group.pin_group_id: group for group in dut.pin_groups}
+        states = {
+            state.name: self._build_device_state(state, dut, groups_by_id, bindings)
+            for state in project.device_states
+        }
+        plans = tuple(
+            self._build_test_plan(
+                plan=plan,
+                project=project,
+                dut=dut,
+                groups_by_id=groups_by_id,
+                states=states,
+                bindings=bindings,
+            )
+            for plan in project.test_plans
+        )
+        return LatchUpProjectArtifacts(
+            dut=dut,
+            test_plans=plans,
+            device_states=states,
         )
 
+    @staticmethod
+    def _build_dut(project: GeneratedProject, bindings: Any) -> Any:
+        dut = bindings.Dut(name=project.dut_name or project.name)
+        for pin in project.pins:
+            pin.parameters["lu_pin_type"] = pin.parameters.pop("pin_type", None)
+            dut.pins.append(
+                bindings.Pin(
+                    id=bindings.PinID(str(pin.id)),
+                    designator=bindings.Designator(pin.designator),
+                    pin_name=pin.name,
+                    parameters=dict(pin.parameters),
+                )
+            )
+        for group in project.groups:
+            try:
+                group_type = bindings.DevicePinType(group.group_type.upper())
+            except ValueError as error:
+                raise ProjectGenerationError(
+                    f'Cannot adapt group type "{group.group_type}" to latchup-project-core',
+                    code="adapter.unsupported_group_type",
+                    location=f"groups[{group.name}].group_type",
+                    owner=group.name,
+                ) from error
+            dut.add_pin_group(
+                bindings.PinGroup(
+                    pin_group_id=bindings.PinGroupID(str(group.id)),
+                    name=group.name,
+                    pins=[bindings.PinID(str(pin_id)) for pin_id in group.pin_ids],
+                    group_type=group_type,
+                    matrix_assignment=bindings.MatrixAssignment.FLOAT,
+                )
+            )
+        return dut
 
-class LatchUpDutBuilder:
+    def _build_device_state(self, state: GeneratedDeviceState, dut: Any, groups_by_id: Mapping[Any, Any], bindings: Any) -> Any:
+        result = bindings.DeviceState(device_state_id=bindings.DeviceStateID(str(state.id)))
+        dut_descriptor = dut.descriptor()
+        descriptor_by_id = {group.group_id: group for group in dut_descriptor.test_groups}
+        for assignment in state.power_assignments:
+            group_id = bindings.PinGroupID(str(assignment.group_id))
+            group = groups_by_id[group_id]
+            matrix_assignment = _matrix_assignment(assignment.assignment, bindings)
+            if matrix_assignment == bindings.MatrixAssignment.GND:
+                result.ground_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.ground_pins)
+                continue
+            if matrix_assignment == bindings.MatrixAssignment.FLOAT:
+                result.floating_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.floating_pins)
+                continue
+            bias = _bias_parameters(assignment.bias, bindings)
+            result.power_domains.append(
+                bindings.PowerDomain(
+                    matrix_assignment=matrix_assignment,
+                    test_groups=[descriptor_by_id[group_id]],
+                    bias_config=bias,
+                )
+            )
 
-    def __init__(self, bindings: LatchUpBindings, value_mapper: LatchUpValueMapper) -> None:
-        self._bindings = bindings
-        self._value_mapper = value_mapper
+        result.set_power_sequence(self._build_power_sequence(state, bindings))
 
-    def build(self, project: GeneratedProject) -> Any:
-        result = self._bindings.Dut(name=project.dut_name or project.name)
-        self._add_pins(project, result)
-        self._add_pin_groups(project, result)
+        result.validate()
         return result
 
-    def _add_pins(self, project: GeneratedProject, result: Any) -> None:
-        for pin in project.pins:
-            parameters = dict(pin.parameters)
-            parameters["lu_pin_type"] = parameters.pop("pin_type", None)
-            result.pins.append(
-                self._bindings.Pin(
-                    id=self._bindings.PinID(str(pin.id)),
-                    designator=self._bindings.Designator(pin.designator),
-                    pin_name=pin.name,
-                    parameters=parameters,
-                )
-            )
-
-    def _add_pin_groups(self, project: GeneratedProject, result: Any) -> None:
-        for group in project.groups:
-            result.add_pin_group(
-                self._bindings.PinGroup(
-                    pin_group_id=self._bindings.PinGroupID(str(group.id)),
-                    name=group.name,
-                    pins=[self._bindings.PinID(str(pin_id)) for pin_id in group.pin_ids],
-                    group_type=self._value_mapper.device_pin_type(group.group_type, group_name=group.name),
-                    matrix_assignment=self._bindings.MatrixAssignment.FLOAT,
-                )
-            )
-
-
-class LatchUpPowerSequenceBuilder:
-
-    def __init__(self, bindings: LatchUpBindings, value_mapper: LatchUpValueMapper) -> None:
-        self._bindings = bindings
-        self._value_mapper = value_mapper
-
-    def build(self, state: GeneratedDeviceState) -> Any:
-        sequence = self._bindings.PowerSequence()
+    @staticmethod
+    def _build_power_sequence(state: GeneratedDeviceState, b: Any) -> Any:
+        sequence = b.PowerSequence()
         on_by_assignment = {step.assignment: step for step in state.power_on_sequence}
         off_by_assignment = {step.assignment: step for step in state.power_off_sequence}
-        for assignment in self._ordered_assignments(on_by_assignment, off_by_assignment):
+        ordered_assignments = list(on_by_assignment)
+        ordered_assignments.extend(value for value in off_by_assignment if value not in on_by_assignment)
+        for assignment in ordered_assignments:
+            on = on_by_assignment.get(assignment)
+            off = off_by_assignment.get(assignment)
             sequence.add_channel(
-                self._value_mapper.matrix_assignment(assignment),
-                power_on_timing=self._timing_info(on_by_assignment.get(assignment), on_by_assignment),
-                power_off_timing=self._timing_info(off_by_assignment.get(assignment), off_by_assignment),
+                _matrix_assignment(assignment, b),
+                power_on_timing=_timing_info(on, on_by_assignment, b),
+                power_off_timing=_timing_info(off, off_by_assignment, b),
             )
         return sequence
 
     @staticmethod
-    def _ordered_assignments(on_by_assignment: Mapping[str, Any], off_by_assignment: Mapping[str, Any]) -> list[str]:
-        assignments = list(on_by_assignment)
-        assignments.extend((assignment for assignment in off_by_assignment if assignment not in on_by_assignment))
-        return assignments
-
-    def _timing_info(self, step: Any, by_assignment: Mapping[str, Any]) -> Any:
-        if step is None:
-            return self._bindings.TimingInfo()
-        reference = None
-        if step.after is not None:
-            referenced = self._find_referenced_step(step.after, by_assignment)
-            if referenced is not None:
-                reference = self._value_mapper.matrix_assignment(referenced.assignment)
-        return self._bindings.TimingInfo(delay=step.delay, reference=reference)
-
-    @staticmethod
-    def _find_referenced_step(domain_name: str, by_assignment: Mapping[str, Any]) -> Any | None:
-        for candidate in by_assignment.values():
-            if candidate.domain_name == domain_name:
-                return candidate
-        return None
-
-
-class LatchUpDeviceStateBuilder:
-
-    def __init__(
-        self,
-        bindings: LatchUpBindings,
-        value_mapper: LatchUpValueMapper,
-        power_sequence_builder: LatchUpPowerSequenceBuilder,
-    ) -> None:
-        self._bindings = bindings
-        self._value_mapper = value_mapper
-        self._power_sequence_builder = power_sequence_builder
-
-    def build(self, state: GeneratedDeviceState, dut_object: Any, groups_by_id: Mapping[Any, Any]) -> Any:
-        result = self._bindings.DeviceState(device_state_id=self._bindings.DeviceStateID(str(state.id)))
-        dut_descriptor = dut_object.descriptor()
-        descriptor_by_id = {group.group_id: group for group in dut_descriptor.test_groups}
-        for assignment in state.power_assignments:
-            self._apply_power_assignment(
-                result=result,
-                assignment=assignment,
-                dut_descriptor=dut_descriptor,
-                groups_by_id=groups_by_id,
-                descriptor_by_id=descriptor_by_id,
-            )
-        result.set_power_sequence(self._power_sequence_builder.build(state))
-        result.validate()
-        return result
-
-    def _apply_power_assignment(
-        self,
-        *,
-        result: Any,
-        assignment: Any,
-        dut_descriptor: Any,
-        groups_by_id: Mapping[Any, Any],
-        descriptor_by_id: Mapping[Any, Any],
-    ) -> None:
-        group_id = self._bindings.PinGroupID(str(assignment.group_id))
-        group = groups_by_id[group_id]
-        matrix_assignment = self._value_mapper.matrix_assignment(assignment.assignment)
-        if matrix_assignment == self._bindings.MatrixAssignment.GND:
-            self._extend_unique_pins(result.ground_pins, group.pins, dut_descriptor)
-            return
-        if matrix_assignment == self._bindings.MatrixAssignment.FLOAT:
-            self._extend_unique_pins(result.floating_pins, group.pins, dut_descriptor)
-            return
-        result.power_domains.append(
-            self._bindings.PowerDomain(
-                matrix_assignment=matrix_assignment,
-                test_groups=[descriptor_by_id[group_id]],
-                bias_config=self._value_mapper.bias_parameters(assignment.bias),
-            )
-        )
-
-    @staticmethod
-    def _extend_unique_pins(target: list[Any], pin_ids: list[Any], dut_descriptor: Any) -> None:
-        for pin_id in pin_ids:
-            pin = dut_descriptor.get_pin(pin_id)
-            if pin not in target:
-                target.append(pin)
-
-
-class LatchUpStressParametersBuilder:
-
-    def __init__(self, bindings: LatchUpBindings) -> None:
-        self._bindings = bindings
-
-    def build(self, values: Mapping[str, Any], *, plan_name: str, group_name: str) -> Any:
-        source_mode = _value_or_dataclass_default(
-            values, str, self._bindings.LatchUpPulseParameters, "source_mode", "source_mode"
-        ).lower()
-        peak = self._required_value(values, "peak", "stress_voltage", "stress_current")
-        compliance = self._required_value(values, "compliance_limit", "compliance")
-        base = _value_or_dataclass_default(
-            values, float, self._bindings.LatchUpPulseParameters, "base", "base", "bias_level"
-        )
-        compliance_value = float(compliance)
-        bias_compliance = self._value_or_fallback(
-            values, float, compliance_value, "bias_compliance_limit", "bias_compliance"
-        )
-
-        return self._bindings.StressParameters(
-            bias_parameters=self._build_bias_parameters(
-                values=values, source_mode=source_mode, base=base, bias_compliance=bias_compliance
-            ),
-            pulse_parameters=self._build_pulse_parameters(
-                values=values, source_mode=source_mode, base=base, peak=float(peak), compliance=compliance_value
-            ),
-            pre_stress_delay=_value_or_dataclass_default(
-                values, float, self._bindings.StressParameters, "pre_stress_delay", "pre_stress_delay_s"
-            ),
-            post_stress_delay=_value_or_dataclass_default(
-                values, float, self._bindings.StressParameters, "post_stress_delay", "post_stress_delay_s"
-            ),
-            measure_duration=_value_or_dataclass_default(
-                values, float, self._bindings.StressParameters, "measure_duration", "measure_duration_s"
-            ),
-        )
-
-    def _build_bias_parameters(
-        self, *, values: Mapping[str, Any], source_mode: str, base: float, bias_compliance: float
-    ) -> Any:
-        bias_level = self._value_or_fallback(values, float, base, "bias_level")
-        return self._bindings.LatchUpBiasParameters(
-            bias_level=bias_level, source_mode=source_mode, compliance_limit=bias_compliance
-        )
-
-    def _build_pulse_parameters(
-        self, *, values: Mapping[str, Any], source_mode: str, base: float, peak: float, compliance: float
-    ) -> Any:
-        return self._bindings.LatchUpPulseParameters(
-            base=base,
-            peak=peak,
-            compliance_limit=compliance,
-            source_mode=source_mode,
-            pulse_width=_value_or_dataclass_default(
-                values, float, self._bindings.LatchUpPulseParameters, "pulse_width", "pulse_width", "hold_time"
-            ),
-            pulse_delay=_value_or_dataclass_default(
-                values, float, self._bindings.LatchUpPulseParameters, "pulse_delay", "pulse_delay"
-            ),
-        )
-
-    @staticmethod
-    def _required_value(values: Mapping[str, Any], *candidates: str) -> Any:
-        for candidate in candidates:
-            if candidate in values:
-                return values[candidate]
-        raise ValueError(f'None of the required values were provided: {", ".join(candidates)}')
-
-    @staticmethod
-    def _value_or_fallback(
-        values: Mapping[str, Any], converter: Callable[[Any], T], fallback: T, *candidates: str
-    ) -> T:
-        for candidate in candidates:
-            if candidate in values:
-                return converter(values[candidate])
-        return fallback
-
-
-class LatchUpStressPlanBuilder:
-
-    def __init__(self, bindings: LatchUpBindings, stress_parameters_builder: LatchUpStressParametersBuilder) -> None:
-        self._bindings = bindings
-        self._stress_parameters_builder = stress_parameters_builder
-
-    def build(self, plan: GeneratedTestPlan, dut_object: Any) -> Any | None:
-        descriptor_by_id = {group.group_id: group for group in dut_object.descriptor().test_groups}
-        stress_plan = self._bindings.StressPlan()
-        for test_group in plan.test_groups:
-            if not test_group.stress_points:
-                continue
-            group_id = self._bindings.PinGroupID(str(test_group.group_id))
-            descriptor = descriptor_by_id[group_id]
-            parameters = [
-                self._stress_parameters_builder.build(
-                    point.values, plan_name=plan.name, group_name=test_group.group_name
-                )
-                for point in test_group.stress_points
-            ]
-            stress_plan.set_stress_parameters(stress_group=descriptor, stress_parameters=parameters)
-        if not stress_plan:
-            return None
-        return stress_plan
-
-
-class LatchUpTestPlanBuilder:
-
-    def __init__(
-        self,
-        bindings: LatchUpBindings,
-        value_mapper: LatchUpValueMapper,
-        stress_plan_builder: LatchUpStressPlanBuilder,
-    ) -> None:
-        self._bindings = bindings
-        self._value_mapper = value_mapper
-        self._stress_plan_builder = stress_plan_builder
-
-    def build(
-        self,
-        *,
+    def _build_test_plan(
         plan: GeneratedTestPlan,
         project: GeneratedProject,
-        dut_object: Any,
+        dut: dut.Dut,
         groups_by_id: Mapping[Any, Any],
-        states: Mapping[str, Any],
-    ) -> Any:
-        test_groups = self._copy_test_groups(plan, groups_by_id)
+        states: Mapping[str, latchup_test_plan.DeviceState],
+        bindings: Bindings,
+    ) -> latchup_test_plan.LatchUpTestPlan:
+        test_groups = [copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
         test_pins = [pin for group in test_groups for pin in group.pins]
-        result = self._bindings.LatchUpTestPlan(
-            test_plan_id=plan.id,
-            name=plan.name,
-            test_pins=test_pins,
-            test_groups=test_groups,
-            device_info=dut_object.descriptor(),
-            test_type=self._value_mapper.test_type(plan.test_type),
-            metadata=self._build_metadata(plan, project),
-        )
-        self._apply_dimensions(result, plan)
-        self._apply_stress_plan(result, plan, dut_object)
-        self._apply_device_state(result, plan, states)
-        return result
-
-    def _copy_test_groups(self, plan: GeneratedTestPlan, groups_by_id: Mapping[Any, Any]) -> list[Any]:
-        return [copy.deepcopy(groups_by_id[self._bindings.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
-
-    @staticmethod
-    def _build_metadata(plan: GeneratedTestPlan, project: GeneratedProject) -> dict[str, Any]:
-        return {
+        metadata = {
             "generation_rule_id": plan.generation_rule_id,
             "dimensions": dict(plan.dimensions),
             "generated_project": project.name,
         }
-
-    def _apply_dimensions(self, result: Any, plan: GeneratedTestPlan) -> None:
+        result = bindings.LatchUpTestPlan(
+            test_plan_id=plan.id,
+            name=plan.name,
+            test_pins=test_pins,
+            test_groups=test_groups,
+            device_info=dut.descriptor(),
+            test_type=_test_type(plan.test_type, bindings),
+            metadata=metadata,
+        )
         polarity = plan.dimensions.get("polarity")
         if polarity is not None:
-            result.polarity = self._value_mapper.polarity(polarity)
+            result.polarity = bindings.PolarityEnum(str(polarity).lower())
         logic_level = plan.dimensions.get("logic_level")
         if logic_level is not None:
-            result.logic_level = self._value_mapper.logic_level(logic_level)
-
-    def _apply_stress_plan(self, result: Any, plan: GeneratedTestPlan, dut_object: Any) -> None:
-        stress_plan = self._stress_plan_builder.build(plan, dut_object)
-        if stress_plan is not None:
+            result.logic_level = bindings.LogicLevelEnum(str(logic_level).title())
+        if stress_plan := _build_stress_plan(plan, dut, bindings):
             result._stresses = stress_plan.stresses
+        if plan.device_state:
 
-    @staticmethod
-    def _apply_device_state(result: Any, plan: GeneratedTestPlan, states: Mapping[str, Any]) -> None:
-        if not plan.device_state:
-            return
-        result.device_state = copy.deepcopy(states[plan.device_state])
-        result.power_sequence = copy.deepcopy(states[plan.device_state].power_sequence())
+            result.device_state = copy.deepcopy(states[plan.device_state])
+            result.power_sequence = copy.deepcopy(states[plan.device_state].power_sequence())
+        return result
 
 
-class LatchUpProjectCoreAdapter:
+def _build_stress_plan(plan: GeneratedTestPlan, dut: dut.Dut, b: Bindings) -> latchup_test_plan.StressPlan | None:
+    descriptor_by_id = {group.group_id: group for group in dut.descriptor().test_groups}
+    stress_plan = b.StressPlan()
+    for test_group in plan.test_groups:
+        if not test_group.stress_points:
+            continue
+        group_id = b.PinGroupID(test_group.group_id)
+        descriptor = descriptor_by_id[group_id]
+        parameters = [
+            _stress_parameters(point.values, plan_name=plan.name, group_name=test_group.group_name, b=b)
+            for point in test_group.stress_points
+        ]
+        stress_plan.set_stress_parameters(stress_group=descriptor, stress_parameters=parameters)
+    return stress_plan if stress_plan else None
 
-    def __init__(self, *, bindings: LatchUpBindings | None = None) -> None:
-        self._bindings = bindings or LatchUpBindings()
-        value_mapper = LatchUpValueMapper(self._bindings)
-        power_sequence_builder = LatchUpPowerSequenceBuilder(self._bindings, value_mapper)
-        stress_parameters_builder = LatchUpStressParametersBuilder(self._bindings)
-        stress_plan_builder = LatchUpStressPlanBuilder(self._bindings, stress_parameters_builder)
-        self._dut_builder = LatchUpDutBuilder(self._bindings, value_mapper)
-        self._device_state_builder = LatchUpDeviceStateBuilder(self._bindings, value_mapper, power_sequence_builder)
-        self._test_plan_builder = LatchUpTestPlanBuilder(self._bindings, value_mapper, stress_plan_builder)
 
-    def build(self, project: GeneratedProject) -> LatchUpProjectArtifacts:
-        dut_object = self._dut_builder.build(project)
-        groups_by_id = {group.pin_group_id: group for group in dut_object.pin_groups}
-        states = {
-            state.name: self._device_state_builder.build(state, dut_object, groups_by_id)
-            for state in project.device_states
-        }
-        test_plans = tuple(
-            self._test_plan_builder.build(
-                plan=plan, project=project, dut_object=dut_object, groups_by_id=groups_by_id, states=states
-            )
-            for plan in project.test_plans
+def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name: str, b: Any) -> Any:
+    source_mode = str(values.get("source_mode", "voltage")).lower()
+    peak = values.get("peak", values.get("stress_voltage", values.get("stress_current")))
+    compliance = values.get("compliance_limit", values.get("compliance"))
+    if peak is None:
+        raise ProjectGenerationError(
+            f'Stress point for group "{group_name}" in plan "{plan_name}" does not define a stress level',
+            code="adapter.missing_stress_level",
+            location=f"test_plans[{plan_name}].test_groups[{group_name}].stress_points",
+            owner=plan_name,
+            context={"group": group_name, "values": dict(values)},
         )
-        return LatchUpProjectArtifacts(dut=dut_object, test_plans=test_plans, device_states=states)
+    if compliance is None:
+        raise ProjectGenerationError(
+            f'Stress point for group "{group_name}" in plan "{plan_name}" does not define compliance',
+            code="adapter.missing_stress_compliance",
+            location=f"test_plans[{plan_name}].test_groups[{group_name}].stress_points",
+            owner=plan_name,
+            context={"group": group_name, "values": dict(values)},
+        )
+
+    base = float(values.get("base", values.get("bias_level", 0.0)))
+    compliance = float(compliance)
+    pulse_width = float(values.get("pulse_width", values.get("hold_time", 0.010)))
+    pulse_delay = float(values.get("pulse_delay", 0.0))
+    bias_compliance = float(values.get("bias_compliance_limit", values.get("bias_compliance", compliance)))
+
+    bias_parameters = b.LatchUpBiasParameters(
+        bias_level=float(values.get("bias_level", base)),
+        source_mode=source_mode,
+        compliance_limit=bias_compliance,
+    )
+    pulse_parameters = b.LatchUpPulseParameters(
+        base=base,
+        peak=float(peak),
+        compliance_limit=compliance,
+        source_mode=source_mode,
+        pulse_width=pulse_width,
+        pulse_delay=pulse_delay,
+    )
+    return b.StressParameters(
+        bias_parameters=bias_parameters,
+        pulse_parameters=pulse_parameters,
+        pre_stress_delay=float(values.get("pre_stress_delay_s", 0.005)),
+        post_stress_delay=float(values.get("post_stress_delay_s", 0.005)),
+        measure_duration=float(values.get("measure_duration_s", 0.005)),
+    )
 
 
 def adapt_to_latchup_project(project: GeneratedProject) -> LatchUpProjectArtifacts:
     return LatchUpProjectCoreAdapter().build(project)
+
+
+def _matrix_assignment(value: str, b: Any) -> Any:
+    normalized = {"GROUND": "GND", "FLOATING": "FLOAT"}.get(value.upper(), value.upper())
+    try:
+        return b.MatrixAssignment[normalized]
+    except KeyError as error:
+        raise ProjectGenerationError(
+            f'Cannot adapt power assignment "{value}" to latchup-project-core',
+            code="adapter.unsupported_assignment",
+            context={"assignment": value},
+        ) from error
+
+
+def _bias_parameters(values: Mapping[str, Any], b: Any) -> Any | None:
+    mode = str(values.get("mode", "")).lower()
+    if mode in {"ground", "floating", ""}:
+        return None
+    level = values.get("level")
+    compliance = values.get("compliance_limit", values.get("compliance"))
+    if level is None or compliance is None:
+        return None
+    return b.LatchUpBiasParameters(
+        bias_level=float(level),
+        source_mode=mode,
+        compliance_limit=float(compliance),
+    )
+
+
+def _timing_info(step: Any, by_assignment: Mapping[str, Any], b: Any) -> Any:
+    if step is None:
+        return b.TimingInfo()
+    reference = None
+    if step.after is not None:
+        referenced = next((candidate for candidate in by_assignment.values() if candidate.domain_name == step.after), None)
+        if referenced is not None:
+            reference = _matrix_assignment(referenced.assignment, b)
+    return b.TimingInfo(delay=step.delay, reference=reference)
+
+
+def _test_type(value: str, b: Any) -> Any:
+    normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "SIGNAL": "SIGNAL_TEST",
+        "SUPPLY": "SUPPLY_TEST",
+        "ITEST": "I_TEST",
+        "ETEST": "E_TEST",
+    }
+    normalized = aliases.get(normalized, normalized)
+    try:
+        return b.LuTestType[normalized]
+    except KeyError as error:
+        raise ProjectGenerationError(
+            f'Cannot adapt test type "{value}" to latchup-project-core',
+            code="adapter.unsupported_test_type",
+            context={"test_type": value},
+        ) from error
+

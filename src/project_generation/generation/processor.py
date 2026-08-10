@@ -15,6 +15,7 @@ from project_generation.definition.models import (
     GroupGenerationRule,
     InlineSource,
     JsonSource,
+    JsonValue,
     ProjectGenerationDefinition,
     SourceDefinition,
     SourceFieldMapping,
@@ -36,6 +37,7 @@ from project_generation.generation.models import (
 )
 from project_generation.generation.rules import (
     GroupRecord,
+    StressPoint,
     candidate_context,
     expand_rule,
     expand_stress_parameters,
@@ -604,6 +606,7 @@ class ProjectGenerationProcessor:
             selected_groups = self._select_groups(groups, rule)
             plans.extend(
                 self._generate_test_plans_for_rule(
+                    definition=definition,
                     rule=rule,
                     groups=selected_groups,
                     device_states=states_by_name,
@@ -632,6 +635,7 @@ class ProjectGenerationProcessor:
     def _generate_test_plans_for_rule(
         self,
         *,
+        definition: ProjectGenerationDefinition,
         rule: TestPlanRuleDefinition,
         groups: list[GeneratedGroup],
         device_states: Mapping[str, GeneratedDeviceState],
@@ -677,7 +681,13 @@ class ProjectGenerationProcessor:
 
             values = dict(candidate.values)
             context = candidate_context(candidate)
-            name = render_value_template(values.get("name"), context, owner=f'test plan rule "{rule.id}" name')
+            name = render_value_template(
+                values.get("name"),
+                context,
+                owner=f'test plan rule "{rule.id}" name',
+                mappings=definition.mappings,
+                formatters=definition.formatters,
+            )
             test_type = values.get("test_type")
             if not test_type:
                 raise ProjectGenerationError(f'Test plan rule "{rule.id}" did not resolve test_type')
@@ -954,16 +964,57 @@ def render_group_name(
         raise ProjectGenerationError(f'Group name template references undefined field "{error.args[0]}"') from error
 
 
-def render_value_template(definition: Any, context: Mapping[str, Any], *, owner: str) -> str:
+def render_value_template(
+    definition: Any,
+    context: Mapping[str, Any],
+    *,
+    owner: str,
+    mappings: Mapping[str, Mapping[str, JsonValue]] | None = None,
+    formatters: Mapping[str, FormatterDefinition] | None = None,
+) -> str:
     if isinstance(definition, str):
         template = definition
+        fields: Mapping[str, Any] = {}
     elif isinstance(definition, Mapping) and isinstance(definition.get("template"), str):
         template = definition["template"]
+        fields = definition.get("fields", {})
+        if not isinstance(fields, Mapping):
+            raise ProjectGenerationError(f"{owner} fields must be an object")
     else:
         raise ProjectGenerationError(f"{owner} must be a string or template object")
 
+    field_values: dict[str, Any] = {}
+    for field_name, field_definition in fields.items():
+        if not isinstance(field_definition, Mapping):
+            raise ProjectGenerationError(f'{owner} field "{field_name}" must be an object')
+        source = field_definition.get("source")
+        if not isinstance(source, str):
+            raise ProjectGenerationError(f'{owner} field "{field_name}" must define source')
+        value = resolve_required_path(context, source, f'{owner} field "{field_name}"')
+
+        mapping_name = field_definition.get("mapping")
+        if mapping_name is not None:
+            try:
+                value = (mappings or {})[str(mapping_name)][str(value)]
+            except KeyError as error:
+                raise ProjectGenerationError(
+                    f'Value "{value}" is not present in mapping "{mapping_name}" for {owner} field "{field_name}"'
+                ) from error
+
+        formatter_name = field_definition.get("formatter")
+        if formatter_name is not None:
+            try:
+                formatter = (formatters or {})[str(formatter_name)]
+            except KeyError as error:
+                raise ProjectGenerationError(f'Unknown formatter "{formatter_name}" for {owner} field "{field_name}"') from error
+            value = apply_formatter(value, formatter)
+
+        field_values[str(field_name)] = value
+
     def replace(match: re.Match[str]) -> str:
         path = match.group(1)
+        if path in field_values:
+            return str(field_values[path])
         return str(resolve_required_path(context, path, owner))
 
     return _TEMPLATE_FIELD.sub(replace, template)

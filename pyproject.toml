@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "project-generation"
-version = "0.1.0"
+version = "0.2.0"
 description = "Declarative generation.json parsing, validation, and processing"
 requires-python = ">=3.11"
 dependencies = [
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "jsonschema>=4", "black>=23.0"]
+dev = ["pytest>=8", "jsonschema>=4"]
 excel = ["openpyxl>=3.1"]
 yaml = ["pyyaml"]
 latchup = ["dataclasses-json>=0.5"]
@@ -27,6 +27,3 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "-q"
-
-[tool.black]
-line-length = 120
