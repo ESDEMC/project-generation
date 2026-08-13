@@ -12,6 +12,7 @@ dependencies = [
     "dataclasses-json>=0.5",
     "pyyaml",
     "mashumaro",
+    "datamodel-code-generator>=0.72.4",
 ]
 
 [project.optional-dependencies]

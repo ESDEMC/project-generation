@@ -57,9 +57,9 @@ class PackageData:
 
 @dataclass(kw_only=True)
 class PinGroup(DataClassJsonMixin):
-    pin_group_id: uuid.UUID = field(default_factory=lambda: uuid.uuid4())
+    pin_group_id: PinGroupID = field(default_factory=lambda: PinGroupID(uuid.uuid4()))
     name: str
-    pins: list[uuid.UUID] = field(default_factory=list)
+    pins: list[PinID] = field(default_factory=list)
     group_type: DevicePinType = DevicePinType.NC
     matrix_assignment: MatrixAssignment = MatrixAssignment.FLOAT
     float_during_preconditioning: bool = False
@@ -89,6 +89,22 @@ class SignalTestGroup(TestGroup):
     negative_injection_voltage: list[float] | None = field(default_factory=list)
     sweep_method: SweepMethod = SweepMethod.SWEEP_SOURCE
 
+    @property
+    def v_max(self):
+        return self.v_max_op
+
+    @v_max.setter
+    def v_max(self, value):
+        self.v_max_op = value
+
+    @property
+    def v_min(self):
+        return self.v_min_op
+
+    @v_min.setter
+    def v_min(self, value):
+        self.v_min_op = value
+
 
 @dataclass(kw_only=True)
 class SupplyTestGroup(TestGroup):
@@ -102,10 +118,18 @@ class SupplyTestGroup(TestGroup):
     stress_all: bool = True
     sweep_method: SweepMethod = SweepMethod.SWEEP_SOURCE
 
+    @property
+    def v_max(self):
+        return self.v_max_sup
+
+    @v_max.setter
+    def v_max(self, value):
+        self.v_max_sup = value
+
 
 @dataclass(kw_only=True)
 class DutPin:
-    id: uuid.UUID = field(default_factory=uuid.uuid4)
+    id: PinID = field(default_factory=lambda: PinID(uuid.uuid4()))
     designator: str
     """Pin designator"""
     pin_name: str
@@ -149,7 +173,7 @@ class DeviceDescriptor(DataClassJsonMixin):
 
 @dataclass
 class Dut(DataClassJsonMixin):
-    device_id: uuid.UUID = field(default_factory=uuid.uuid4, init=False)
+    device_id: DeviceID = field(default_factory=lambda: DeviceID(uuid.uuid4()), init=False)
     name: str = ""
     pins: list[DutPin] = field(default_factory=list)
     package: PackageData = field(default_factory=PackageData)
@@ -166,13 +190,26 @@ class Dut(DataClassJsonMixin):
             text = f.read()
             return cls.from_json(text)
 
-    def add_pin_group(self, group) -> PinGroupID:
+    def create_pin_group(self, name: str, pins: list[PinID], group_type: DevicePinType = DevicePinType.NC, **kwargs):
         known = {pin.pin_id for pin in self.pins}
-        unknown = [pin for pin in group.pins if pin not in known]
+        unknown = [pin for pin in pins if pin not in known]
         if unknown:
-            raise ValueError(f"Unknown DUT pins in group {group.name!r}: {unknown}")
+            raise ValueError(f"Unknown DUT pins in group {name!r}: {unknown}")
+        if group_type.is_supply():
+            group = SupplyTestGroup(name=name, pins=pins, group_type=group_type, **kwargs)
+        elif group_type.is_signal():
+            group = SignalTestGroup(name=name, pins=pins, group_type=group_type, **kwargs)
+        else:
+            group = PinGroup(name=name, pins=pins, group_type=group_type, **kwargs)
         self.pin_groups.append(group)
         return group.pin_group_id
+
+
+    def get_pin_group(self, group_id: PinGroupID) -> SupplyTestGroup | SignalTestGroup | PinGroup:
+        for group in self.pin_groups:
+            if group.pin_group_id == group_id:
+                return group
+        raise ValueError(f"Pin group {group_id} not found")
 
     def descriptor(self) -> DeviceDescriptor:
         by_id = {

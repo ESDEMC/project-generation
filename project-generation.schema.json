@@ -495,7 +495,9 @@
           "type": "array"
         },
         "set": {
-          "additionalProperties": true,
+          "additionalProperties": {
+            "$ref": "#/$defs/SetValueDefinition"
+          },
           "title": "Set",
           "type": "object"
         },
@@ -971,6 +973,120 @@
       },
       "title": "TimingDefinition",
       "type": "object"
+    },
+    "ValueDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "type": "string"
+        },
+        "value": {},
+        "aggregate": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mapping": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "formatter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "cast": {
+          "anyOf": [
+            {
+              "enum": [
+                "float",
+                "int",
+                "str",
+                "bool"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "when": {
+          "additionalProperties": true,
+          "type": "object"
+        }
+      },
+      "title": "ValueDefinition",
+      "type": "object",
+      "oneOf": [
+        {
+          "required": [
+            "from"
+          ]
+        },
+        {
+          "required": [
+            "value"
+          ]
+        }
+      ]
+    },
+    "SetValueDefinition": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValueDefinition"
+        },
+        {
+          "items": {
+            "$ref": "#/$defs/ValueDefinition"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "string"
+        },
+        {
+          "type": "integer"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "items": {},
+          "type": "array"
+        }
+      ],
+      "title": "SetValueDefinition"
     }
   },
   "additionalProperties": false,

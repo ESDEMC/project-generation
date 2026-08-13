@@ -49,6 +49,7 @@ from project_generation.generation.validation import GenerateTestPlansRequest, V
 
 _PROJECT_GENERATION_NAMESPACE = uuid.UUID("b5cc252e-8608-4e8c-a03f-8ce6e5f55b43")
 _TEMPLATE_FIELD = re.compile(r"\{([^{}]+)}")
+_OMIT = object()
 
 class ProjectGenerationProcessor:
     def process(
@@ -873,38 +874,109 @@ def resolve_value_tree(
     definition: ProjectGenerationDefinition | None = None,
 ) -> Any:
     if isinstance(value, Mapping):
-        reference_keys = {"from", "aggregate", "mapping", "formatter"}
-        if "from" in value and set(value).issubset(reference_keys):
-            resolved = resolve_value_reference(value, context)
-            mapping_name = value.get("mapping")
-            if mapping_name:
-                if definition is None:
-                    raise ProjectGenerationError("Mapped value references require a project definition")
-                try:
-                    resolved = definition.mappings[str(mapping_name)][str(resolved)]
-                except KeyError as error:
-                    raise ProjectGenerationError(
-                        f'Value "{resolved}" is not present in mapping "{mapping_name}"'
-                    ) from error
-            formatter_name = value.get("formatter")
-            if formatter_name:
-                if definition is None:
-                    raise ProjectGenerationError("Formatted value references require a project definition")
-                try:
-                    formatter = definition.formatters[str(formatter_name)]
-                except KeyError as error:
-                    raise ProjectGenerationError(f'Unknown formatter "{formatter_name}"') from error
-                resolved = apply_formatter(resolved, formatter)
-            return resolved
+        if is_value_definition(value):
+            return resolve_value_definition(value, context, definition=definition)
 
         result: dict[str, Any] = {}
         for key, child in value.items():
             resolved = resolve_value_tree(child, context, definition=definition)
+            if resolved is _OMIT:
+                continue
             set_path(result, key, resolved)
         return result
+
     if isinstance(value, list):
-        return [resolve_value_tree(child, context, definition=definition) for child in value]
+        if is_conditional_value_definition_list(value):
+            for definition_entry in value:
+                resolved = resolve_value_definition(definition_entry, context, definition=definition)
+                if resolved is not _OMIT:
+                    return resolved
+            return _OMIT
+
+        resolved_items = [resolve_value_tree(child, context, definition=definition) for child in value]
+        return [item for item in resolved_items if item is not _OMIT]
+
     return value
+
+
+def is_value_definition(value: Mapping[str, Any]) -> bool:
+    definition_keys = {"from", "value", "aggregate", "mapping", "formatter", "cast", "when"}
+    if not set(value).issubset(definition_keys):
+        return False
+    return "from" in value or "value" in value
+
+
+def is_conditional_value_definition_list(value: list[Any]) -> bool:
+    if not value or not all(isinstance(item, Mapping) and is_value_definition(item) for item in value):
+        return False
+    return any("when" in item for item in value)
+
+
+def resolve_value_definition(
+    value: Mapping[str, Any],
+    context: Mapping[str, Any],
+    *,
+    definition: ProjectGenerationDefinition | None = None,
+) -> Any:
+    when = value.get("when")
+    if when is not None:
+        if not isinstance(when, Mapping):
+            raise ProjectGenerationError('Value definition "when" must be an object')
+        if not matches(when, context):
+            return _OMIT
+
+    if "from" in value:
+        resolved = resolve_value_reference(value, context)
+    else:
+        resolved = value.get("value")
+
+    mapping_name = value.get("mapping")
+    if mapping_name:
+        if definition is None:
+            raise ProjectGenerationError("Mapped value references require a project definition")
+        try:
+            resolved = definition.mappings[str(mapping_name)][str(resolved)]
+        except KeyError as error:
+            raise ProjectGenerationError(f'Value "{resolved}" is not present in mapping "{mapping_name}"') from error
+
+    cast_name = value.get("cast")
+    if cast_name:
+        resolved = cast_value(resolved, str(cast_name))
+
+    formatter_name = value.get("formatter")
+    if formatter_name:
+        if definition is None:
+            raise ProjectGenerationError("Formatted value references require a project definition")
+        try:
+            formatter = definition.formatters[str(formatter_name)]
+        except KeyError as error:
+            raise ProjectGenerationError(f'Unknown formatter "{formatter_name}"') from error
+        resolved = apply_formatter(resolved, formatter)
+
+    return resolved
+
+
+def cast_value(value: Any, cast_name: str) -> Any:
+    try:
+        if cast_name == "float":
+            return float(value)
+        if cast_name == "int":
+            return int(value)
+        if cast_name == "str":
+            return str(value)
+        if cast_name == "bool":
+            if isinstance(value, str):
+                normalized = value.strip().lower()
+                if normalized in {"true", "1", "yes", "on"}:
+                    return True
+                if normalized in {"false", "0", "no", "off"}:
+                    return False
+                raise ValueError(value)
+            return bool(value)
+    except (TypeError, ValueError) as error:
+        raise ProjectGenerationError(f'Cannot cast value "{value}" to {cast_name}') from error
+
+    raise ProjectGenerationError(f'Unsupported cast "{cast_name}"')
 
 
 def resolve_value_reference(reference: Mapping[str, Any], context: Mapping[str, Any]) -> Any:
@@ -925,12 +997,15 @@ def resolve_value_reference(reference: Mapping[str, Any], context: Mapping[str, 
 
     aggregate_name = str(aggregate)
     if aggregate_name == "min":
-        return min(values)
-    if aggregate_name == "max":
-        return max(values)
-    if aggregate_name == "first":
-        return values[0]
-    raise ProjectGenerationError(f'Unsupported aggregate "{aggregate_name}"')
+        value = min(values)
+    elif aggregate_name == "max":
+        value = max(values)
+    elif aggregate_name == "first":
+        value = values[0]
+    else:
+        raise ProjectGenerationError(f'Unsupported aggregate "{aggregate_name}"')
+
+    return value
 
 
 def merge_value_tree(target: dict[str, Any], source: Mapping[str, Any]) -> dict[str, Any]:

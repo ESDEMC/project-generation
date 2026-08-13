@@ -2,35 +2,40 @@ import copy
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from project_generation.infrastructure.latchup_project import dut, latchup_test_plan
+from project_generation.infrastructure.latchup_project import (
+    dut as dut_module,
+    latchup_test_plan as latchup_test_plan_module,
+)
 
 from project_generation.diagnostics import ProjectGenerationError
 from project_generation.generation.models import GeneratedDeviceState, GeneratedProject, GeneratedTestPlan
 
 
 class Bindings:
-    Designator = dut.Designator
-    DevicePinType = dut.DevicePinType
-    DeviceState = latchup_test_plan.DeviceState
-    DeviceStateID = latchup_test_plan.DeviceStateID
-    Dut = dut.Dut
-    LatchUpBiasParameters = latchup_test_plan.LatchUpBiasParameters
-    LatchUpPulseParameters = latchup_test_plan.LatchUpPulseParameters
-    LatchUpTestPlan = latchup_test_plan.LatchUpTestPlan
-    LogicLevelEnum = latchup_test_plan.LogicLevelEnum
-    LuTestType = latchup_test_plan.LuTestType
-    MatrixAssignment = latchup_test_plan.MatrixAssignment
-    Pin = dut.DutPin
-    PinGroup = dut.PinGroup
-    PinGroupID = dut.PinGroupID
-    PinID = dut.PinID
-    PolarityEnum = latchup_test_plan.PolarityEnum
-    PowerDomain = latchup_test_plan.PowerDomain
-    PowerSequence = latchup_test_plan.PowerSequence
-    StressParameters = latchup_test_plan.StressParameters
-    StressPlan = latchup_test_plan.StressPlan
-    TestPlanID = latchup_test_plan.TestPlanID
-    TimingInfo = latchup_test_plan.TimingInfo
+    Designator = dut_module.Designator
+    DevicePinType = dut_module.DevicePinType
+    DeviceState = latchup_test_plan_module.DeviceState
+    DeviceStateID = latchup_test_plan_module.DeviceStateID
+    Dut = dut_module.Dut
+    LatchUpBiasParameters = latchup_test_plan_module.LatchUpBiasParameters
+    LatchUpPulseParameters = latchup_test_plan_module.LatchUpPulseParameters
+    LatchUpTestPlan = latchup_test_plan_module.LatchUpTestPlan
+    LogicLevelEnum = latchup_test_plan_module.LogicLevelEnum
+    LuTestType = latchup_test_plan_module.LuTestType
+    MatrixAssignment = latchup_test_plan_module.MatrixAssignment
+    Pin = dut_module.DutPin
+    PinGroup = dut_module.PinGroup
+    PinGroupID = dut_module.PinGroupID
+    PinID = dut_module.PinID
+    PolarityEnum = latchup_test_plan_module.PolarityEnum
+    PowerDomain = latchup_test_plan_module.PowerDomain
+    PowerSequence = latchup_test_plan_module.PowerSequence
+    StressParameters = latchup_test_plan_module.StressParameters
+    StressPlan = latchup_test_plan_module.StressPlan
+    TestPlanID = latchup_test_plan_module.TestPlanID
+    TimingInfo = latchup_test_plan_module.TimingInfo
+
+TestGroupType = dut_module.SignalTestGroup | dut_module.SupplyTestGroup | dut_module.PinGroup
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -72,8 +77,8 @@ class LatchUpProjectCoreAdapter:
             device_states=states,
         )
 
-    @staticmethod
-    def _build_dut(project: GeneratedProject, bindings: Any) -> Any:
+    @classmethod
+    def _build_dut(cls, project: GeneratedProject, bindings: Any) -> Any:
         dut = bindings.Dut(name=project.dut_name or project.name)
         for pin in project.pins:
             pin.parameters["lu_pin_type"] = pin.parameters.pop("pin_type", None)
@@ -95,16 +100,31 @@ class LatchUpProjectCoreAdapter:
                     location=f"groups[{group.name}].group_type",
                     owner=group.name,
                 ) from error
-            dut.add_pin_group(
-                bindings.PinGroup(
-                    pin_group_id=bindings.PinGroupID(str(group.id)),
-                    name=group.name,
-                    pins=[bindings.PinID(str(pin_id)) for pin_id in group.pin_ids],
-                    group_type=group_type,
-                    matrix_assignment=bindings.MatrixAssignment.FLOAT,
-                )
+            group_type: Bindings.DevicePinType
+            group_id = dut.create_pin_group(
+                pin_group_id=bindings.PinGroupID(str(group.id)),
+                name=group.name,
+                pins=[bindings.PinID(str(pin_id)) for pin_id in group.pin_ids],
+                group_type=group_type,
+                matrix_assignment=bindings.MatrixAssignment.FLOAT,
             )
+            pin_group = dut.get_pin_group(group_id)
+
+            cls._apply_parameters(pin_group, copy.deepcopy(dict(group.parameters)))
+
         return dut
+
+    @staticmethod
+    def _apply_parameters(group: TestGroupType, parameters: dict[str, Any]) -> None:
+        if "v_max" in parameters:
+            group.v_max = parameters.pop("v_max")
+        if "v_min" in parameters:
+            parameters.pop("v_min")
+            group.v_min = 0.0
+        for key, value in parameters.items():
+            if hasattr(group, key):
+                setattr(group, key, value)
+
 
     def _build_device_state(self, state: GeneratedDeviceState, dut: Any, groups_by_id: Mapping[Any, Any], bindings: Any) -> Any:
         result = bindings.DeviceState(device_state_id=bindings.DeviceStateID(str(state.id)))
@@ -155,11 +175,11 @@ class LatchUpProjectCoreAdapter:
     def _build_test_plan(
         plan: GeneratedTestPlan,
         project: GeneratedProject,
-        dut: dut.Dut,
+        dut: Bindings.Dut,
         groups_by_id: Mapping[Any, Any],
-        states: Mapping[str, latchup_test_plan.DeviceState],
+        states: Mapping[str, Bindings.DeviceState],
         bindings: Bindings,
-    ) -> latchup_test_plan.LatchUpTestPlan:
+    ) -> Bindings.LatchUpTestPlan:
         test_groups = [copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
         test_pins = [pin for group in test_groups for pin in group.pins]
         metadata = {
@@ -191,7 +211,7 @@ class LatchUpProjectCoreAdapter:
         return result
 
 
-def _build_stress_plan(plan: GeneratedTestPlan, dut: dut.Dut, b: Bindings) -> latchup_test_plan.StressPlan | None:
+def _build_stress_plan(plan: GeneratedTestPlan, dut: Bindings.Dut, b: Bindings) -> Bindings.StressPlan | None:
     descriptor_by_id = {group.group_id: group for group in dut.descriptor().test_groups}
     stress_plan = b.StressPlan()
     for test_group in plan.test_groups:

@@ -85,10 +85,20 @@ groups:
       group_type:
         from: partition.parameters.pin_type
       parameters.v_max:
-        from: partition.parameters.v_max
-      parameters.v_min:
-        from: members.parameters.v_min
-        aggregate: min
+          from: partition.parameters.v_max
+          cast: float
+      parameters.v_min: 0.0
+      parameters.compliance_limit:
+        - when:
+            partition.parameters.pin_type: POWER
+          value: 0.2
+        - when:
+            partition.parameters.pin_type:
+              in:
+              - INPUT
+              - IO
+              - OUTPUT
+          value: 0.12
     name:
       template: '{prefix}{voltage}'
       fields:
@@ -98,6 +108,13 @@ groups:
         voltage:
           source: partition.parameters.v_max
           formatter: voltage_token
+#          when:
+#            partition.parameters.pin_type:
+#                in:
+#                - INPUT
+#                - IO
+#                - OUTPUT
+#                - POWER
 power_resources:
   DC1:
     role: STRESS
