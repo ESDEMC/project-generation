@@ -116,7 +116,25 @@ Instead of writing every group by hand, select pins and group them by metadata:
         "select": {
           "where": {"parameters.pin_type": {"in": ["INPUT", "OUTPUT", "POWER"]}}
         },
-        "group_by": ["parameters.pin_type", "parameters.v_max", "parameters.v_min"]
+        "group_by": ["parameters.pin_type", "parameters.v_max", "parameters.v_min"],
+        "set": {
+          "group_type": {"from": "partition.parameters.pin_type"},
+          "parameters.v_max": {"from": "partition.parameters.v_max"},
+          "parameters.v_min": {"from": "partition.parameters.v_min"}
+        },
+        "name": {
+          "template": "{prefix}{voltage}",
+          "fields": {
+            "prefix": {
+              "source": "partition.parameters.pin_type",
+              "mapping": "group_type_prefix"
+            },
+            "voltage": {
+              "source": "partition.parameters.v_max",
+              "formatter": "voltage_token"
+            }
+          }
+        }
       }
     ]
   }

@@ -22,7 +22,8 @@ model.
 Run semantic checks that are available before full processing:
 
 ```python
-from project_generation import load_project_definition, raise_for_diagnostics, validate_project_definition
+from project_generation import load_project_definition, validate_project_definition
+from project_generation.application.workflows import raise_for_diagnostics
 
 definition = load_project_definition("generation.yaml")
 raise_for_diagnostics(validate_project_definition(definition))

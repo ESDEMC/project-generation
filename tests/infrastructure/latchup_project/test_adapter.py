@@ -6,7 +6,8 @@ import pytest
 
 from project_generation.infrastructure.latchup_project.enums import LogicLevelEnum, LuTestType, MatrixAssignment, PolarityEnum
 
-from project_generation import adapt_to_latchup_project, process_project_definition
+from project_generation.infrastructure.latchup_project.latchup_adapter import adapt_to_latchup_project
+from project_generation import process_project_definition
 
 
 

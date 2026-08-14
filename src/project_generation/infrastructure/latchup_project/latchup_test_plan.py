@@ -185,6 +185,10 @@ class LatchUpTestPlan(DataClassJsonMixin):
     cool_time: float = 0.0
     metadata: dict = field(default_factory=dict)
 
+    @property
+    def stress_plan(self):
+        return StressPlan(stresses=self._stresses)
+
     def to_dict(self, **kwargs) -> dict:
         kwargs.setdefault("encode_json", True)
         data: dict = super().to_dict(**kwargs)

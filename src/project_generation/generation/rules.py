@@ -52,8 +52,14 @@ def expand_dimensions(dimensions: Iterable[DimensionDefinition]) -> list[tuple[d
         context: dict[str, Any] = {}
         values: dict[str, Any] = {}
         for dimension, selected_value in zip(dimensions, selected, strict=True):
-            context[dimension.name] = selected_value.value
-            deep_merge(values, expand_dotted_keys(selected_value.set))
+            if hasattr(selected_value, "value"):
+                dimension_value = selected_value.value
+                set_values = selected_value.set
+            else:
+                dimension_value = selected_value
+                set_values = {}
+            context[dimension.name] = dimension_value
+            deep_merge(values, expand_dotted_keys(set_values))
         combinations.append((context, values))
     return combinations
 
@@ -86,7 +92,7 @@ def expand_rule(rule: TestPlanRuleDefinition, groups: Iterable[GroupRecord]) -> 
             excluded = False
             plan_context = _candidate_context(partition, dimensions, values)
             for override in rule.overrides:
-                if override.scope.value != "plan":
+                if getattr(override.scope, "value", override.scope) != "plan":
                     continue
                 if matches(override.when, plan_context):
                     deep_merge(values, expand_dotted_keys(override.set))
@@ -118,7 +124,7 @@ def resolve_group_values_and_exclusion(
     excluded = False
     context = _candidate_context(candidate.partition, candidate.dimensions, values, group)
     for override in overrides:
-        if override.scope.value != "group":
+        if getattr(override.scope, "value", override.scope) != "group":
             continue
         if matches(override.when, context):
             deep_merge(values, expand_dotted_keys(override.set))

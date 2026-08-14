@@ -43,7 +43,8 @@ The generated package contains the `.Prj`, `.LuDut`, and `.LuTstPlan` files cons
 Definition validation can be run separately:
 
 ```python
-from project_generation import load_project_definition, raise_for_diagnostics, validate_project_definition
+from project_generation import load_project_definition, validate_project_definition
+from project_generation.application.workflows import raise_for_diagnostics
 
 definition = load_project_definition("examples/basics/explicit_project/generation.json")
 raise_for_diagnostics(validate_project_definition(definition))

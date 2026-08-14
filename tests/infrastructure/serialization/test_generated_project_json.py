@@ -3,6 +3,8 @@ import json
 from project_generation import (
     ProjectGenerationDefinition,
     ProjectGenerationProcessor,
+)
+from project_generation.infrastructure.serialization import (
     generated_project_to_dict,
     generated_project_to_json,
     write_generated_project,

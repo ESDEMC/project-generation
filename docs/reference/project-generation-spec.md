@@ -69,7 +69,7 @@ A project-generation definition may contain:
 
 - project metadata
 - reusable constants
-- reusable mappings, transforms, and formatters
+- reusable mappings and formatters
 - data sources
 - DUT and pin definitions
 - group-generation rules
@@ -189,15 +189,15 @@ Group names are generated from known group properties rather than parsed after c
 
 ```json
 {
-  "group_name": {
+  "name": {
     "template": "{prefix}{voltage}",
     "fields": {
       "prefix": {
-        "source": "group_type",
+        "source": "partition.parameters.pin_type",
         "mapping": "group_type_prefix"
       },
       "voltage": {
-        "source": "v_max",
+        "source": "partition.parameters.v_max",
         "formatter": "voltage_token"
       }
     }
@@ -209,9 +209,71 @@ Reusable mappings and formatters are declared globally.
 
 ```text
 mapping   -> value to value
-transform -> normalization or conversion
 formatter -> value to text
+cast      -> basic runtime type conversion
 ```
+
+A name field may include `when`. The condition uses the normal matching DSL. If it does not match, the field renders as an empty string;
+source resolution, mapping, and formatting are skipped for that field.
+
+### 7.3 Generated value assignment
+
+The `set` object on a group-generation rule writes values into the generated group. Dotted keys create nested paths.
+
+A scalar value is literal:
+
+```json
+{
+  "set": {
+    "parameters.v_min": 0.0
+  }
+}
+```
+
+A resolver object may obtain the value from generation context:
+
+```json
+{
+  "set": {
+    "group_type": {"from": "partition.parameters.pin_type"},
+    "parameters.v_max": {
+      "from": "partition.parameters.v_max",
+      "cast": "float"
+    }
+  }
+}
+```
+
+Resolver objects support `from` or `value`, plus optional `aggregate`, `mapping`, `formatter`, `cast`, and `when` fields where those
+operations are meaningful. Supported `cast` values are `float`, `int`, `str`, and `bool`.
+
+A target may contain an ordered list of resolver/value definitions. Such a list is interpreted as conditional alternatives when its
+items are value-definition objects. The first alternative whose `when` predicate matches is selected. An item without `when` is an
+unconditional fallback. If no item matches and no fallback exists, the target is omitted. Omission is distinct from explicitly resolving
+the literal value `null`.
+
+```json
+{
+  "set": {
+    "parameters.compliance_limit": [
+      {
+        "when": {"partition.parameters.pin_type": "POWER"},
+        "value": 0.2
+      },
+      {
+        "when": {
+          "partition.parameters.pin_type": {
+            "in": ["INPUT", "IO", "OUTPUT"]
+          }
+        },
+        "value": 0.12
+      }
+    ]
+  }
+}
+```
+
+Ordinary literal arrays remain arrays; a list is not automatically treated as conditional alternatives merely because it is a list.
 
 ## 8. Power resources and device states
 

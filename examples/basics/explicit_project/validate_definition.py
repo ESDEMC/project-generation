@@ -12,7 +12,9 @@ Use this while editing a generation definition to catch problems before generati
 
 import pathlib
 
-from project_generation import load_project_definition, raise_for_diagnostics, validate_project_definition
+from project_generation import load_project_definition, validate_project_definition
+from project_generation.application.workflows import raise_for_diagnostics
+
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 definition = load_project_definition(EXAMPLE_DIRECTORY / "generation.json")

@@ -20,7 +20,7 @@ Start here when installing, configuring, running, reviewing, or accepting a deli
 
 Useful repository files:
 
-- [JSON Schema](../project-generation.schema.json) — machine-readable schema for generation definitions.
+- [JSON Schema](../project-generation.schema.json) — authoritative machine-readable schema for generation definitions.
 - [Runnable examples](../examples/README.md) — self-contained Python examples and local input data.
 - [REALIS generation definition](../examples/real_world/realis/generation.yaml) — complete shared customer-data example.
 - [Changelog](../CHANGELOG.md) — implemented behavior by release.

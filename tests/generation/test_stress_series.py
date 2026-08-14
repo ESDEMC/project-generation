@@ -1,6 +1,9 @@
 import pytest
 
-from project_generation import expand_stress_parameters, generate_range
+from project_generation.generation.rules import (
+    expand_stress_parameters,
+    generate_range,
+)
 
 
 def test_inclusive_step_range() -> None:

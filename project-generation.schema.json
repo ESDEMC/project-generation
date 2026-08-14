@@ -44,7 +44,8 @@
             "type": "string"
           },
           "title": "Reserve",
-          "type": "array"
+          "type": "array",
+          "default": []
         },
         "ganging_policy": {
           "anyOf": [
@@ -98,10 +99,18 @@
         },
         "mapping": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/SourceFieldMapping"
+              }
+            ]
           },
           "title": "Mapping",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -130,7 +139,8 @@
             "$ref": "#/$defs/PowerDomainDefinition"
           },
           "title": "Power Domains",
-          "type": "array"
+          "type": "array",
+          "default": []
         },
         "allocation": {
           "anyOf": [
@@ -148,7 +158,8 @@
             "$ref": "#/$defs/DeviceStateRuleDefinition"
           },
           "title": "Rules",
-          "type": "array"
+          "type": "array",
+          "default": []
         }
       },
       "title": "DeviceStateDefinition",
@@ -206,7 +217,8 @@
             ]
           },
           "title": "Values",
-          "type": "array"
+          "type": "array",
+          "minItems": 1
         }
       },
       "required": [
@@ -225,7 +237,8 @@
         "set": {
           "additionalProperties": true,
           "title": "Set",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -305,10 +318,18 @@
         },
         "mapping": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/SourceFieldMapping"
+              }
+            ]
           },
           "title": "Mapping",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -338,7 +359,8 @@
         "parameters": {
           "additionalProperties": true,
           "title": "Parameters",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -386,7 +408,8 @@
         "dimensions": {
           "additionalProperties": true,
           "title": "Dimensions",
-          "type": "object"
+          "type": "object",
+          "default": {}
         },
         "device_state": {
           "anyOf": [
@@ -467,7 +490,8 @@
             "type": "string"
           },
           "title": "Fields",
-          "type": "array"
+          "type": "array",
+          "minItems": 1
         }
       },
       "required": [
@@ -485,7 +509,8 @@
           "type": "string"
         },
         "select": {
-          "$ref": "#/$defs/SelectionDefinition"
+          "$ref": "#/$defs/SelectionDefinition",
+          "default": {}
         },
         "group_by": {
           "items": {
@@ -499,7 +524,8 @@
             "$ref": "#/$defs/SetValueDefinition"
           },
           "title": "Set",
-          "type": "object"
+          "type": "object",
+          "default": {}
         },
         "name": {
           "$ref": "#/$defs/NameTemplateDefinition"
@@ -526,14 +552,16 @@
             "$ref": "#/$defs/ExplicitGroupDefinition"
           },
           "title": "Explicit",
-          "type": "array"
+          "type": "array",
+          "default": []
         },
         "generation": {
           "items": {
             "$ref": "#/$defs/GroupGenerationRule"
           },
           "title": "Generation",
-          "type": "array"
+          "type": "array",
+          "default": []
         }
       },
       "title": "GroupsDefinition",
@@ -626,10 +654,18 @@
         },
         "mapping": {
           "additionalProperties": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/SourceFieldMapping"
+              }
+            ]
           },
           "title": "Mapping",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -668,6 +704,19 @@
           ],
           "default": null,
           "title": "Formatter"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
         }
       },
       "required": [
@@ -688,7 +737,8 @@
             "$ref": "#/$defs/NameFieldDefinition"
           },
           "title": "Fields",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "required": [
@@ -726,7 +776,8 @@
         "set": {
           "additionalProperties": true,
           "title": "Set",
-          "type": "object"
+          "type": "object",
+          "default": {}
         },
         "exclude": {
           "default": false,
@@ -738,7 +789,24 @@
         "when"
       ],
       "title": "OverrideDefinition",
-      "type": "object"
+      "type": "object",
+      "if": {
+        "not": {
+          "required": [
+            "set"
+          ]
+        }
+      },
+      "then": {
+        "properties": {
+          "exclude": {
+            "const": true
+          }
+        },
+        "required": [
+          "exclude"
+        ]
+      }
     },
     "OverrideScope": {
       "enum": [
@@ -790,7 +858,32 @@
       "title": "PowerDomainDefinition",
       "type": "object"
     },
-    "PowerOnTimingDefinition": {
+    "PowerResourceDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "role": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "parameters": {
+          "additionalProperties": true,
+          "title": "Parameters",
+          "type": "object",
+          "default": {}
+        }
+      },
+      "title": "PowerResourceDefinition",
+      "type": "object"
+    },
+    "PowerSequenceTimingDefinition": {
       "additionalProperties": false,
       "properties": {
         "delay": {
@@ -811,13 +904,13 @@
           "title": "After"
         }
       },
-      "title": "PowerOnTimingDefinition",
+      "title": "PowerSequenceTimingDefinition",
       "type": "object"
     },
-    "PowerResourceDefinition": {
+    "ProjectMetadata": {
       "additionalProperties": false,
       "properties": {
-        "role": {
+        "name": {
           "anyOf": [
             {
               "type": "string"
@@ -827,35 +920,41 @@
             }
           ],
           "default": null,
-          "title": "Role"
+          "title": "Name"
         },
-        "parameters": {
-          "additionalProperties": true,
-          "title": "Parameters",
-          "type": "object"
-        }
-      },
-      "title": "PowerResourceDefinition",
-      "type": "object"
-    },
-    "ProjectMetadata": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "title": "Name",
-          "type": "string"
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source"
         },
         "metadata": {
           "additionalProperties": true,
           "title": "Metadata",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
-      "required": [
-        "name"
-      ],
       "title": "ProjectMetadata",
-      "type": "object"
+      "type": "object",
+      "if": {
+        "not": {
+          "required": [
+            "name"
+          ]
+        }
+      },
+      "then": {
+        "required": [
+          "source"
+        ]
+      }
     },
     "SelectionDefinition": {
       "additionalProperties": false,
@@ -863,17 +962,57 @@
         "where": {
           "additionalProperties": true,
           "title": "Where",
-          "type": "object"
+          "type": "object",
+          "default": {}
         }
       },
       "title": "SelectionDefinition",
+      "type": "object"
+    },
+    "SourceFieldMapping": {
+      "additionalProperties": false,
+      "properties": {
+        "from": {
+          "title": "From",
+          "type": "string"
+        },
+        "mapping": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mapping"
+        },
+        "formatter": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Formatter"
+        }
+      },
+      "required": [
+        "from"
+      ],
+      "title": "SourceFieldMapping",
       "type": "object"
     },
     "TestGroupsDefinition": {
       "additionalProperties": false,
       "properties": {
         "select": {
-          "$ref": "#/$defs/SelectionDefinition"
+          "$ref": "#/$defs/SelectionDefinition",
+          "default": {}
         },
         "partition": {
           "discriminator": {
@@ -912,7 +1051,8 @@
             "$ref": "#/$defs/TestPlanRuleDefinition"
           },
           "title": "Rules",
-          "type": "array"
+          "type": "array",
+          "default": []
         }
       },
       "title": "TestPlanGenerationDefinition",
@@ -933,7 +1073,8 @@
             "$ref": "#/$defs/DimensionDefinition"
           },
           "title": "Dimensions",
-          "type": "array"
+          "type": "array",
+          "default": []
         },
         "template": {
           "additionalProperties": true,
@@ -945,7 +1086,8 @@
             "$ref": "#/$defs/OverrideDefinition"
           },
           "title": "Overrides",
-          "type": "array"
+          "type": "array",
+          "default": []
         }
       },
       "required": [
@@ -962,7 +1104,18 @@
         "power_on": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PowerOnTimingDefinition"
+              "$ref": "#/$defs/PowerSequenceTimingDefinition"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "power_off": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PowerSequenceTimingDefinition"
             },
             {
               "type": "null"
@@ -1031,24 +1184,33 @@
           "default": null
         },
         "when": {
-          "additionalProperties": true,
-          "type": "object"
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
         }
       },
       "title": "ValueDefinition",
       "type": "object",
-      "oneOf": [
-        {
+      "if": {
+        "not": {
           "required": [
             "from"
           ]
-        },
-        {
-          "required": [
-            "value"
-          ]
         }
-      ]
+      },
+      "then": {
+        "required": [
+          "value"
+        ]
+      }
     },
     "SetValueDefinition": {
       "anyOf": [
@@ -1101,7 +1263,8 @@
     "constants": {
       "additionalProperties": true,
       "title": "Constants",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "mappings": {
       "additionalProperties": {
@@ -1109,14 +1272,16 @@
         "type": "object"
       },
       "title": "Mappings",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "formatters": {
       "additionalProperties": {
         "$ref": "#/$defs/FormatterDefinition"
       },
       "title": "Formatters",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "sources": {
       "additionalProperties": {
@@ -1145,7 +1310,8 @@
         ]
       },
       "title": "Sources",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "dut": {
       "anyOf": [
@@ -1159,36 +1325,42 @@
       "default": null
     },
     "groups": {
-      "$ref": "#/$defs/GroupsDefinition"
+      "$ref": "#/$defs/GroupsDefinition",
+      "default": {}
     },
     "power_resources": {
       "additionalProperties": {
         "$ref": "#/$defs/PowerResourceDefinition"
       },
       "title": "Power Resources",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "device_states": {
       "additionalProperties": {
         "$ref": "#/$defs/DeviceStateDefinition"
       },
       "title": "Device States",
-      "type": "object"
+      "type": "object",
+      "default": {}
     },
     "test_plans": {
       "items": {
         "$ref": "#/$defs/ExplicitTestPlanDefinition"
       },
       "title": "Test Plans",
-      "type": "array"
+      "type": "array",
+      "default": []
     },
     "test_plan_generation": {
-      "$ref": "#/$defs/TestPlanGenerationDefinition"
+      "$ref": "#/$defs/TestPlanGenerationDefinition",
+      "default": {}
     },
     "output": {
       "additionalProperties": true,
       "title": "Output",
-      "type": "object"
+      "type": "object",
+      "default": {}
     }
   },
   "required": [

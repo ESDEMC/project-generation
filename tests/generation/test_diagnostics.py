@@ -1,6 +1,10 @@
 import pytest
 
-from project_generation import ProjectGenerationDefinition, ProjectGenerationError, ProjectGenerationProcessor
+from project_generation import (
+    ProjectGenerationDefinition,
+    ProjectGenerationError,
+    ProjectGenerationProcessor,
+)
 
 
 def test_unknown_pin_source_has_structured_diagnostic() -> None:

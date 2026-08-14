@@ -1,5 +1,10 @@
 from tests.support.paths import STRESS_SERIES_AND_OVERRIDES
-from project_generation import GroupRecord, expand_rule, load_project_definition, resolve_group_values
+from project_generation.generation.rules import (
+    GroupRecord,
+    expand_rule,
+    resolve_group_values,
+)
+from project_generation import load_project_definition
 
 
 def test_dynamic_dimensions_and_overrides() -> None:

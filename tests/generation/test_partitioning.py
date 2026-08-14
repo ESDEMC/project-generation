@@ -1,5 +1,9 @@
 from tests.support.paths import GROUPED_BY_TYPE_AND_VOLTAGE
-from project_generation import GroupRecord, load_project_definition, partition_groups
+from project_generation.generation.rules import (
+    GroupRecord,
+    partition_groups,
+)
+from project_generation import load_project_definition
 
 
 def test_group_by_partition() -> None:

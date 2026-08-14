@@ -1,7 +1,11 @@
 from tests.support.paths import DEVICE_STATES_AND_POWER_ALLOCATION, EXAMPLES, EXPLICIT_PROJECT
 import pytest
 
-from project_generation import ProjectGenerationError, ProjectGenerationDefinition, ProjectGenerationProcessor
+from project_generation import (
+    ProjectGenerationError,
+    ProjectGenerationDefinition,
+    ProjectGenerationProcessor,
+)
 
 
 def test_explicit_power_domains_and_plan_reference_are_resolved() -> None:

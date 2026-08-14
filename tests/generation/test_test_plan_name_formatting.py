@@ -1,4 +1,8 @@
-from project_generation import ProjectGenerationProcessor, load_project_definition, replace_source_paths
+from project_generation import (
+    ProjectGenerationProcessor,
+    load_project_definition,
+)
+from project_generation.application.workflows import replace_source_paths
 from tests.support.paths import REALIS
 
 

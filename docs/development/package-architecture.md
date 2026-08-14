@@ -9,8 +9,9 @@ project_generation/
 ├── __init__.py
 ├── diagnostics.py
 ├── definition/
-│   ├── models.py
-│   └── validation.py
+│   ├── generated_models.py       Generated from project-generation.schema.json
+│   ├── models.py                 Stable facade and semantic model behavior
+│   └── validation.py             Diagnostic definition validation
 ├── generation/
 │   ├── models.py
 │   ├── processor.py
@@ -37,11 +38,28 @@ project_generation/
 
 Put code here when it describes or validates what a user can declare in a generation JSON/YAML file, for example:
 
-- Pydantic definition models;
+- the authoritative `project-generation.schema.json` structure;
+- generated Pydantic definition models;
 - source, rule, mapping, state, or power-resource configuration;
-- semantic validation of a definition.
+- handwritten semantic model behavior; and
+- semantic/diagnostic validation of a definition.
 
 It should not know how a generated project is serialized or written for Latch-Up.
+
+The definition model split is intentional:
+
+```text
+project-generation.schema.json
+        ↓  scripts/build_models.py
+src/project_generation/definition/generated_models.py
+        ↓
+src/project_generation/definition/models.py
+```
+
+`generated_models.py` contains structural Pydantic classes and may be replaced at any time. `models.py` imports the generated classes,
+defines stable aliases/unions used by the rest of the package, and subclasses the generated root model to add handwritten semantic
+behavior, including `load()`. Code outside `definition` should normally import definition types from `definition.models`, not directly from
+`generated_models`.
 
 ## `generation`
 

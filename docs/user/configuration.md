@@ -238,6 +238,95 @@ Use a generation rule when the same grouping rule applies repeatedly:
 }
 ```
 
+### Set generated values
+
+A group rule's `set` object writes resolved values into the generated group. Keys may use dotted paths such as
+`parameters.v_max`.
+
+A scalar is a literal value:
+
+```json
+{
+  "set": {
+    "parameters.v_min": 0.0
+  }
+}
+```
+
+Use `from` to resolve a value from the current generation context. A resolved value can also be cast to a basic type:
+
+```json
+{
+  "set": {
+    "group_type": {"from": "partition.parameters.pin_type"},
+    "parameters.v_max": {
+      "from": "partition.parameters.v_max",
+      "cast": "float"
+    }
+  }
+}
+```
+
+Supported casts are `float`, `int`, `str`, and `bool`. Mappings and formatters may also be applied to resolved values where
+appropriate.
+
+A `set` target can select from ordered conditional alternatives. The first entry whose `when` condition matches is used:
+
+```json
+{
+  "set": {
+    "parameters.compliance_limit": [
+      {
+        "when": {"partition.parameters.pin_type": "POWER"},
+        "value": 0.2
+      },
+      {
+        "when": {
+          "partition.parameters.pin_type": {
+            "in": ["INPUT", "IO", "OUTPUT"]
+          }
+        },
+        "value": 0.12
+      }
+    ]
+  }
+}
+```
+
+The conditions use the same path-key matching syntax as selections, device-state rules, and overrides. An alternative without `when` may
+be used as the final fallback. If no alternative matches and there is no fallback, that target is omitted rather than being set to
+`null`. A literal `null` remains valid when it is explicitly selected.
+
+### Conditional generated-name fields
+
+Name-template fields can also have `when`. If the condition does not match, that field contributes an empty string to the template.
+This allows one template to name different group types without creating separate rules:
+
+```json
+{
+  "name": {
+    "template": "{prefix}{voltage}",
+    "fields": {
+      "prefix": {
+        "source": "partition.parameters.pin_type",
+        "mapping": "group_type_prefix"
+      },
+      "voltage": {
+        "source": "partition.parameters.v_max",
+        "formatter": "voltage_token",
+        "when": {
+          "partition.parameters.pin_type": {
+            "in": ["INPUT", "IO", "OUTPUT"]
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+A POWER partition can render only `{prefix}`, while INPUT/IO/OUTPUT partitions include the formatted voltage suffix.
+
 ### Mix explicit and generated groups
 
 The two styles can be combined. A common pattern is to keep a special group explicit and generate the repetitive groups:

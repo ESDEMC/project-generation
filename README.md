@@ -93,7 +93,7 @@ A typical change should follow this order:
 
 1. Change the most specific implementation area (`definition`, `generation`, `application`, or `infrastructure`).
 2. Add or update tests in the matching test package.
-3. If the generation-file schema changed, regenerate `project-generation.schema.json`.
+3. If the generation-file format changed, edit `project-generation.schema.json` and rebuild the definition models with `python scripts/build_models.py`.
 4. Update the relevant end-user documentation and focused example if behavior visible to users changed.
 5. Update [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -115,7 +115,8 @@ project_path = generate_project("generation.json", "generated")
 For definition validation without generation:
 
 ```python
-from project_generation import load_project_definition, raise_for_diagnostics, validate_project_definition
+from project_generation import load_project_definition, validate_project_definition
+from project_generation.application.workflows import raise_for_diagnostics
 
 definition = load_project_definition("generation.json")
 raise_for_diagnostics(validate_project_definition(definition))
@@ -196,16 +197,21 @@ Documentation tests verify local links and fenced JSON examples.
 
 ## Schema changes
 
-The public schema is generated from `ProjectGenerationDefinition`:
+`project-generation.schema.json` is the source of truth for the public generation-file structure. The Pydantic definition models are
+generated from that schema; do not hand-edit `src/project_generation/definition/generated_models.py`.
 
-```python
-from project_generation import write_json_schema
+After changing the schema, rebuild the definition models:
 
-write_json_schema("project-generation.schema.json")
+```bash
+python scripts/build_models.py
 ```
 
-After changing definition models, regenerate the schema and run the schema/documentation tests. Do not manually maintain a divergent JSON
-Schema.
+The build script generates a temporary model file, checks that the required definition classes exist, installs the generated file, and
+runs an import/processing smoke test. If verification fails, the previous generated model file is restored.
+
+Handwritten behavior that is not purely structural belongs in `src/project_generation/definition/models.py` or
+`src/project_generation/definition/validation.py`, not in the generated file. After rebuilding, run the full test suite and update the
+configuration/specification docs and examples for any user-visible format change.
 
 ## Project status
 

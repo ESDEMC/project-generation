@@ -1,6 +1,10 @@
 import pytest
 
-from project_generation import ProjectGenerationDefinition, ProjectGenerationError, ProjectGenerationProcessor
+from project_generation import (
+    ProjectGenerationDefinition,
+    ProjectGenerationError,
+    ProjectGenerationProcessor,
+)
 
 
 def _definition(power_domains: list[dict]) -> ProjectGenerationDefinition:

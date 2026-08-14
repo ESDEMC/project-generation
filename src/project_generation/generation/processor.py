@@ -838,7 +838,7 @@ def apply_record_mapping(
             value_mapping_name = None
             formatter_name = None
         else:
-            source_path = field_mapping.from_
+            source_path = get_aliased_field_value(field_mapping, "from")
             value_mapping_name = field_mapping.mapping
             formatter_name = field_mapping.formatter
 
@@ -860,6 +860,27 @@ def apply_record_mapping(
     return result
 
 
+
+def normalize_definition_value(value: Any) -> Any:
+    if hasattr(value, "root") and type(value).__name__.endswith("Definition"):
+        return normalize_definition_value(value.root)
+    if hasattr(value, "model_dump"):
+        return value.model_dump(by_alias=True, exclude_unset=True)
+    return value
+
+
+def get_aliased_field_value(model: Any, alias: str) -> Any:
+    attribute_name = f"{alias}_"
+    if hasattr(model, attribute_name):
+        return getattr(model, attribute_name)
+    if hasattr(model, alias):
+        return getattr(model, alias)
+    if hasattr(model, "model_dump"):
+        values = model.model_dump(by_alias=True)
+        if alias in values:
+            return values[alias]
+    raise ProjectGenerationError(f'Model {type(model).__name__} does not define field "{alias}"')
+
 def build_partition_context(fields: list[str], key: tuple[Any, ...]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for field, value in zip(fields, key, strict=True):
@@ -873,6 +894,8 @@ def resolve_value_tree(
     *,
     definition: ProjectGenerationDefinition | None = None,
 ) -> Any:
+    value = normalize_definition_value(value)
+
     if isinstance(value, Mapping):
         if is_value_definition(value):
             return resolve_value_definition(value, context, definition=definition)
@@ -907,9 +930,11 @@ def is_value_definition(value: Mapping[str, Any]) -> bool:
 
 
 def is_conditional_value_definition_list(value: list[Any]) -> bool:
-    if not value or not all(isinstance(item, Mapping) and is_value_definition(item) for item in value):
+    normalized = [normalize_definition_value(item) for item in value]
+    if not normalized or not all(isinstance(item, Mapping) and is_value_definition(item) for item in normalized):
         return False
-    return any("when" in item for item in value)
+    value[:] = normalized
+    return any("when" in item for item in normalized)
 
 
 def resolve_value_definition(
@@ -1024,6 +1049,11 @@ def render_group_name(
 ) -> str:
     values: dict[str, str] = {}
     for field_name, field in rule.name.fields.items():
+        when = getattr(field, "when", None)
+        if when is not None and not matches(when, context):
+            values[field_name] = ""
+            continue
+
         value = resolve_required_path(context, field.source, f'group name field "{field_name}"')
         if field.mapping:
             try:

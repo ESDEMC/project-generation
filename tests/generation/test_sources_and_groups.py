@@ -8,9 +8,11 @@ from project_generation import (
     ProjectGenerationDefinition,
     ProjectGenerationError,
     ProjectGenerationProcessor,
-    apply_record_mapping,
     load_project_definition,
     process_project_definition,
+)
+from project_generation.generation.processor import (
+    apply_record_mapping,
     select_json_records,
 )
 

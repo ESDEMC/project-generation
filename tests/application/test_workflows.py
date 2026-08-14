@@ -3,9 +3,12 @@ import pathlib
 
 import pytest
 
-from project_generation import load_project_definition, raise_for_diagnostics, replace_source_paths, validate_project_definition
+from project_generation import (
+    load_project_definition,
+    validate_project_definition,
+)
+from project_generation.application.workflows import raise_for_diagnostics, replace_source_paths
 from project_generation.diagnostics import GenerationDiagnostic, GenerationDiagnostics, DiagnosticSeverity, ProjectGenerationError
-
 
 
 def test_replace_source_paths_returns_updated_copy() -> None:
@@ -56,7 +59,11 @@ def test_generate_project_accepts_custom_format(tmp_path: pathlib.Path) -> None:
     from collections.abc import Mapping
     from typing import Any
 
-    from project_generation import GeneratedProject, ProjectWriter, generate_project
+    from project_generation import (
+        GeneratedProject,
+        ProjectWriter,
+        generate_project,
+    )
 
     class TextProjectWriter(ProjectWriter):
         def write(

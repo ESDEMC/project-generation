@@ -2,7 +2,10 @@ import pathlib
 
 import pytest
 
-from project_generation import load_project_definition, validate_project_definition
+from project_generation import (
+    load_project_definition,
+    validate_project_definition,
+)
 from tests.support.paths import EXAMPLES
 
 DEFINITIONS = sorted([*EXAMPLES.rglob("generation.json"), *EXAMPLES.rglob("generation.yaml")])

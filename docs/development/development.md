@@ -27,23 +27,33 @@ overrides, stress expansion, serialization, diagnostics, schema behavior, and th
 
 Tests should not depend on the process working directory. Resolve fixtures and examples relative to the test module or repository location.
 
-## Update the JSON Schema
+## Update the definition schema and models
 
-The public schema is generated from `ProjectGenerationDefinition`:
+The public JSON Schema is authoritative. Definition model structure is generated from `project-generation.schema.json` into
+`src/project_generation/definition/generated_models.py`.
 
-```python
-from project_generation import write_json_schema
+When changing the generation-file format:
 
-write_json_schema("project-generation.schema.json")
+1. edit `project-generation.schema.json`;
+2. rebuild the Pydantic models;
+3. run the full test suite;
+4. update the format specification and configuration guide;
+5. update examples affected by the change; and
+6. record user-visible behavior in `CHANGELOG.md`.
+
+Rebuild with:
+
+```bash
+python scripts/build_models.py
 ```
 
-After changing the definition model:
+Do not edit `generated_models.py` directly. It is disposable output. `definition/models.py` is the stable facade for handwritten
+semantic validation, convenience aliases, and `ProjectGenerationDefinition.load()`. `definition/validation.py` contains diagnostic
+validation that does not belong in the structural schema.
 
-1. regenerate `project-generation.schema.json`;
-2. run schema tests;
-3. update the format specification and configuration guide;
-4. update examples affected by the change; and
-5. record user-visible behavior in `CHANGELOG.md`.
+`build_models.py` verifies the generated file before accepting it. In addition to compiling the file and checking required classes, it
+runs a processing smoke test against the package. If the new generated models break that contract, the previous generated file is
+restored and the command fails.
 
 ## Add a source mapping
 

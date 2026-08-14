@@ -20,11 +20,10 @@ import pathlib
 
 from project_generation import (
     load_project_definition,
-    raise_for_diagnostics,
-    replace_source_paths,
     validate_project_definition,
     generate_project,
 )
+from project_generation.application.workflows import raise_for_diagnostics, replace_source_paths
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"

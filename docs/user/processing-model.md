@@ -64,6 +64,11 @@ Normalizing both values to the same result prevents later group and test-plan ru
 Group processing occurs after pins are normalized. Explicit groups resolve their pin references directly. Generation rules select pins,
 partition them by configured fields, derive group values, and render group names.
 
+A generated value may be literal, resolved from the current partition/context, cast to a basic type, or selected from ordered conditional
+alternatives. Conditional alternatives use the same matching DSL as selections and overrides; the first matching alternative wins. If no
+alternative matches and there is no fallback, that target is omitted. Name fields may also be conditional; a nonmatching field contributes
+an empty string to the template.
+
 Member aggregation can derive a single group value from all pins in a partition. The final group retains concrete pin IDs rather than the
 original source selectors.
 

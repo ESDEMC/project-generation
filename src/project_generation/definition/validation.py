@@ -86,7 +86,8 @@ def _validate_rules(definition: ProjectGenerationDefinition, diagnostics: Genera
         dimensions = {dimension.name for dimension in rule.dimensions}
         for dimension_index, dimension in enumerate(rule.dimensions):
             for value_index, value in enumerate(dimension.values):
-                state_name = _find_path(value.set, "device_state")
+                set_values = value.set if hasattr(value, "set") else {}
+                state_name = _find_path(set_values, "device_state")
                 if isinstance(state_name, str) and state_name not in definition.device_states:
                     _error(
                         diagnostics,
