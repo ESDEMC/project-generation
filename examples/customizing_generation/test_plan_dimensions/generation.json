@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "Test Plan Dimensions Demo"
+  },
+  "dut": {
+    "name": "Dimension DUT",
+    "pins": {
+      "source": {
+        "type": "inline",
+        "records": [
+          {
+            "designator": "1",
+            "name": "IN_A",
+            "parameters": {
+              "pin_type": "INPUT",
+              "v_max": 5.0,
+              "v_min": 0.0
+            }
+          },
+          {
+            "designator": "2",
+            "name": "IN_B",
+            "parameters": {
+              "pin_type": "INPUT",
+              "v_max": 5.0,
+              "v_min": 0.0
+            }
+          },
+          {
+            "designator": "3",
+            "name": "OUT_A",
+            "parameters": {
+              "pin_type": "OUTPUT",
+              "v_max": 3.3,
+              "v_min": 0.0
+            }
+          }
+        ]
+      }
+    }
+  },
+  "groups": {
+    "explicit": [
+      {
+        "name": "IN_A",
+        "group_type": "INPUT",
+        "pins": [
+          "1"
+        ],
+        "parameters": {
+          "v_max": 5.0,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "IN_B",
+        "group_type": "INPUT",
+        "pins": [
+          "2"
+        ],
+        "parameters": {
+          "v_max": 5.0,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "OUT_A",
+        "group_type": "OUTPUT",
+        "pins": [
+          "3"
+        ],
+        "parameters": {
+          "v_max": 3.3,
+          "v_min": 0.0
+        }
+      }
+    ]
+  },
+  "test_plan_generation": {
+    "rules": [
+      {
+        "id": "signal_tests",
+        "groups": {
+          "select": {
+            "where": {
+              "group_type": {
+                "in": [
+                  "INPUT",
+                  "OUTPUT"
+                ]
+              }
+            }
+          },
+          "partition": {
+            "mode": "each"
+          }
+        },
+        "dimensions": [
+          {
+            "name": "logic_level",
+            "values": [
+              "LOW",
+              "HIGH"
+            ]
+          },
+          {
+            "name": "polarity",
+            "values": [
+              "POSITIVE",
+              "NEGATIVE"
+            ]
+          }
+        ],
+        "template": {
+          "test_type": "SIGNAL",
+          "name": {
+            "template": "{group.name}_{logic_level}_{polarity}"
+          },
+          "stress_parameters": {
+            "stress_voltage": 5.0,
+            "compliance": 0.1
+          }
+        }
+      }
+    ]
+  }
+}

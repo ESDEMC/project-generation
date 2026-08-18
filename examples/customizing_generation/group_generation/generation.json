@@ -1,0 +1,61 @@
+{
+  "schema_version": "1.0",
+  "project": {"name": "Group Generation Demo"},
+  "mappings": {
+    "group_type_prefix": {
+      "INPUT": "IN",
+      "OUTPUT": "OUT",
+      "POWER": "SU"
+    }
+  },
+  "formatters": {
+    "voltage_token": {
+      "type": "decimal_token",
+      "separator": "V",
+      "decimal_places": 1
+    }
+  },
+  "dut": {
+    "name": "Group Generation DUT",
+    "pins": {
+      "source": {
+        "type": "inline",
+        "records": [
+          {"designator": "1", "name": "VDD", "parameters": {"pin_type": "POWER", "v_max": 5.5, "v_min": 0.0}},
+          {"designator": "2", "name": "IN_A", "parameters": {"pin_type": "INPUT", "v_max": 5.5, "v_min": 0.0}},
+          {"designator": "3", "name": "IN_B", "parameters": {"pin_type": "INPUT", "v_max": 5.5, "v_min": 0.0}},
+          {"designator": "4", "name": "OUT_A", "parameters": {"pin_type": "OUTPUT", "v_max": 3.3, "v_min": 0.0}},
+          {"designator": "5", "name": "GND", "parameters": {"pin_type": "GROUND", "v_max": 0.0, "v_min": 0.0}}
+        ]
+      }
+    }
+  },
+  "groups": {
+    "explicit": [
+      {"name": "GND", "group_type": "GROUND", "pins": ["5"]}
+    ],
+    "generation": [
+      {
+        "id": "groups_by_type_and_voltage",
+        "select": {
+          "where": {
+            "parameters.pin_type": {"in": ["INPUT", "OUTPUT", "POWER"]}
+          }
+        },
+        "group_by": ["parameters.pin_type", "parameters.v_max", "parameters.v_min"],
+        "set": {
+          "group_type": {"from": "partition.parameters.pin_type"},
+          "parameters.v_max": {"from": "partition.parameters.v_max"},
+          "parameters.v_min": {"from": "partition.parameters.v_min"}
+        },
+        "name": {
+          "template": "{prefix}{voltage}",
+          "fields": {
+            "prefix": {"source": "partition.parameters.pin_type", "mapping": "group_type_prefix"},
+            "voltage": {"source": "partition.parameters.v_max", "formatter": "voltage_token"}
+          }
+        }
+      }
+    ]
+  }
+}

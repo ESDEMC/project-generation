@@ -1,0 +1,139 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "External JSON Pin Source"
+  },
+  "dut": {
+    "name": "Customer DUT",
+    "pins": {
+      "source": "customer_pins"
+    }
+  },
+  "groups": {
+    "explicit": [
+      {
+        "name": "SU5V5",
+        "group_type": "POWER",
+        "pins": [
+          "1"
+        ],
+        "parameters": {
+          "v_max": 5.5
+        }
+      },
+      {
+        "name": "IN5V5",
+        "group_type": "INPUT",
+        "pins": [
+          "2",
+          "3"
+        ],
+        "parameters": {
+          "v_max": 5.5,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "OUT3V3",
+        "group_type": "OUTPUT",
+        "pins": [
+          "4"
+        ],
+        "parameters": {
+          "v_max": 3.3,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "GND",
+        "group_type": "GROUND",
+        "pins": [
+          "5"
+        ]
+      }
+    ]
+  },
+  "power_resources": {
+    "DC1": {
+      "role": "STRESS"
+    },
+    "DC2": {
+      "role": "BIAS"
+    }
+  },
+  "device_states": {
+    "logic_high": {
+      "power_domains": [
+        {
+          "name": "ground",
+          "groups": [
+            "GND"
+          ],
+          "assignment": "GROUND",
+          "bias": {
+            "mode": "GROUND"
+          }
+        },
+        {
+          "name": "logic_5v5",
+          "groups": [
+            "SU5V5",
+            "IN5V5"
+          ],
+          "assignment": "DC2",
+          "bias": {
+            "mode": "VOLTAGE",
+            "level": 5.5
+          }
+        }
+      ]
+    }
+  },
+  "test_plans": [
+    {
+      "name": "IN5V5_HIGH_POSITIVE",
+      "test_type": "SIGNAL",
+      "dimensions": {
+        "logic_level": "HIGH",
+        "polarity": "POSITIVE"
+      },
+      "device_state": "logic_high",
+      "test_groups": [
+        {
+          "group": "IN5V5",
+          "stress_points": [
+            {
+              "stress_voltage": 5.5,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            },
+            {
+              "stress_voltage": 6.0,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            },
+            {
+              "stress_voltage": 6.5,
+              "compliance": 0.1,
+              "hold_time": 0.1
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "customer_pins": {
+      "type": "json",
+      "path": "./data/customer-device.json",
+      "select": "$.pins[*]",
+      "mapping": {
+        "designator": "pin_number",
+        "name": "signal_name",
+        "parameters.pin_type": "latch_up_type",
+        "parameters.v_max": "v_max",
+        "parameters.v_min": "v_min"
+      }
+    }
+  }
+}

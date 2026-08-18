@@ -1,4 +1,3 @@
-from pathlib import Path
+from tests.support.paths import EXAMPLES, ROOT
 
-ROOT = Path(__file__).parents[1]
-EXAMPLES = ROOT / "examples"
+__all__ = ["EXAMPLES", "ROOT"]

@@ -1,4 +1,4 @@
 /.idea/
 /.venv/
-/examples/realis/generated_projects/
+/**/generated/
 /**/*.egg-info/

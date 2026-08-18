@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0",
+  "project": {"name": "Stress Series and Overrides Demo"},
+  "dut": {
+    "name": "Override DUT",
+    "pins": {
+      "source": {
+        "type": "inline",
+        "records": [
+          {"designator": "1", "name": "IN_A", "parameters": {"pin_type": "INPUT", "v_max": 5.0, "v_min": 0.0}},
+          {"designator": "2", "name": "OUT_A", "parameters": {"pin_type": "OUTPUT", "v_max": 3.3, "v_min": 0.0}}
+        ]
+      }
+    }
+  },
+  "groups": {
+    "explicit": [
+      {"name": "IN_A", "group_type": "INPUT", "pins": ["1"], "parameters": {"v_max": 5.0, "v_min": 0.0}},
+      {"name": "OUT_A", "group_type": "OUTPUT", "pins": ["2"], "parameters": {"v_max": 3.3, "v_min": 0.0}}
+    ]
+  },
+  "test_plan_generation": {
+    "rules": [
+      {
+        "id": "signal_stress_series",
+        "groups": {
+          "select": {"where": {"group_type": {"in": ["INPUT", "OUTPUT"]}}},
+          "partition": {"mode": "each"}
+        },
+        "dimensions": [
+          {
+            "name": "polarity",
+            "values": [
+              {
+                "value": "POSITIVE",
+                "set": {
+                  "stress_parameters.stress_voltage": {
+                    "from": "group.v_max",
+                    "add": [0.0, 0.5, 1.0, 1.5]
+                  }
+                }
+              },
+              {
+                "value": "NEGATIVE",
+                "set": {
+                  "stress_parameters.stress_voltage": {
+                    "from": "group.v_min",
+                    "add": [0.0, -0.5, -1.0, -1.5]
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "template": {
+          "test_type": "SIGNAL",
+          "name": {"template": "{group.name}_{polarity}"},
+          "stress_parameters": {"compliance": 0.1, "hold_time": 0.1}
+        },
+        "overrides": [
+          {
+            "scope": "plan",
+            "when": {"polarity": "NEGATIVE"},
+            "set": {"stress_parameters.hold_time": 0.075}
+          },
+          {
+            "scope": "group",
+            "when": {"group.group_type": "OUTPUT", "polarity": "NEGATIVE"},
+            "set": {"stress_parameters.compliance": 0.025}
+          }
+        ]
+      }
+    ]
+  }
+}

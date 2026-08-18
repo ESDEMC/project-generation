@@ -4,17 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "project-generation"
-version = "0.1.0"
+version = "0.2.0"
 description = "Declarative generation.json parsing, validation, and processing"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.8",
     "dataclasses-json>=0.5",
+    "pyyaml",
+    "mashumaro",
+    "datamodel-code-generator>=0.72.4",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "jsonschema>=4"]
 excel = ["openpyxl>=3.1"]
+yaml = ["pyyaml"]
 latchup = ["dataclasses-json>=0.5"]
 
 [tool.setuptools.packages.find]

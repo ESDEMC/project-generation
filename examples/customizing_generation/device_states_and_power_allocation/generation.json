@@ -1,0 +1,201 @@
+{
+  "schema_version": "1.0",
+  "project": {
+    "name": "Device States and Power Allocation Demo"
+  },
+  "dut": {
+    "name": "Power Allocation DUT",
+    "pins": {
+      "source": {
+        "type": "inline",
+        "records": [
+          {
+            "designator": "1",
+            "name": "VDD_A",
+            "parameters": {
+              "pin_type": "POWER",
+              "v_max": 5.0
+            }
+          },
+          {
+            "designator": "2",
+            "name": "VDD_B",
+            "parameters": {
+              "pin_type": "POWER",
+              "v_max": 3.3
+            }
+          },
+          {
+            "designator": "3",
+            "name": "IN_A",
+            "parameters": {
+              "pin_type": "INPUT",
+              "v_max": 5.0,
+              "v_min": 0.0
+            }
+          },
+          {
+            "designator": "4",
+            "name": "GND",
+            "parameters": {
+              "pin_type": "GROUND"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "groups": {
+    "explicit": [
+      {
+        "name": "SU5V0",
+        "group_type": "POWER",
+        "pins": [
+          "1"
+        ],
+        "parameters": {
+          "v_max": 5.0
+        }
+      },
+      {
+        "name": "SU3V3",
+        "group_type": "POWER",
+        "pins": [
+          "2"
+        ],
+        "parameters": {
+          "v_max": 3.3
+        }
+      },
+      {
+        "name": "IN5V0",
+        "group_type": "INPUT",
+        "pins": [
+          "3"
+        ],
+        "parameters": {
+          "v_max": 5.0,
+          "v_min": 0.0
+        }
+      },
+      {
+        "name": "GND",
+        "group_type": "GROUND",
+        "pins": [
+          "4"
+        ]
+      }
+    ]
+  },
+  "power_resources": {
+    "DC1": {
+      "role": "STRESS"
+    },
+    "DC2": {
+      "role": "BIAS"
+    },
+    "DC3": {
+      "role": "BIAS"
+    },
+    "DC4": {
+      "role": "BIAS"
+    }
+  },
+  "device_states": {
+    "logic_low": {
+      "allocation": {
+        "mode": "hybrid",
+        "strategy": "voltage_first",
+        "reserve": [
+          "DC1"
+        ],
+        "ganging_policy": "same_voltage"
+      },
+      "power_domains": [
+        {
+          "name": "ground",
+          "groups": [
+            "GND"
+          ],
+          "assignment": "GROUND",
+          "bias": {
+            "mode": "GROUND"
+          }
+        }
+      ],
+      "rules": [
+        {
+          "when": {
+            "group.group_type": {
+              "in": [
+                "POWER",
+                "INPUT"
+              ]
+            }
+          },
+          "set": {
+            "bias": {
+              "mode": "VOLTAGE",
+              "level": {
+                "from": "group.v_max"
+              }
+            }
+          }
+        },
+        {
+          "when": {
+            "group.group_type": "INPUT"
+          },
+          "set": {
+            "assignment": "GROUND",
+            "bias": {
+              "mode": "GROUND"
+            }
+          }
+        }
+      ]
+    },
+    "logic_high": {
+      "allocation": {
+        "mode": "hybrid",
+        "strategy": "voltage_first",
+        "reserve": [
+          "DC1"
+        ],
+        "ganging_policy": "same_voltage"
+      },
+      "power_domains": [
+        {
+          "name": "ground",
+          "groups": [
+            "GND"
+          ],
+          "assignment": "GROUND",
+          "bias": {
+            "mode": "GROUND"
+          }
+        }
+      ],
+      "rules": [
+        {
+          "when": {
+            "group.group_type": {
+              "in": [
+                "POWER",
+                "INPUT"
+              ]
+            }
+          },
+          "set": {
+            "bias": {
+              "mode": "VOLTAGE",
+              "level": {
+                "from": "group.v_max"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}
