@@ -1,4 +1,5 @@
-/.idea/
-/.venv/
-/**/generated/
-/**/*.egg-info/
+**/*.egg-info/
+**/__pycache__/
+**/generated/
+.idea/
+.venv/

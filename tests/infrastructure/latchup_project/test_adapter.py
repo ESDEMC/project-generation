@@ -1,18 +1,10 @@
 from tests.support.paths import EXPLICIT_PROJECT
-import pathlib
-
-import pytest
-
 
 from project_generation.infrastructure.latchup_project.enums import LogicLevelEnum, LuTestType, MatrixAssignment, PolarityEnum
-
 from project_generation.infrastructure.latchup_project.latchup_adapter import adapt_to_latchup_project
 from project_generation import process_project_definition
 
 
-
-
-@pytest.mark.skip(reason="This test is not yet implemented")
 def test_adapter_builds_real_latchup_domain_objects() -> None:
     generated = process_project_definition(EXPLICIT_PROJECT)
 
