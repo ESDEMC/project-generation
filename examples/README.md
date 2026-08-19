@@ -10,7 +10,9 @@ examples/
 ├── basics/
 │   └── explicit_project/                    Write a complete project directly
 ├── sources/
-│   └── json_pin_source/                     Load and map pins from external JSON
+│   ├── json_pin_source/                     Load and map pins from external JSON
+│   ├── spreadsheet_pin_source/              Load and map pins from an Excel workbook
+│   └── hardware_config/                     Load physical power resources from hardware.yaml
 ├── customizing_generation/
 │   ├── group_generation/                    Generate groups from pin properties
 │   ├── device_states_and_power_allocation/  Generate DUT states and assign DC resources
@@ -24,11 +26,13 @@ examples/
 
 1. [`basics/explicit_project/generate_project.py`](basics/explicit_project/generate_project.py)
 2. [`sources/json_pin_source/generate_project.py`](sources/json_pin_source/generate_project.py)
-3. [`customizing_generation/group_generation/demo.py`](customizing_generation/group_generation/demo.py)
-4. [`customizing_generation/device_states_and_power_allocation/demo.py`](customizing_generation/device_states_and_power_allocation/demo.py)
-5. [`customizing_generation/test_plan_dimensions/demo.py`](customizing_generation/test_plan_dimensions/demo.py)
-6. [`customizing_generation/stress_series_and_overrides/demo.py`](customizing_generation/stress_series_and_overrides/demo.py)
-7. [`real_world/realis/generate_projects.py`](real_world/realis/generate_projects.py)
+3. [`sources/spreadsheet_pin_source/generate_project.py`](sources/spreadsheet_pin_source/generate_project.py)
+4. [`sources/hardware_config/demo.py`](sources/hardware_config/demo.py)
+5. [`customizing_generation/group_generation/demo.py`](customizing_generation/group_generation/demo.py)
+6. [`customizing_generation/device_states_and_power_allocation/demo.py`](customizing_generation/device_states_and_power_allocation/demo.py)
+7. [`customizing_generation/test_plan_dimensions/demo.py`](customizing_generation/test_plan_dimensions/demo.py)
+8. [`customizing_generation/stress_series_and_overrides/demo.py`](customizing_generation/stress_series_and_overrides/demo.py)
+9. [`real_world/realis/generate_projects.py`](real_world/realis/generate_projects.py)
 
 Run scripts from the repository root. For example:
 

@@ -87,9 +87,10 @@ def test_generate_project_accepts_custom_format(tmp_path: pathlib.Path) -> None:
     assert project_path.read_text(encoding="utf-8") == "Minimal Explicit Project"
 
 
-def test_loaded_definition_requires_base_directory(tmp_path: pathlib.Path) -> None:
+def test_loaded_definition_uses_its_own_directory(tmp_path: pathlib.Path) -> None:
     from project_generation import generate_project
 
     definition = load_project_definition(EXPLICIT_PROJECT)
-    with pytest.raises(ValueError, match="base_directory is required"):
-        generate_project(definition, tmp_path)
+    project_path = generate_project(definition, tmp_path)
+
+    assert project_path.is_file()

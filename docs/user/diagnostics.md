@@ -93,10 +93,26 @@ REALIS example does.
 Add an explicit customer-to-normalized mapping only after confirming the meaning of the new source value. Do not map unknown values based
 only on spelling similarity.
 
-### Insufficient power resources
+### Insufficient or incompatible power resources
 
-Review the generated groups requiring physical bias, explicit assignments, reserved resources, resources with the `STRESS` role, and the
-selected ganging policy. Floating and ground assignments do not consume normal bias resources.
+Hardware-backed allocation raises `PowerResourceResolutionError`, a `ProjectGenerationError` subtype. It carries one or more structured
+resolution issues so a CLI or UI can report every unresolved group together. Each issue includes the device state, group, required bias,
+optional explicitly requested resource, and every candidate resource with its acceptance/rejection reason.
+
+```python
+from project_generation import PowerResourceResolutionError, process_project_definition
+
+try:
+    project = process_project_definition("generation.yaml")
+except PowerResourceResolutionError as error:
+    print(error.format_user_report())
+    for issue in error.issues:
+        print(issue.group_name, issue.bias)
+```
+
+A report can distinguish, for example, a stress-only channel, a resource reserved by policy, a source already assigned to another group,
+or a DC envelope that cannot satisfy the requested bias. Explicit incompatible assignments use the same report and identify the requested
+resource. Floating and ground assignments do not consume normal bias resources.
 
 ### Circular timing dependency
 
@@ -119,3 +135,13 @@ A useful issue report should include:
 - the expected pins, groups, states, or plans.
 
 Keep customer source data out of public issue trackers unless it has been explicitly sanitized and approved for that use.
+
+### Source Switch pulse capability resolution
+
+For a Source Switch stress supply, hardware compatibility is phase-specific. The pre-stress and post-stress bias operating point must be
+supported by one of the resource's `DC` envelopes. During the stress pulse, one `PULSE` envelope must support the requested peak,
+compliance, and `pulse_width` together. Capabilities from different PULSE envelopes are not combined.
+
+The PULSE envelope model also preserves base and duty-cycle capability fields from `hardware.yaml`. Duty cycle is validated when the
+stress definition supplies it. For the Source Switch strategy, the separate bias leg supplies the biased base level, so the pulse leg's
+base limits are not used to reject the DC pre/post bias.

@@ -5,6 +5,21 @@ All notable changes to Project Generation are recorded here.
 The project is still under active development. Until the public generation format is declared stable, changes under `Unreleased` may
 include structural changes to the package, examples, and generation definition.
 
+## Unreleased
+
+- Resolve relative source paths from the directory containing the generation definition.
+- Add `examples/sources/spreadsheet_pin_source` with an Excel-backed pin source example.
+- Standardize biased-pulse stress terminology on `pulse_width`; `hold_time` remains a legacy input alias only.
+
+- Added structured power-resource resolution reporting with candidate rejection reasons, aggregate unresolved groups, and user-facing formatting for hardware compatibility failures.
+- Updated REALIS examples to source physical power resources from `examples/sources/hardware_config/hardware.yaml` and demonstrate hardware-incompatible device-state rejection.
+
+### Added
+
+- Added `hardware.source` so generation can use the runtime `hardware.yaml` as the physical power-resource source.
+- Added hardware-aware device-state allocation and validation using connection mode and DC power envelopes.
+- Added validation that hardware-backed `power_resources` overlays cannot invent resources that are not physically connected.
+
 ## 0.2.0 - Aug 10, 2026
 
 ### Added
@@ -87,3 +102,14 @@ include structural changes to the package, examples, and generation definition.
 - Explicit and rule-generated groups with deterministic identities.
 - Explicit and generated test plans.
 - Dynamic dimensions, partitions, ordered overrides, exclusions, and provisional stress-series expansion.
+
+### Hardware stress capability resolution
+
+- Added rich hardware-domain objects for operating points, DC/PULSE envelopes, supply capabilities, and biased-pulse stress.
+- Added the `source_switch` stress strategy. It validates the pre/post bias against the stress source's `DC` envelopes and the stress peak against its `PULSE` envelopes.
+- Generated test plans now retain the resolved stress resource and strategy.
+- Added structured stress-supply resolution diagnostics suitable for CLI and desktop UI reporting.
+
+- Model DC and PULSE supply capabilities as distinct hardware-domain envelopes. Source Switch stress validation now checks pre/post bias
+  against DC envelopes and checks peak operating point plus pulse width against one complete PULSE envelope. Updated the shared
+  `examples/sources/hardware_config/hardware.yaml` to the richer Source Switch capability data.

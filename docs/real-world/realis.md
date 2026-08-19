@@ -114,6 +114,19 @@ ground pins   -> GND
 Always review generated membership when customer exports contain incomplete or inconsistent voltage data. Pins with different grouping
 fields will intentionally be placed into different groups.
 
+## Hardware configuration
+
+The REALIS definition uses the shared hardware example as its physical power-resource source:
+
+```yaml
+hardware:
+  source: ../../sources/hardware_config/hardware.yaml
+```
+
+The hardware file defines the connected matrix assignments, connection modes, and DC power envelopes. Device-state allocation therefore
+uses only connected bias-capable resources that can realize the requested voltage. `DC1` is present in the hardware configuration as the
+switch/stress connection and is not available for ordinary bias allocation.
+
 ## Device states
 
 The example defines `logic_low` and `logic_high` states.
@@ -121,7 +134,7 @@ The example defines `logic_low` and `logic_high` states.
 Both states:
 
 - reserve `DC1` for stress;
-- use hybrid, voltage-first allocation;
+- use hybrid, voltage-first allocation against `hardware.yaml`;
 - permit exact same-bias ganging;
 - ground ground groups; and
 - leave output and NC groups floating.
@@ -130,6 +143,12 @@ For `logic_low`, input and IO groups are grounded while power groups are biased 
 power groups are biased to their maximum voltage.
 
 These are project-generation rules and must be reviewed against the customer's intended test behavior before delivery.
+
+Some supplied REALIS exports intentionally exceed the connected hardware. In particular, a device state that needs more simultaneous
+distinct bias voltages than the available bias channels is rejected instead of being assigned to a nonexistent DC resource. This is a
+hardware-compatibility diagnostic, not a generation fallback.
+When the batch example encounters one of these exports, it prints the complete hardware-resolution report, including every unresolved
+group and the reason each candidate power resource was rejected, skips that file, and continues processing the remaining inputs.
 
 ## Generated test plans
 

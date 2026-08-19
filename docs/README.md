@@ -53,3 +53,13 @@ Do not use paths like:
 ```text
 C:\Projects\...
 ```
+
+## Stress hardware compatibility
+
+Hardware-backed generation also validates stress hardware. The initial supported strategy is `source_switch` for a biased pulse:
+
+- the pre-stress and post-stress bias operating point is checked against the source switch `DC` envelope;
+- the stress peak is checked against the source switch `PULSE` envelope;
+- one stress resource must support the complete stress series for a generated test plan.
+
+A resolved plan records its stress source and strategy. If no source can execute the stress, generation raises a structured `StressSupplyResolutionError` whose `format_user_report()` output can be shown directly to a user and whose `issues` payload can drive a richer UI.

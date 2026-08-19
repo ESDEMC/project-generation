@@ -75,3 +75,37 @@ def test_legacy_exception_message_is_preserved() -> None:
 
     assert str(error) == "plain failure"
     assert isinstance(error, ValueError)
+
+
+def test_power_resolution_error_exposes_ui_friendly_context() -> None:
+    from project_generation import (
+        PowerResourceCandidateDiagnostic,
+        PowerResourceResolutionError,
+        PowerResourceResolutionIssue,
+    )
+
+    error = PowerResourceResolutionError(
+        (
+            PowerResourceResolutionIssue(
+                state_name="active",
+                group_name="VDD",
+                bias={"mode": "VOLTAGE", "level": 5.0, "compliance_limit": 2.0},
+                candidates=(
+                    PowerResourceCandidateDiagnostic(
+                        resource="DC2",
+                        accepted=False,
+                        reason="current requirement exceeds the DC envelope",
+                    ),
+                ),
+            ),
+        )
+    )
+
+    assert error.context["issues"][0]["group_name"] == "VDD"
+    assert error.context["issues"][0]["candidates"][0] == {
+        "resource": "DC2",
+        "accepted": False,
+        "reason": "current requirement exceeds the DC envelope",
+    }
+    assert "compliance_limit: 2.0" in error.format_user_report()
+    assert "DC2: rejected - current requirement exceeds the DC envelope" in error.format_user_report()

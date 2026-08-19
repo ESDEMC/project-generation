@@ -61,7 +61,7 @@
               "multiply_by": [1.0, 1.1, 1.2]
             },
             "compliance": 0.1,
-            "hold_time": 0.1
+            "pulse_width": 0.1
           }
         },
         "overrides": [

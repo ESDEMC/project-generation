@@ -23,10 +23,10 @@ def test_generated_customer_plans_expand_dimensions_and_stress_series() -> None:
     assert plan.device_state is None
     assert len(plan.test_groups) == 1
     assert [point.values for point in plan.test_groups[0].stress_points] == [
-        {"compliance": 0.025, "hold_time": 0.075, "stress_voltage": 0.0},
-        {"compliance": 0.025, "hold_time": 0.075, "stress_voltage": -0.5},
-        {"compliance": 0.025, "hold_time": 0.075, "stress_voltage": -1.0},
-        {"compliance": 0.025, "hold_time": 0.075, "stress_voltage": -1.5},
+        {"compliance": 0.025, "pulse_width": 0.075, "stress_voltage": 0.0},
+        {"compliance": 0.025, "pulse_width": 0.075, "stress_voltage": -0.5},
+        {"compliance": 0.025, "pulse_width": 0.075, "stress_voltage": -1.0},
+        {"compliance": 0.025, "pulse_width": 0.075, "stress_voltage": -1.5},
     ]
 
 

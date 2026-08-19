@@ -1,0 +1,243 @@
+relay_matrix:
+  relay_matrix:
+    connection: USB B
+    leakage_terminals:
+    - EXT1
+    - DC1
+    manufacturer: Mock
+    matrix_attributes:
+    - 1028
+    - 10
+    - false
+    - 0.0
+    - false
+    matrix_capabilities:
+    - - DC1
+      - error: false
+        max_current: 30.0
+        max_pin_current: 2.0
+        max_voltage: 1100.0
+    - - DC2
+      - error: false
+        max_current: 30.0
+        max_pin_current: 1.25
+        max_voltage: 100.0
+    - - DC3
+      - error: false
+        max_current: 30.0
+        max_pin_current: 1.25
+        max_voltage: 100.0
+    - - DC4
+      - error: false
+        max_current: 30.0
+        max_pin_current: 1.25
+        max_voltage: 100.0
+    - - DC5
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    - - DC6
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    - - DC7
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    - - DC8
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    - - DC9
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    - - DC10
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 40.0
+    model: Dummy 2 [1028x10]
+    serial: '#D2MUB'
+    uid: D2MUB
+power_supply:
+  hardware_connections:
+  - channel:
+      power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
+      channel_id: a7b97fe3-5c0e-4332-8905-f7eed33d19e7
+      channel_num: 1
+      power_supply_address: GPIB::MOCK
+      channel_name: Ch 1-Rear
+    matrix_assignment: EXT1
+    mode: bias
+  - channel:
+      power_supply_id: 7b4d4aab-3bcf-4cc0-b330-8818d5c8000a
+      channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+      channel_num: 1
+      power_supply_address: Virtual
+      channel_name: Source Switch
+    matrix_assignment: DC1
+    mode: switch
+  - channel:
+      power_supply_id: 65f8f9ad-9d9d-4eca-9650-d7537004e87f
+      channel_id: f79c86d3-5de5-4402-b215-f10c7869d121
+      channel_num: 1
+      power_supply_address: 1::MOCK
+      channel_name: Ch 1
+    matrix_assignment: DC2
+    mode: bias
+  - channel:
+      power_supply_id: 3f5f703c-7681-4ee6-b747-790220d670e9
+      channel_id: 7c44fbfe-5504-4ec0-a0e8-25af00ee7f51
+      channel_num: 1
+      power_supply_address: 2::MOCK
+      channel_name: Ch 1
+    matrix_assignment: DC3
+    mode: bias
+  bridged_power_supplies: []
+  source_switch_connections:
+  - name: Source Switch
+    enabled: true
+    channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+    pulse_channel:
+      power_supply_id: d950d36f-3cad-4ee4-867e-cd5eaed04516
+      channel_id: c274e44e-6cd4-444b-b615-3e41975a3b29
+      channel_num: 1
+      power_supply_address: a::MOCK
+      channel_name: Ch 1-Front
+    bias_channel:
+      power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
+      channel_id: 5c647c9f-c239-4db9-a74e-2f29b88e1147
+      channel_num: 1
+      power_supply_address: GPIB::MOCK
+      channel_name: Ch 1-Front
+iv_monitor: {}
+io_controller:
+  controller_connection_info: null
+  method: Full Hardware Controlled
+metadata:
+  power_supply:
+  - matrix_assignment: DC3
+    name: Ans HL150V1A [2::MOCK] - Ch 1
+    power_supply_id: 3f5f703c-7681-4ee6-b747-790220d670e9
+    channel_id: 7c44fbfe-5504-4ec0-a0e8-25af00ee7f51
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 150
+        max_current: 1
+        min_voltage: 1
+        min_current: 0.001
+  - matrix_assignment: DC2
+    name: Ans HL150V1A [1::MOCK] - Ch 1
+    power_supply_id: 65f8f9ad-9d9d-4eca-9650-d7537004e87f
+    channel_id: f79c86d3-5de5-4402-b215-f10c7869d121
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 150
+        max_current: 1
+        min_voltage: 1
+        min_current: 0.001
+  - matrix_assignment: DC1
+    name: Source Switch [Virtual] - Source Switch
+    power_supply_id: 7b4d4aab-3bcf-4cc0-b330-8818d5c8000a
+    channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 20
+        max_current: 1
+      - output_type: DC
+        max_voltage: 200
+        max_current: 0.1
+      PULSE:
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.1
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: .inf
+        max_duty_cycle: 1.0
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: .inf
+        max_duty_cycle: 1.0
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.2
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.02
+        max_duty_cycle: 0.5
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.2
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.1
+        max_duty_cycle: 0.5
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.005
+        max_duty_cycle: 0.05
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.1
+        max_duty_cycle: 0.1
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 3.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.01
+        max_duty_cycle: 0.025
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 3.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.02
+        max_duty_cycle: 0.3
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 10.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.001
+        max_duty_cycle: 0.05
+  - matrix_assignment: EXT1
+    name: Keithley Instruments MODEL 2450 [GPIB::MOCK] - Ch 1-Rear
+    power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
+    channel_id: a7b97fe3-5c0e-4332-8905-f7eed33d19e7
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 20
+        max_current: 1
+      - output_type: DC
+        max_voltage: 200
+        max_current: 0.1

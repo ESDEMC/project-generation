@@ -1249,6 +1249,20 @@
         }
       ],
       "title": "SetValueDefinition"
+    },
+    "HardwareDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "HardwareDefinition",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1327,6 +1341,17 @@
     "groups": {
       "$ref": "#/$defs/GroupsDefinition",
       "default": {}
+    },
+    "hardware": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/HardwareDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     },
     "power_resources": {
       "additionalProperties": {

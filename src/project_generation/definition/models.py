@@ -1,7 +1,7 @@
 import pathlib
 from typing import Any
 
-from pydantic import model_validator
+from pydantic import PrivateAttr, model_validator
 
 from .generated_models import (
     AllPartitionDefinition,
@@ -21,6 +21,7 @@ from .generated_models import (
     FormatterDefinition,
     GroupByPartitionDefinition,
     GroupGenerationRule,
+    HardwareDefinition,
     GroupsDefinition,
     InlineSource,
     InlineSourceReference,
@@ -52,6 +53,16 @@ PartitionDefinition = EachPartitionDefinition | AllPartitionDefinition | GroupBy
 
 
 class ProjectGenerationDefinition(GeneratedProjectGenerationDefinition):
+    _definition_path: pathlib.Path | None = PrivateAttr(default=None)
+
+    @property
+    def definition_path(self) -> pathlib.Path | None:
+        return self._definition_path
+
+    @property
+    def definition_directory(self) -> pathlib.Path | None:
+        return self._definition_path.parent if self._definition_path is not None else None
+
     @model_validator(mode="after")
     def validate_semantics(self) -> "ProjectGenerationDefinition":
         if self.project.name is None and self.project.source is None:
@@ -78,12 +89,14 @@ class ProjectGenerationDefinition(GeneratedProjectGenerationDefinition):
 
     @classmethod
     def load(cls, path: str | pathlib.Path) -> "ProjectGenerationDefinition":
-        path = pathlib.Path(path)
+        path = pathlib.Path(path).resolve()
         text = path.read_text(encoding="utf-8")
         suffix = path.suffix.lower()
 
         if suffix == ".json":
-            return cls.model_validate_json(text)
+            definition = cls.model_validate_json(text)
+            definition._definition_path = path
+            return definition
         if suffix in {".yaml", ".yml"}:
             try:
                 import yaml
@@ -97,7 +110,9 @@ class ProjectGenerationDefinition(GeneratedProjectGenerationDefinition):
                 data = {}
             if not isinstance(data, dict):
                 raise ValueError(f"Generation definition must contain a top-level object: {path}")
-            return cls.model_validate(data)
+            definition = cls.model_validate(data)
+            definition._definition_path = path
+            return definition
 
         raise ValueError(f"Unsupported generation definition format {suffix!r}; expected .json, .yaml, or .yml")
 
@@ -120,6 +135,7 @@ __all__ = [
     "FormatterDefinition",
     "GroupByPartitionDefinition",
     "GroupGenerationRule",
+    "HardwareDefinition",
     "GroupsDefinition",
     "InlineSource",
     "InlineSourceReference",

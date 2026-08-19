@@ -91,6 +91,7 @@ Illustrative structure:
   "sources": {},
   "dut": {},
   "groups": {},
+  "hardware": null,
   "power_resources": {},
   "device_states": {},
   "test_plans": [],
@@ -98,6 +99,23 @@ Illustrative structure:
   "output": {}
 }
 ```
+
+## 4.1 Hardware-backed power resources
+
+The optional `hardware` section references the runtime hardware configuration used to constrain device-state power assignments.
+
+```yaml
+hardware:
+  source: hardware.yaml
+```
+
+The source path is relative to the generation definition. `power_supply.hardware_connections[].matrix_assignment` defines the available
+resource names. `mode: bias` resources are eligible for normal bias allocation and `mode: switch` resources are treated as stress
+resources. `metadata.power_supply[].power_envelopes.DC` supplies the DC capability envelope.
+
+If `hardware` is present, every explicit physical assignment and every automatically allocated assignment must exist in the loaded
+hardware configuration and support the requested bias. Explicit `power_resources` entries act only as overlays for resources that exist
+in hardware; they cannot introduce an unconnected physical resource.
 
 ## 5. Sources and record normalization
 
@@ -546,12 +564,12 @@ Regardless of declaration style, the compiler emits explicit stress parameters f
     {
       "stress_voltage": 5.5,
       "compliance": 0.1,
-      "hold_time": 0.1
+      "pulse_width": 0.1
     },
     {
       "stress_voltage": 6.0,
       "compliance": 0.1,
-      "hold_time": 0.1
+      "pulse_width": 0.1
     }
   ]
 }

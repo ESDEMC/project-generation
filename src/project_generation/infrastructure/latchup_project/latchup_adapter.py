@@ -250,7 +250,24 @@ def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name:
 
     base = float(values.get("base", values.get("bias_level", 0.0)))
     compliance = float(compliance)
-    pulse_width = float(values.get("pulse_width", values.get("hold_time", 0.010)))
+    pulse_width_value = values.get("pulse_width", values.get("hold_time"))
+    if pulse_width_value is None:
+        raise ProjectGenerationError(
+            f'Stress point for group "{group_name}" in plan "{plan_name}" does not define pulse_width',
+            code="adapter.missing_pulse_width",
+            location=f"test_plans[{plan_name}].test_groups[{group_name}].stress_points",
+            owner=plan_name,
+            context={"group": group_name, "values": dict(values)},
+        )
+    pulse_width = float(pulse_width_value)
+    if pulse_width <= 0:
+        raise ProjectGenerationError(
+            f'Stress point for group "{group_name}" in plan "{plan_name}" has invalid pulse_width {pulse_width:g}',
+            code="adapter.invalid_pulse_width",
+            location=f"test_plans[{plan_name}].test_groups[{group_name}].stress_points",
+            owner=plan_name,
+            context={"group": group_name, "values": dict(values)},
+        )
     pulse_delay = float(values.get("pulse_delay", 0.0))
     bias_compliance = float(values.get("bias_compliance_limit", values.get("bias_compliance", compliance)))
 

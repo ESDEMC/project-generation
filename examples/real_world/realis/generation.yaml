@@ -1,35 +1,6 @@
 schema_version: '1.0'
-project:
-  source: realis_project
-mappings:
-  realis_pin_type:
-    I: INPUT
-    Input: INPUT
-    O: OUTPUT
-    Output: OUTPUT
-    IO: IO
-    Supply: POWER
-    Ground: GROUND
-    not connected: NC
-    not tested: NC
-  group_type_prefix:
-    INPUT: In
-    OUTPUT: O
-    IO: IO
-    POWER: Su
-    GROUND: GND
-    NC: NC
-  logic_level_token:
-    HIGH: H
-    LOW: L
-  polarity_token:
-    POSITIVE: '+'
-    NEGATIVE: '-'
-formatters:
-  voltage_token:
-    type: decimal_token
-    separator: V
-    decimal_places: 1
+
+# Sources
 sources:
   realis_project:
     type: json
@@ -71,6 +42,41 @@ sources:
         mapping: realis_pin_type
       parameters.v_max: VoltageLevelMax
       parameters.v_min: VoltageLevelMin
+
+hardware:
+  source: ../../sources/hardware_config/hardware.yaml
+
+project:
+  source: realis_project
+mappings:
+  realis_pin_type:
+    I: INPUT
+    Input: INPUT
+    O: OUTPUT
+    Output: OUTPUT
+    IO: IO
+    Supply: POWER
+    Ground: GROUND
+    not connected: NC
+    not tested: NC
+  group_type_prefix:
+    INPUT: In
+    OUTPUT: O
+    IO: IO
+    POWER: Su
+    GROUND: GND
+    NC: NC
+  logic_level_token:
+    HIGH: H
+    LOW: L
+  polarity_token:
+    POSITIVE: '+'
+    NEGATIVE: '-'
+formatters:
+  voltage_token:
+    type: decimal_token
+    separator: V
+    decimal_places: 1
 dut:
   name: REALIS DUT
   pins:
@@ -115,19 +121,6 @@ groups:
 #                - IO
 #                - OUTPUT
 #                - POWER
-power_resources:
-  DC1:
-    role: STRESS
-  DC2:
-    role: BIAS
-  DC3:
-    role: BIAS
-  DC5:
-    role: BIAS
-  DC6:
-    role: BIAS
-  DC7:
-    role: BIAS
 device_states:
   logic_low:
     allocation:
@@ -261,7 +254,7 @@ test_plan_generation:
         source_mode: voltage
         base: 0.0
         compliance: 0.12
-        hold_time: 0.1
+        pulse_width: 0.1
   - id: supply_tests
     groups:
       select:
@@ -299,4 +292,4 @@ test_plan_generation:
           - 1.0
           - 1.5
         compliance: 0.2
-        hold_time: 0.01
+        pulse_width: 0.01

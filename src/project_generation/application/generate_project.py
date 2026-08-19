@@ -22,10 +22,7 @@ class GenerateProject:
         request.validate()
         definition = ProjectGenerationDefinition.load(request.definition_path)
         definition = self._set_input_file(definition, request.input_path)
-        generated_project = ProjectGenerationProcessor().process(
-            definition,
-            base_directory=request.definition_path.parent,
-        )
+        generated_project = ProjectGenerationProcessor().process(definition)
         artifacts = self._adapter.adapt(generated_project)
         return self._writer.write(artifacts, request=request)
 

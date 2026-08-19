@@ -5,7 +5,16 @@ from typing import Any
 from .application.ports import ProjectWriter
 from .definition.models import ProjectGenerationDefinition
 from .definition.validation import validate_project_definition
-from .diagnostics import GenerationDiagnostics, ProjectGenerationError
+from .diagnostics import (
+    GenerationDiagnostics,
+    PowerResourceCandidateDiagnostic,
+    PowerResourceResolutionError,
+    PowerResourceResolutionIssue,
+    ProjectGenerationError,
+    StressSupplyCandidateDiagnostic,
+    StressSupplyResolutionError,
+    StressSupplyResolutionIssue,
+)
 from .generation.models import GeneratedProject
 from .generation.processor import ProjectGenerationProcessor
 
@@ -15,9 +24,8 @@ def load_project_definition(path: str | pathlib.Path) -> ProjectGenerationDefini
 
 
 def process_project_definition(path: str | pathlib.Path) -> GeneratedProject:
-    path = pathlib.Path(path)
     definition = load_project_definition(path)
-    return ProjectGenerationProcessor().process(definition, base_directory=path.parent)
+    return ProjectGenerationProcessor().process(definition)
 
 
 def generate_project(
@@ -29,9 +37,7 @@ def generate_project(
     project_metadata: Mapping[str, Any] | None = None,
 ) -> pathlib.Path:
     if isinstance(definition, ProjectGenerationDefinition):
-        if base_directory is None:
-            raise ValueError("base_directory is required when generating from a loaded definition")
-        generated = ProjectGenerationProcessor().process(definition, base_directory=pathlib.Path(base_directory))
+        generated = ProjectGenerationProcessor().process(definition, base_directory=base_directory)
     else:
         generated = process_project_definition(definition)
 
@@ -47,8 +53,14 @@ __all__ = [
     "GeneratedProject",
     "GenerationDiagnostics",
     "ProjectGenerationDefinition",
+    "PowerResourceCandidateDiagnostic",
+    "PowerResourceResolutionError",
+    "PowerResourceResolutionIssue",
     "ProjectGenerationError",
     "ProjectGenerationProcessor",
+    "StressSupplyCandidateDiagnostic",
+    "StressSupplyResolutionError",
+    "StressSupplyResolutionIssue",
     "ProjectWriter",
     "generate_project",
     "load_project_definition",

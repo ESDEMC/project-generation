@@ -1,0 +1,84 @@
+schema_version: '1.0'
+
+# Sources
+hardware:
+  source: hardware.yaml
+
+project:
+  name: Hardware Configuration Source Demo
+dut:
+  name: Hardware-backed DUT
+  pins:
+    source:
+      type: inline
+      records:
+      - designator: '1'
+        name: VDD_A
+        parameters:
+          pin_type: POWER
+          v_max: 5.0
+      - designator: '2'
+        name: VDD_B
+        parameters:
+          pin_type: POWER
+          v_max: 3.3
+      - designator: '3'
+        name: GND
+        parameters:
+          pin_type: GROUND
+      - designator: '4'
+        name: IN
+        parameters:
+          pin_type: INPUT
+groups:
+  explicit:
+  - name: SU5V0
+    group_type: POWER
+    pins: ['1']
+    parameters:
+      v_max: 5.0
+  - name: SU3V3
+    group_type: POWER
+    pins: ['2']
+    parameters:
+      v_max: 3.3
+  - name: GND
+    group_type: GROUND
+    pins: ['3']
+  - name: IN
+    group_type: INPUT
+    pins: ['4']
+device_states:
+  powered:
+    allocation:
+      mode: hybrid
+      strategy: voltage_first
+      reserve: [DC1]
+      ganging_policy: same_voltage
+    rules:
+    - when:
+        group.group_type: GROUND
+      set:
+        assignment: GROUND
+        bias:
+          mode: GROUND
+    - when:
+        group.group_type: POWER
+      set:
+        bias:
+          mode: VOLTAGE
+          level:
+            from: group.v_max
+
+
+test_plans:
+- name: LU_IN
+  test_type: SIGNAL
+  test_groups:
+  - group: IN
+    stress_points:
+    - source_mode: voltage
+      base: 5.0
+      peak: 30.0
+      compliance: 0.5
+      pulse_width: 0.01

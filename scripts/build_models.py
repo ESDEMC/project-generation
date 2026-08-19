@@ -20,6 +20,7 @@ REQUIRED_MODEL_CLASSES = {
     "ExplicitTestPlanDefinition",
     "FormatterDefinition",
     "GroupGenerationRule",
+    "HardwareDefinition",
     "InlineSource",
     "JsonSource",
     "NameFieldDefinition",

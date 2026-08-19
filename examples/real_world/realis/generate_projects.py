@@ -8,6 +8,7 @@ Each REALIS JSON file is converted using one shared generation.yaml definition:
     EsdPins[*]                          DUT pins
     Pin type / voltage fields           Generated pin groups
     Pin groups and voltage information  DUT states and generated test plans
+    Shared hardware.yaml                Available DC resources and limits
 
 Command-line input files are processed when supplied. With no input arguments, every JSON file in input/ is processed.
 This is the example closest to a real customer workflow.
@@ -22,6 +23,9 @@ from project_generation import (
     load_project_definition,
     validate_project_definition,
     generate_project,
+    PowerResourceResolutionError,
+    StressSupplyResolutionError,
+    ProjectGenerationError,
 )
 from project_generation.application.workflows import raise_for_diagnostics, replace_source_paths
 
@@ -48,7 +52,15 @@ def main() -> None:
         parser.error("No REALIS JSON input files were provided or found")
 
     for input_path in input_paths:
-        project_path = generate_realis_project(args.definition, input_path, args.output_directory)
+        try:
+            project_path = generate_realis_project(args.definition, input_path, args.output_directory)
+        except (PowerResourceResolutionError, StressSupplyResolutionError) as error:
+            print(f"Skipped {input_path.name}")
+            print(error.format_user_report())
+            continue
+        except ProjectGenerationError as error:
+            print(f"Skipped {input_path.name}: {error.format_diagnostic()}")
+            continue
         print(f"Created {project_path}")
 
 

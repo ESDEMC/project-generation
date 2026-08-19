@@ -100,6 +100,13 @@ class GeneratedTestGroup:
     stress_points: tuple[StressPoint, ...]
 
 
+
+
+@dataclass(frozen=True, kw_only=True)
+class GeneratedStressSupplyAssignment:
+    resource: str
+    strategy: str
+
 @dataclass(frozen=True, kw_only=True)
 class GeneratedTestPlan:
     id: uuid.UUID
@@ -109,6 +116,7 @@ class GeneratedTestPlan:
     device_state: str | None
     device_state_id: uuid.UUID | None
     test_groups: tuple[GeneratedTestGroup, ...]
+    stress_supply: GeneratedStressSupplyAssignment | None = None
     generation_rule_id: str | None = None
 
 

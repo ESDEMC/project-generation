@@ -21,6 +21,7 @@ A typical definition may contain these sections:
   "sources": {},
   "dut": {},
   "groups": {},
+  "hardware": null,
   "power_resources": {},
   "device_states": {},
   "test_plans": [],
@@ -352,9 +353,34 @@ The two styles can be combined. A common pattern is to keep a special group expl
 }
 ```
 
+## Hardware configuration
+
+A generation definition can use the application's `hardware.yaml` as the physical source of power resources:
+
+```yaml
+hardware:
+  source: hardware.yaml
+```
+
+The path is resolved relative to the generation definition. Power-supply `matrix_assignment` values become resource names. A hardware
+connection with `mode: bias` becomes a `BIAS` resource; `mode: switch` becomes a `STRESS` resource. The corresponding
+`metadata.power_supply[].power_envelopes.DC` entries define the voltage/current capability used when resolving device states.
+
+When hardware sourcing is enabled, automatic allocation only chooses connected `BIAS` resources whose DC envelope can realize the
+requested bias. Explicit assignments are checked the same way. A device state therefore cannot silently refer to a missing source, use a
+switch-only channel as a normal bias source, or request a level outside the connected source's DC envelope. `GROUND` and `FLOATING`
+remain logical pseudo-resources and do not require hardware entries.
+
+You can still declare `power_resources` to refine a hardware-backed resource, for example to override its generation role or add custom
+parameters. A declared resource must exist in `hardware.yaml`; physical connection details and power envelopes remain authoritative.
+
+If the hardware cannot realize a device state, processing raises `PowerResourceResolutionError`. Its structured `issues` payload records
+each unresolved group and the reason every candidate resource was rejected. `format_user_report()` produces a user-facing text report;
+the structured payload is suitable for presenting the same information in a desktop UI.
+
 ## Power resources
 
-Power resources describe the logical DC resources generation is allowed to use:
+Without a hardware source, power resources describe the logical DC resources generation is allowed to use:
 
 ```json
 {
@@ -448,8 +474,8 @@ Use an explicit plan when the test is exceptional or already fully specified:
         {
           "group": "IN5V5",
           "stress_points": [
-            {"stress_voltage": 5.5, "compliance": 0.1, "hold_time": 0.1},
-            {"stress_voltage": 6.0, "compliance": 0.1, "hold_time": 0.1}
+            {"stress_voltage": 5.5, "compliance": 0.1, "pulse_width": 0.1},
+            {"stress_voltage": 6.0, "compliance": 0.1, "pulse_width": 0.1}
           ]
         }
       ]
@@ -572,7 +598,7 @@ Change every negative plan:
 {
   "scope": "plan",
   "when": {"polarity": "NEGATIVE"},
-  "set": {"stress_parameters.hold_time": 0.075}
+  "set": {"stress_parameters.pulse_width": 0.075}
 }
 ```
 

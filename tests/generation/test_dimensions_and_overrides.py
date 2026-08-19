@@ -16,7 +16,7 @@ def test_dynamic_dimensions_and_overrides() -> None:
     assert len(candidates) == 2
 
     negative = next(candidate for candidate in candidates if candidate.dimensions == {"polarity": "NEGATIVE"})
-    assert negative.values["stress_parameters"]["hold_time"] == 0.075
+    assert negative.values["stress_parameters"]["pulse_width"] == 0.075
 
     group_values = resolve_group_values(negative, groups[0], rule.overrides)
     assert group_values["stress_parameters"]["compliance"] == 0.025

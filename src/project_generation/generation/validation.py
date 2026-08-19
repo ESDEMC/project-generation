@@ -5,6 +5,7 @@ from typing import Any, Iterable, Mapping
 
 from project_generation.definition.models import ProjectGenerationDefinition
 from project_generation.diagnostics import ProjectGenerationError
+from project_generation.generation.hardware import power_resource_compatibility
 from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
@@ -143,6 +144,17 @@ class ValidateGeneratedProjectRequest:
                         owner=state.name,
                     )
                 self._validate_assignment_bias(state.name, assignment.group_name, assignment.assignment, assignment.bias)
+                if assignment.assignment in resources:
+                    resource = self.definition.power_resources[assignment.assignment]
+                    incompatibility = power_resource_compatibility(resource, assignment.bias)
+                    if incompatibility is not None:
+                        raise ProjectGenerationError(
+                            f'Device state "{state.name}" cannot assign group "{assignment.group_name}" to '
+                            f'"{assignment.assignment}": {incompatibility}',
+                            code="generated_project.incompatible_power_resource",
+                            location=f"generated_project.device_states.{state.name}.power_assignments.{assignment.group_name}",
+                            owner=state.name,
+                        )
                 assignment_by_group[assignment.group_name] = assignment
 
             for group_state in state.group_states:

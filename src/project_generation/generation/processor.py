@@ -3,6 +3,7 @@ import json
 import pathlib
 import re
 import uuid
+from dataclasses import replace
 from typing import Any, Iterable, Mapping
 
 from project_generation.definition.models import (
@@ -21,7 +22,16 @@ from project_generation.definition.models import (
     SourceFieldMapping,
     TestPlanRuleDefinition,
 )
-from project_generation.diagnostics import ProjectGenerationError
+from project_generation.diagnostics import (
+    PowerResourceCandidateDiagnostic,
+    PowerResourceResolutionError,
+    PowerResourceResolutionIssue,
+    ProjectGenerationError,
+    StressSupplyCandidateDiagnostic,
+    StressSupplyResolutionError,
+    StressSupplyResolutionIssue,
+)
+from project_generation.generation.hardware_domain import BiasedPulseStress, SourceSwitchStressStrategy
 from project_generation.generation.ganging import ExistingPowerAssignment, GangingCandidate, get_ganging_policy
 from project_generation.generation.models import (
     GeneratedDeviceState,
@@ -34,6 +44,7 @@ from project_generation.generation.models import (
     GeneratedProject,
     GeneratedTestGroup,
     GeneratedTestPlan,
+    GeneratedStressSupplyAssignment,
 )
 from project_generation.generation.rules import (
     GroupRecord,
@@ -46,6 +57,12 @@ from project_generation.generation.rules import (
     resolve_path,
 )
 from project_generation.generation.validation import GenerateTestPlansRequest, ValidateGeneratedProjectRequest
+from project_generation.generation.hardware import (
+    load_hardware_power_resources,
+    merge_hardware_power_resources,
+    power_resource_compatibility,
+    hardware_power_resource,
+)
 
 _PROJECT_GENERATION_NAMESPACE = uuid.UUID("b5cc252e-8608-4e8c-a03f-8ce6e5f55b43")
 _TEMPLATE_FIELD = re.compile(r"\{([^{}]+)}")
@@ -56,9 +73,16 @@ class ProjectGenerationProcessor:
         self,
         definition: ProjectGenerationDefinition,
         *,
-        base_directory: str | pathlib.Path = ".",
+        base_directory: str | pathlib.Path | None = None,
     ) -> GeneratedProject:
-        base_directory = pathlib.Path(base_directory)
+        if definition.definition_directory is not None:
+            base_directory = definition.definition_directory
+        elif base_directory is None:
+            base_directory = pathlib.Path.cwd()
+        else:
+            base_directory = pathlib.Path(base_directory)
+        power_resources = self._load_power_resources(definition, base_directory)
+        definition = definition.model_copy(update={"power_resources": power_resources})
         project_name, project_metadata = self._load_project_metadata(definition, base_directory)
         effective_definition = definition.model_copy(
             update={"project": definition.project.model_copy(update={"name": project_name, "metadata": project_metadata})}
@@ -72,6 +96,7 @@ class ProjectGenerationProcessor:
             device_states=tuple(device_states),
         )
         test_plans = self._generate_test_plans(test_plan_request)
+        test_plans = self._resolve_stress_supplies(effective_definition, test_plans)
         generated_project = GeneratedProject(
             name=project_name,
             metadata=project_metadata,
@@ -87,6 +112,21 @@ class ProjectGenerationProcessor:
         ).validate()
         return generated_project
 
+
+
+    @staticmethod
+    def _load_power_resources(
+        definition: ProjectGenerationDefinition,
+        base_directory: pathlib.Path,
+    ) -> dict[str, Any]:
+        if definition.hardware is None:
+            return dict(definition.power_resources)
+
+        source_path = pathlib.Path(definition.hardware.source)
+        if not source_path.is_absolute():
+            source_path = base_directory / source_path
+        hardware_resources = load_hardware_power_resources(source_path)
+        return merge_hardware_power_resources(hardware_resources, definition.power_resources)
 
     def _load_project_metadata(
         self,
@@ -470,16 +510,53 @@ class ProjectGenerationProcessor:
         assignments: dict[str, GeneratedPowerAssignment] = {}
         pseudo_resources = {"GROUND", "FLOATING"}
 
-        def validate_assignment(assignment: str, owner: str) -> None:
+        def validate_assignment(
+            assignment: str,
+            owner: str,
+            *,
+            group_name: str | None = None,
+            bias: Mapping[str, Any] | None = None,
+        ) -> None:
             if assignment in pseudo_resources:
                 return
             if assignment not in definition.power_resources:
                 raise ProjectGenerationError(
-                    f'Device state "{state_name}" {owner} references unknown power resource "{assignment}"'
+                    f'Device state "{state_name}" {owner} references unknown power resource "{assignment}"',
+                    code="hardware.unknown_power_resource",
+                    location=f"device_states.{state_name}",
+                    owner=state_name,
+                    context={"resource": assignment},
+                )
+            if bias is None or group_name is None:
+                return
+            incompatibility = power_resource_compatibility(definition.power_resources[assignment], bias)
+            if incompatibility is not None:
+                raise PowerResourceResolutionError(
+                    (
+                        PowerResourceResolutionIssue(
+                            state_name=state_name,
+                            group_name=group_name,
+                            bias=dict(bias),
+                            requested_resource=assignment,
+                            candidates=(
+                                PowerResourceCandidateDiagnostic(
+                                    resource=assignment,
+                                    accepted=False,
+                                    reason=incompatibility,
+                                ),
+                            ),
+                        ),
+                    )
                 )
 
         for domain in power_domains:
-            validate_assignment(domain.assignment, f'power domain "{domain.name}"')
+            first_group_name = domain.group_names[0] if domain.group_names else domain.name
+            validate_assignment(
+                domain.assignment,
+                f'power domain "{domain.name}"',
+                group_name=first_group_name,
+                bias=domain.bias,
+            )
             for group_id, group_name in zip(domain.group_ids, domain.group_names):
                 assignments[group_name] = GeneratedPowerAssignment(
                     group_id=group_id,
@@ -505,7 +582,12 @@ class ProjectGenerationProcessor:
                     unassigned.append(group_state)
                 continue
             assignment = str(assignment)
-            validate_assignment(assignment, f'group "{group_state.group_name}"')
+            validate_assignment(
+                assignment,
+                f'group "{group_state.group_name}"',
+                group_name=group_state.group_name,
+                bias=bias,
+            )
             assignments[group_state.group_name] = GeneratedPowerAssignment(
                 group_id=group_state.group_id,
                 group_name=group_state.group_name,
@@ -537,7 +619,13 @@ class ProjectGenerationProcessor:
             name for name, resource in definition.power_resources.items() if (resource.role or "").upper() == "STRESS"
         )
         used = {assignment.assignment for assignment in assignments.values() if assignment.assignment not in pseudo_resources}
-        available = sorted(set(definition.power_resources) - reserved - used)
+        available = sorted(
+            name
+            for name, resource in definition.power_resources.items()
+            if name not in reserved
+            and name not in used
+            and (resource.role or "BIAS").upper() == "BIAS"
+        )
 
         ganging_policy_name = allocation.get("ganging_policy") if allocation else None
         try:
@@ -554,6 +642,8 @@ class ProjectGenerationProcessor:
             )
         else:
             unassigned.sort(key=lambda group: group.group_name)
+
+        resolution_issues: list[PowerResourceResolutionIssue] = []
 
         for group_state in unassigned:
             bias = dict(group_state.values["bias"])
@@ -573,14 +663,44 @@ class ProjectGenerationProcessor:
             source = f"ganged:{ganging_policy.name}" if resource_name is not None else "automatic"
 
             if resource_name is None:
-                if not available:
-                    remaining = ", ".join(
-                        group.group_name for group in unassigned if group.group_name not in assignments
+                compatible_index = next(
+                    (
+                        index
+                        for index, candidate_name in enumerate(available)
+                        if power_resource_compatibility(definition.power_resources[candidate_name], bias) is None
+                    ),
+                    None,
+                )
+                if compatible_index is None:
+                    candidate_diagnostics: list[PowerResourceCandidateDiagnostic] = []
+                    for candidate_name, resource in sorted(definition.power_resources.items()):
+                        if (resource.role or "BIAS").upper() != "BIAS":
+                            reason = f'role is "{(resource.role or "BIAS").upper()}", not "BIAS"'
+                        elif candidate_name in reserved:
+                            reason = "reserved for stress or allocation policy"
+                        elif candidate_name in used:
+                            reason = "already assigned to another power domain/group"
+                        else:
+                            reason = power_resource_compatibility(resource, bias)
+
+                        candidate_diagnostics.append(
+                            PowerResourceCandidateDiagnostic(
+                                resource=candidate_name,
+                                accepted=reason is None,
+                                reason=reason,
+                            )
+                        )
+
+                    resolution_issues.append(
+                        PowerResourceResolutionIssue(
+                            state_name=state_name,
+                            group_name=group_state.group_name,
+                            bias=bias,
+                            candidates=tuple(candidate_diagnostics),
+                        )
                     )
-                    raise ProjectGenerationError(
-                        f'Device state "{state_name}" does not have enough available power resources for: {remaining}'
-                    )
-                resource_name = available.pop(0)
+                    continue
+                resource_name = available.pop(compatible_index)
 
             assignments[group_state.group_name] = GeneratedPowerAssignment(
                 group_id=group_state.group_id,
@@ -589,6 +709,11 @@ class ProjectGenerationProcessor:
                 bias=bias,
                 source=source,
             )
+            if resource_name not in pseudo_resources:
+                used.add(resource_name)
+
+        if resolution_issues:
+            raise PowerResourceResolutionError(tuple(resolution_issues))
 
         return tuple(assignments.values())
 
@@ -707,6 +832,117 @@ class ProjectGenerationProcessor:
             )
 
         return plans
+
+    @staticmethod
+    def _resolve_stress_supplies(
+        definition: ProjectGenerationDefinition,
+        test_plans: list[GeneratedTestPlan],
+    ) -> list[GeneratedTestPlan]:
+        hardware_stress_resources = {
+            name: hardware_power_resource(name, resource)
+            for name, resource in definition.power_resources.items()
+            if resource.parameters.get("hardware") and (resource.role or "BIAS").upper() == "STRESS"
+        }
+        if not hardware_stress_resources:
+            return test_plans
+
+        strategy = SourceSwitchStressStrategy()
+        resolved: list[GeneratedTestPlan] = []
+        issues: list[StressSupplyResolutionIssue] = []
+
+        for plan in test_plans:
+            compatible_names = set(hardware_stress_resources)
+            point_diagnostics: list[StressSupplyResolutionIssue] = []
+
+            for test_group in plan.test_groups:
+                for point_index, stress_point in enumerate(test_group.stress_points):
+                    try:
+                        stress = BiasedPulseStress.from_stress_point(stress_point.values)
+                    except (KeyError, TypeError, ValueError):
+                        # Not every test family is necessarily a biased-pulse stress. Only apply this
+                        # strategy to stress definitions that provide a peak.
+                        if "peak" not in stress_point.values:
+                            continue
+                        raise ProjectGenerationError(
+                            f'Test plan "{plan.name}" has an invalid biased-pulse stress point',
+                            code="stress.invalid_biased_pulse",
+                            location=f"test_plans.{plan.name}.{test_group.group_name}.stress_points[{point_index}]",
+                        )
+
+                    candidates: list[StressSupplyCandidateDiagnostic] = []
+                    accepted_for_point: set[str] = set()
+                    for name, resource in sorted(hardware_stress_resources.items()):
+                        compatibility = strategy.evaluate(resource, stress)
+                        if compatibility.accepted:
+                            accepted_for_point.add(name)
+                        candidates.append(
+                            StressSupplyCandidateDiagnostic(
+                                resource=name,
+                                strategy=strategy.name,
+                                accepted=compatibility.accepted,
+                                reason=compatibility.reason,
+                            )
+                        )
+                    compatible_names &= accepted_for_point
+                    if not accepted_for_point:
+                        point_diagnostics.append(
+                            StressSupplyResolutionIssue(
+                                plan_name=plan.name,
+                                group_name=test_group.group_name,
+                                stress_point_index=point_index,
+                                stress=stress_point.values,
+                                candidates=tuple(candidates),
+                            )
+                        )
+
+            if point_diagnostics:
+                issues.extend(point_diagnostics)
+                resolved.append(plan)
+                continue
+
+            if plan.test_groups and any(group.stress_points for group in plan.test_groups):
+                if not compatible_names:
+                    # Individual points may each be supportable by different supplies, but a plan must
+                    # resolve one stress source that can execute the whole stress series.
+                    first_group = next(group for group in plan.test_groups if group.stress_points)
+                    candidates = tuple(
+                        StressSupplyCandidateDiagnostic(
+                            resource=name,
+                            strategy=strategy.name,
+                            accepted=False,
+                            reason="cannot satisfy every stress point in this test plan",
+                        )
+                        for name in sorted(hardware_stress_resources)
+                    )
+                    issues.append(
+                        StressSupplyResolutionIssue(
+                            plan_name=plan.name,
+                            group_name=first_group.group_name,
+                            stress_point_index=0,
+                            stress=first_group.stress_points[0].values,
+                            candidates=candidates,
+                        )
+                    )
+                    resolved.append(plan)
+                    continue
+
+                resource_name = sorted(compatible_names)[0]
+                resolved.append(
+                    replace(
+                        plan,
+                        stress_supply=GeneratedStressSupplyAssignment(
+                            resource=resource_name,
+                            strategy=strategy.name,
+                        ),
+                    )
+                )
+            else:
+                resolved.append(plan)
+
+        if issues:
+            raise StressSupplyResolutionError(tuple(issues))
+        return resolved
+
 
     @staticmethod
     def _resolve_device_state_id(

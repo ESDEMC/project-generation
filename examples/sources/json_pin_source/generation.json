@@ -105,17 +105,17 @@
             {
               "stress_voltage": 5.5,
               "compliance": 0.1,
-              "hold_time": 0.1
+              "pulse_width": 0.1
             },
             {
               "stress_voltage": 6.0,
               "compliance": 0.1,
-              "hold_time": 0.1
+              "pulse_width": 0.1
             },
             {
               "stress_voltage": 6.5,
               "compliance": 0.1,
-              "hold_time": 0.1
+              "pulse_width": 0.1
             }
           ]
         }

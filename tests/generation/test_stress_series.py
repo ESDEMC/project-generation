@@ -19,14 +19,14 @@ def test_relative_factors_and_scalar_broadcast() -> None:
         {
             "stress_voltage": {"from": "group.v_max", "multiply_by": [1.0, 1.1, 1.2]},
             "compliance": 0.1,
-            "hold_time": 0.05,
+            "pulse_width": 0.05,
         },
         {"group": {"v_max": 5.0}},
     )
     assert [point.values for point in points] == [
-        {"stress_voltage": 5.0, "compliance": 0.1, "hold_time": 0.05},
-        {"stress_voltage": 5.5, "compliance": 0.1, "hold_time": 0.05},
-        {"stress_voltage": 6.0, "compliance": 0.1, "hold_time": 0.05},
+        {"stress_voltage": 5.0, "compliance": 0.1, "pulse_width": 0.05},
+        {"stress_voltage": 5.5, "compliance": 0.1, "pulse_width": 0.05},
+        {"stress_voltage": 6.0, "compliance": 0.1, "pulse_width": 0.05},
     ]
 
 

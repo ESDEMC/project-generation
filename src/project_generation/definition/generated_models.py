@@ -111,6 +111,10 @@ class FormatterDefinition(GeneratedDefinitionModel):
     decimal_places: int | None = None
 
 
+class HardwareDefinition(GeneratedDefinitionModel):
+    source: str
+
+
 class PowerResourceDefinition(GeneratedDefinitionModel):
     role: str | None = None
     parameters: dict[str, Any] = Field(default_factory=dict)
@@ -232,6 +236,7 @@ class ProjectGenerationDefinition(GeneratedDefinitionModel):
     sources: dict[str, InlineSource | JsonSource | CsvSource | ExcelSource] = Field(default_factory=dict)
     dut: DutDefinition | None = None
     groups: GroupsDefinition = Field(default_factory=GroupsDefinition)
+    hardware: HardwareDefinition | None = None
     power_resources: dict[str, PowerResourceDefinition] = Field(default_factory=dict)
     device_states: dict[str, DeviceStateDefinition] = Field(default_factory=dict)
     test_plans: list[ExplicitTestPlanDefinition] = Field(default_factory=list)

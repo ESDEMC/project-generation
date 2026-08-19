@@ -1,0 +1,38 @@
+power_supply:
+  hardware_connections:
+    - channel:
+        power_supply_id: bias-source
+        channel_id: bias-channel
+        channel_num: 1
+        power_supply_address: MOCK
+        channel_name: Bias
+      matrix_assignment: DC2
+      mode: bias
+    - channel:
+        power_supply_id: switch-source
+        channel_id: switch-channel
+        channel_num: 1
+        power_supply_address: Virtual
+        channel_name: Source Switch
+      matrix_assignment: DC1
+      mode: switch
+metadata:
+  power_supply:
+    - matrix_assignment: DC2
+      name: Bias Source
+      power_supply_id: bias-source
+      channel_id: bias-channel
+      power_envelopes:
+        DC:
+          - output_type: DC
+            max_voltage: 5.0
+            max_current: 1.0
+    - matrix_assignment: DC1
+      name: Source Switch
+      power_supply_id: switch-source
+      channel_id: switch-channel
+      power_envelopes:
+        DC:
+          - output_type: DC
+            max_voltage: 20.0
+            max_current: 1.0

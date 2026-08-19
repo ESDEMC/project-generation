@@ -10,10 +10,12 @@ The examples are organized by **what an end user is trying to do**. Each example
 | --- | --- |
 | [Explicit project](../../examples/basics/explicit_project/generate_project.py) | Write a small project directly in JSON and generate it. |
 | [JSON pin source](../../examples/sources/json_pin_source/generate_project.py) | Replace inline pins with records loaded from a customer JSON file. |
+| [Spreadsheet pin source](../../examples/sources/spreadsheet_pin_source/generate_project.py) | Load and map pins from an Excel workbook using a path relative to the generation file. |
 | [Group generation](../../examples/customizing_generation/group_generation/demo.py) | Generate repetitive pin groups from pin metadata. |
 | [Device states and power allocation](../../examples/customizing_generation/device_states_and_power_allocation/demo.py) | Define bias rules and let generation choose DC resources. |
 | [Test-plan dimensions](../../examples/customizing_generation/test_plan_dimensions/demo.py) | Generate combinations of groups, logic levels, and polarities. |
 | [Stress series and overrides](../../examples/customizing_generation/stress_series_and_overrides/demo.py) | Generate stress levels from group values and make exceptions. |
+| [Hardware configuration source](../../examples/sources/hardware_config/demo.py) | Use `hardware.yaml` as the physical source for device-state power allocation. |
 | [REALIS real-world example](../../examples/real_world/realis/generate_projects.py) | Apply one maintained definition to multiple real customer-style exports. |
 
 ## 1. Explicit project
@@ -47,7 +49,7 @@ An explicit test plan looks like:
         {
           "group": "IN5V5",
           "stress_points": [
-            {"stress_voltage": 5.5, "compliance": 0.1, "hold_time": 0.1}
+            {"stress_voltage": 5.5, "compliance": 0.1, "pulse_width": 0.1}
           ]
         }
       ]
@@ -97,11 +99,41 @@ Run:
 python examples/sources/json_pin_source/generate_project.py
 ```
 
-## 3. Customizing generation
+Relative source paths are resolved from the directory containing the generation file.
+
+## 3. External spreadsheet pin source
+
+Directory: `examples/sources/spreadsheet_pin_source/`
+
+The spreadsheet source uses the same record-mapping model as JSON and CSV sources:
+
+```yaml
+sources:
+  customer_pins:
+    type: excel
+    path: ./data/customer-device.xlsx
+    sheet: Pins
+    mapping:
+      designator: pin_number
+      name: signal_name
+      parameters.pin_type: latch_up_type
+      parameters.v_max: v_max
+      parameters.v_min: v_min
+```
+
+The `path` above is interpreted relative to `generation.yaml`, regardless of the process working directory.
+
+Run:
+
+```bash
+python examples/sources/spreadsheet_pin_source/generate_project.py
+```
+
+## 4. Customizing generation
 
 These demos each isolate one kind of customization.
 
-### 3.1 Group generation
+### 4.1 Group generation
 
 Directory: `examples/customizing_generation/group_generation/`
 
@@ -156,7 +188,7 @@ GND    -> GND (explicit)
 python examples/customizing_generation/group_generation/demo.py
 ```
 
-### 3.2 Device states and power allocation
+### 4.2 Device states and power allocation
 
 Directory: `examples/customizing_generation/device_states_and_power_allocation/`
 
@@ -189,7 +221,7 @@ Reserve `DC1` for stress, then let the allocator choose bias resources for the g
 python examples/customizing_generation/device_states_and_power_allocation/demo.py
 ```
 
-### 3.3 Test-plan dimensions
+### 4.3 Test-plan dimensions
 
 Directory: `examples/customizing_generation/test_plan_dimensions/`
 
@@ -214,7 +246,7 @@ With three selected groups, this produces `3 × 2 × 2 = 12` plans.
 python examples/customizing_generation/test_plan_dimensions/demo.py
 ```
 
-### 3.4 Stress series and overrides
+### 4.4 Stress series and overrides
 
 Directory: `examples/customizing_generation/stress_series_and_overrides/`
 
@@ -237,7 +269,7 @@ Then describe exceptions instead of copying the whole plan:
     {
       "scope": "plan",
       "when": {"polarity": "NEGATIVE"},
-      "set": {"stress_parameters.hold_time": 0.075}
+      "set": {"stress_parameters.pulse_width": 0.075}
     },
     {
       "scope": "group",

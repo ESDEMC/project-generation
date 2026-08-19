@@ -31,6 +31,58 @@ def test_yaml_extensions_are_supported(tmp_path: pathlib.Path, suffix: str) -> N
     assert definition.schema_version == "1.0"
 
 
+
+def test_loaded_definition_retains_absolute_origin() -> None:
+    definition_path = EXAMPLE_DIRECTORY / "generation.yaml"
+
+    definition = load_project_definition(definition_path)
+
+    assert definition.definition_path == definition_path.resolve()
+    assert definition.definition_directory == definition_path.resolve().parent
+
+
+def test_relative_json_source_is_resolved_from_generation_file(monkeypatch, tmp_path: pathlib.Path) -> None:
+    from project_generation import ProjectGenerationProcessor
+    from tests.support.paths import ROOT
+
+    definition_path = ROOT / "examples" / "sources" / "json_pin_source" / "generation.json"
+    definition = load_project_definition(definition_path)
+    monkeypatch.chdir(tmp_path)
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert generated.name == "External JSON Pin Source"
+    assert [pin.designator for pin in generated.pins] == ["1", "2", "3", "4", "5"]
+
+
+def test_relative_hardware_source_is_resolved_from_generation_file(monkeypatch, tmp_path: pathlib.Path) -> None:
+    from project_generation import ProjectGenerationProcessor
+    from tests.support.paths import ROOT
+
+    definition_path = ROOT / "examples" / "sources" / "hardware_config" / "generation.yaml"
+    definition = load_project_definition(definition_path)
+    monkeypatch.chdir(tmp_path)
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assignments = {plan.stress_supply.resource for plan in generated.test_plans if plan.stress_supply is not None}
+    assert "DC1" in assignments
+
+
+def test_relative_spreadsheet_source_is_resolved_from_generation_file(monkeypatch, tmp_path: pathlib.Path) -> None:
+    from project_generation import ProjectGenerationProcessor
+    from tests.support.paths import ROOT
+
+    definition_path = ROOT / "examples" / "sources" / "spreadsheet_pin_source" / "generation.yaml"
+    definition = load_project_definition(definition_path)
+    monkeypatch.chdir(tmp_path)
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert generated.name == "External Spreadsheet Pin Source"
+    assert [pin.designator for pin in generated.pins] == ["1", "2", "3", "4", "5"]
+
+
 def test_unknown_definition_extension_is_rejected(tmp_path: pathlib.Path) -> None:
     definition_path = tmp_path / "generation.toml"
     definition_path.write_text("schema_version = '1.0'\n", encoding="utf-8")

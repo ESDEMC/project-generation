@@ -1,7 +1,8 @@
-from tests.support.paths import DEVICE_STATES_AND_POWER_ALLOCATION, EXAMPLES, EXPLICIT_PROJECT
+from tests.support.paths import DEVICE_STATES_AND_POWER_ALLOCATION, EXAMPLES, EXPLICIT_PROJECT, FIXTURES
 import pytest
 
 from project_generation import (
+    PowerResourceResolutionError,
     ProjectGenerationError,
     ProjectGenerationDefinition,
     ProjectGenerationProcessor,
@@ -181,8 +182,16 @@ def test_hybrid_allocation_preserves_explicit_assignments() -> None:
 def test_automatic_allocation_fails_when_resources_are_insufficient() -> None:
     definition = _automatic_allocation_definition(resource_count=2)
 
-    with pytest.raises(ProjectGenerationError, match="does not have enough available power resources"):
+    with pytest.raises(PowerResourceResolutionError) as captured:
         ProjectGenerationProcessor().process(definition)
+
+    error = captured.value
+    assert error.code == "hardware.power_resource_unresolved"
+    assert error.group_name == "B"
+    assert any(
+        candidate.resource == "DC2" and candidate.reason == "already assigned to another power domain/group"
+        for candidate in error.candidates
+    )
 
 
 def test_same_voltage_ganging_reuses_one_resource() -> None:
@@ -211,8 +220,10 @@ def test_same_voltage_ganging_does_not_combine_different_biases() -> None:
         }
     )
 
-    with pytest.raises(ProjectGenerationError, match="does not have enough available power resources"):
+    with pytest.raises(PowerResourceResolutionError) as captured:
         ProjectGenerationProcessor().process(ProjectGenerationDefinition.model_validate(data))
+
+    assert captured.value.group_name == "B"
 
 
 def test_same_voltage_ganging_can_reuse_an_explicit_hybrid_assignment() -> None:
@@ -244,3 +255,129 @@ def test_unknown_ganging_policy_fails_clearly() -> None:
 
     with pytest.raises(ProjectGenerationError, match='unsupported ganging policy "mystery"'):
         ProjectGenerationProcessor().process(ProjectGenerationDefinition.model_validate(data))
+
+
+def _hardware_backed_definition(*, level: float = 3.3, assignment: str | None = None) -> ProjectGenerationDefinition:
+    rule_set = {"bias": {"mode": "VOLTAGE", "level": level}}
+    if assignment is not None:
+        rule_set["assignment"] = assignment
+    return ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {"name": "Hardware-backed allocation"},
+            "hardware": {"source": "hardware.yaml"},
+            "dut": {
+                "name": "DUT",
+                "pins": {
+                    "source": {
+                        "type": "inline",
+                        "records": [{"designator": "1", "name": "IN", "parameters": {}}],
+                    }
+                },
+            },
+            "groups": {
+                "explicit": [{"name": "IN", "group_type": "INPUT", "pins": ["1"]}],
+            },
+            "device_states": {
+                "active": {
+                    "allocation": {"mode": "automatic", "strategy": "first_available"},
+                    "rules": [{"when": {"group.name": "IN"}, "set": rule_set}],
+                }
+            },
+        }
+    )
+
+
+def test_hardware_yaml_supplies_power_resources() -> None:
+    definition = _hardware_backed_definition()
+    generated = ProjectGenerationProcessor().process(definition, base_directory=FIXTURES)
+
+    assignment = generated.device_states[0].power_assignments[0]
+    assert assignment.assignment == "DC2"
+    assert assignment.source == "automatic"
+
+
+def test_automatic_allocation_rejects_hardware_envelope_mismatch() -> None:
+    definition = _hardware_backed_definition(level=6.0)
+
+    with pytest.raises(PowerResourceResolutionError) as captured:
+        ProjectGenerationProcessor().process(definition, base_directory=FIXTURES)
+
+    error = captured.value
+    assert error.code == "hardware.power_resource_unresolved"
+    assert error.group_name == "IN"
+    assert error.bias == {"mode": "VOLTAGE", "level": 6.0}
+    candidates = {candidate.resource: candidate for candidate in error.candidates}
+    assert candidates["DC1"].reason == 'role is "STRESS", not "BIAS"'
+    assert candidates["DC2"].reason == "requested voltage 6 exceeds hardware maximum 5"
+    assert set(candidates) == {"DC1", "DC2"}
+    assert "Power resources checked:" in error.format_user_report()
+    assert "DC1: rejected" in error.format_user_report()
+
+
+def test_explicit_assignment_rejects_switch_only_hardware_resource() -> None:
+    definition = _hardware_backed_definition(assignment="DC1")
+    data = definition.model_dump(by_alias=True)
+    data["device_states"]["active"]["allocation"] = {"mode": "hybrid", "strategy": "first_available"}
+
+    with pytest.raises(PowerResourceResolutionError) as captured:
+        ProjectGenerationProcessor().process(
+            ProjectGenerationDefinition.model_validate(data),
+            base_directory=FIXTURES,
+        )
+
+    error = captured.value
+    assert error.code == "hardware.power_resource_incompatible"
+    assert error.requested_resource == "DC1"
+    assert error.candidates[0].resource == "DC1"
+    assert error.candidates[0].reason == 'hardware connection mode is "switch", not "bias"'
+    assert "Requested resource: DC1" in error.format_user_report()
+
+
+def test_hardware_source_does_not_allow_declaring_nonexistent_resource() -> None:
+    definition = _hardware_backed_definition()
+    data = definition.model_dump(by_alias=True)
+    data["power_resources"] = {"DC9": {"role": "BIAS"}}
+
+    with pytest.raises(ProjectGenerationError, match="DC9"):
+        ProjectGenerationProcessor().process(
+            ProjectGenerationDefinition.model_validate(data),
+            base_directory=FIXTURES,
+        )
+
+
+def test_power_resolution_error_aggregates_multiple_unresolved_groups() -> None:
+    definition = _automatic_allocation_definition(resource_count=2)
+    data = definition.model_dump(by_alias=True)
+    data["dut"]["pins"]["source"]["records"].append(
+        {"designator": "3", "name": "C", "parameters": {}}
+    )
+    data["groups"]["explicit"].append(
+        {"name": "C", "group_type": "INPUT", "pins": ["3"]}
+    )
+
+    with pytest.raises(PowerResourceResolutionError) as captured:
+        ProjectGenerationProcessor().process(ProjectGenerationDefinition.model_validate(data))
+
+    error = captured.value
+    assert error.code == "hardware.power_resources_unresolved"
+    assert [issue.group_name for issue in error.issues] == ["B", "C"]
+    assert all(issue.state_name == "active" for issue in error.issues)
+    assert "Configured hardware cannot satisfy 2 device-state power requirements." in error.format_user_report()
+
+
+def test_hardware_report_identifies_compliance_limit_mismatch() -> None:
+    definition = _hardware_backed_definition(level=5.0)
+    data = definition.model_dump(by_alias=True)
+    data["device_states"]["active"]["rules"][0]["set"]["bias"]["compliance_limit"] = 2.0
+
+    with pytest.raises(PowerResourceResolutionError) as captured:
+        ProjectGenerationProcessor().process(
+            ProjectGenerationDefinition.model_validate(data),
+            base_directory=FIXTURES,
+        )
+
+    candidates = {candidate.resource: candidate for candidate in captured.value.candidates}
+    assert candidates["DC2"].reason == (
+        "requested current compliance 2 exceeds hardware maximum 1 at voltage 5"
+    )

@@ -55,13 +55,13 @@
         "template": {
           "test_type": "SIGNAL",
           "name": {"template": "{group.name}_{polarity}"},
-          "stress_parameters": {"compliance": 0.1, "hold_time": 0.1}
+          "stress_parameters": {"compliance": 0.1, "pulse_width": 0.1}
         },
         "overrides": [
           {
             "scope": "plan",
             "when": {"polarity": "NEGATIVE"},
-            "set": {"stress_parameters.hold_time": 0.075}
+            "set": {"stress_parameters.pulse_width": 0.075}
           },
           {
             "scope": "group",

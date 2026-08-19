@@ -50,7 +50,7 @@ def _validate_named_references(definition: ProjectGenerationDefinition, diagnost
             _error(diagnostics, "DEVICE_STATE_NOT_FOUND", f'Unknown device state "{state.extends}".', f"device_states.{state_name}.extends")
         if state.allocation:
             for resource in state.allocation.reserve:
-                if resource not in definition.power_resources:
+                if definition.hardware is None and resource not in definition.power_resources:
                     _error(
                         diagnostics,
                         "POWER_RESOURCE_NOT_FOUND",
@@ -58,7 +58,7 @@ def _validate_named_references(definition: ProjectGenerationDefinition, diagnost
                         f"device_states.{state_name}.allocation.reserve",
                     )
         for domain_index, domain in enumerate(state.power_domains):
-            if domain.assignment not in definition.power_resources and domain.assignment != "GROUND":
+            if definition.hardware is None and domain.assignment not in definition.power_resources and domain.assignment != "GROUND":
                 _error(
                     diagnostics,
                     "POWER_RESOURCE_NOT_FOUND",
