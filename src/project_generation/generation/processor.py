@@ -69,7 +69,6 @@ from project_generation.generation.hardware import (
 from project_generation.version import get_package_version
 
 _PACKAGE_VERSION = get_package_version()
-print(_PACKAGE_VERSION)
 _PROJECT_GENERATION_NAMESPACE = uuid.UUID("b5cc252e-8608-4e8c-a03f-8ce6e5f55b43")
 _TEMPLATE_FIELD = re.compile(r"\{([^{}]+)}")
 _OMIT = object()
