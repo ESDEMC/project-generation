@@ -53,9 +53,14 @@ class InlineSourceReference(GeneratedDefinitionModel):
     source: InlineSource | JsonSource | CsvSource | ExcelSource
 
 
-class DutDefinition(GeneratedDefinitionModel):
-    name: str
-    pins: NamedSourceReference | InlineSourceReference
+class ValueDefinition(GeneratedDefinitionModel):
+    from_: str | None = Field(default=None, alias="from")
+    value: Any = None
+    aggregate: str | None = None
+    mapping: str | None = None
+    formatter: str | None = None
+    cast: Literal["float", "int", "str", "bool"] | None = None
+    when: dict[str, Any] | None = None
 
 
 class ExplicitGroupDefinition(GeneratedDefinitionModel):
@@ -67,16 +72,6 @@ class ExplicitGroupDefinition(GeneratedDefinitionModel):
 
 class SelectionDefinition(GeneratedDefinitionModel):
     where: dict[str, Any] = Field(default_factory=dict)
-
-
-class ValueDefinition(GeneratedDefinitionModel):
-    from_: str | None = Field(default=None, alias="from")
-    value: Any = None
-    aggregate: str | None = None
-    mapping: str | None = None
-    formatter: str | None = None
-    cast: Literal["float", "int", "str", "bool"] | None = None
-    when: dict[str, Any] | None = None
 
 
 class NameFieldDefinition(GeneratedDefinitionModel):
@@ -91,10 +86,20 @@ class NameTemplateDefinition(GeneratedDefinitionModel):
     fields: dict[str, NameFieldDefinition] = Field(default_factory=dict)
 
 
+class DutDefinition(GeneratedDefinitionModel):
+    name: str | ValueDefinition | NameTemplateDefinition
+    pins: NamedSourceReference | InlineSourceReference
+
+
+class GroupByFieldDefinition(GeneratedDefinitionModel):
+    source: str
+    when: dict[str, Any] | None = None
+
+
 class GroupGenerationRule(GeneratedDefinitionModel):
     id: str
     select: SelectionDefinition = Field(default_factory=SelectionDefinition)
-    group_by: list[str]
+    group_by: list[str | GroupByFieldDefinition]
     set: dict[str, Any] = Field(default_factory=dict)
     name: NameTemplateDefinition
 

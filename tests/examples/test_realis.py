@@ -3,6 +3,7 @@ import pathlib
 
 from project_generation import (
     PowerResourceResolutionError,
+    StressSupplyResolutionError,
     ProjectGenerationError,
     ProjectGenerationProcessor,
     load_project_definition,
@@ -12,10 +13,7 @@ from tests.support.paths import REALIS
 
 EXAMPLE = REALIS / "generate_projects.py"
 INPUT = REALIS / "input"
-INCOMPATIBLE_WITH_EXAMPLE_HARDWARE = {
-    "U0019_TLE9954QSA40-33.7447a625-3c92-4d3c-a489-899ceb0b25ed.json",
-    "U0083_ISSI20B11F.47851688-3b72-4006-8cfd-d6c28b906b21.json",
-}
+INCOMPATIBLE_WITH_EXAMPLE_HARDWARE: set[str] = set()
 
 
 def load_example_module():
@@ -47,6 +45,11 @@ def test_realis_device_states_are_checked_against_example_hardware() -> None:
             assert all(issue.candidates for issue in error.issues)
             assert "Power resources checked:" in error.format_user_report()
             incompatible.add(input_path.name)
+        except StressSupplyResolutionError as error:
+            assert error.issues
+            assert all(issue.candidates for issue in error.issues)
+            assert "Stress resources checked:" in error.format_user_report()
+            incompatible.add(input_path.name)
 
     assert incompatible == INCOMPATIBLE_WITH_EXAMPLE_HARDWARE
 
@@ -65,3 +68,19 @@ def test_realis_example_generates_compatible_project_packages(tmp_path: pathlib.
         assert project_path.suffix == ".Prj"
         assert list(project_path.parent.glob("*.LuDut"))
         assert list((project_path.parent / "Testing").glob("*.LuTstPlan"))
+
+
+def test_realis_temperature_control_uses_project_temperature() -> None:
+    module = load_example_module()
+
+    for input_path in sorted(INPUT.glob("*.json")):
+        project = process_realis_definition(module, input_path)
+        expected_temperature = float(project.metadata["temperature"])
+
+        assert project.test_plans
+        assert all(plan.temperature_control is not None for plan in project.test_plans)
+        assert all(plan.temperature_control.temperature == expected_temperature for plan in project.test_plans)
+        assert all(plan.temperature_control.enabled for plan in project.test_plans)
+        assert all(plan.temperature_control.soak_time == 0.0 for plan in project.test_plans)
+        assert all(plan.temperature_control.start_tolerance == 10.0 for plan in project.test_plans)
+        assert all(plan.temperature_control.timeout == 900.0 for plan in project.test_plans)

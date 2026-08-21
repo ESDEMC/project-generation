@@ -99,3 +99,88 @@ def test_unknown_explicit_pin_is_rejected(tmp_path: Path) -> None:
 
     with pytest.raises(ProjectGenerationError, match="unknown pin designators"):
         process_project_definition(path)
+
+
+def test_conditional_group_by_omits_voltage_for_ground_and_nc() -> None:
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {"name": "Conditional grouping"},
+            "dut": {
+                "name": "DUT",
+                "pins": {
+                    "source": {
+                        "type": "inline",
+                        "records": [
+                            {"designator": "1", "name": "GND1", "parameters": {"pin_type": "GROUND", "v_max": 0.0}},
+                            {"designator": "2", "name": "GND2", "parameters": {"pin_type": "GROUND", "v_max": 5.0}},
+                            {"designator": "3", "name": "NC1", "parameters": {"pin_type": "NC", "v_max": 0.0}},
+                            {"designator": "4", "name": "NC2", "parameters": {"pin_type": "NC", "v_max": 3.3}},
+                            {"designator": "5", "name": "IN1", "parameters": {"pin_type": "INPUT", "v_max": 3.3}},
+                            {"designator": "6", "name": "IN2", "parameters": {"pin_type": "INPUT", "v_max": 5.0}},
+                        ],
+                    }
+                },
+            },
+            "mappings": {
+                "prefix": {"GROUND": "GND", "NC": "NC", "INPUT": "IN"},
+            },
+            "formatters": {
+                "voltage": {"type": "decimal_token", "separator": "V", "decimal_places": 1}
+            },
+            "groups": {
+                "generation": [
+                    {
+                        "id": "by_type_and_optional_voltage",
+                        "group_by": [
+                            "parameters.pin_type",
+                            {
+                                "source": "parameters.v_max",
+                                "when": {
+                                    "parameters.pin_type": {"in": ["INPUT", "IO", "OUTPUT", "POWER"]}
+                                },
+                            },
+                        ],
+                        "set": {
+                            "group_type": {"from": "partition.parameters.pin_type"},
+                            "parameters.v_max": {
+                                "from": "partition.parameters.v_max",
+                                "cast": "float",
+                                "when": {
+                                    "partition.parameters.pin_type": {
+                                        "in": ["INPUT", "IO", "OUTPUT", "POWER"]
+                                    }
+                                },
+                            },
+                        },
+                        "name": {
+                            "template": "{prefix}{voltage}",
+                            "fields": {
+                                "prefix": {
+                                    "source": "partition.parameters.pin_type",
+                                    "mapping": "prefix",
+                                },
+                                "voltage": {
+                                    "source": "partition.parameters.v_max",
+                                    "formatter": "voltage",
+                                    "when": {
+                                        "partition.parameters.pin_type": {
+                                            "in": ["INPUT", "IO", "OUTPUT", "POWER"]
+                                        }
+                                    },
+                                },
+                            },
+                        },
+                    }
+                ]
+            },
+        }
+    )
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert [group.name for group in generated.groups] == ["GND", "NC", "IN3V3", "IN5V0"]
+    assert len(generated.groups[0].pin_ids) == 2
+    assert len(generated.groups[1].pin_ids) == 2
+    assert "v_max" not in generated.groups[0].parameters
+    assert "v_max" not in generated.groups[1].parameters

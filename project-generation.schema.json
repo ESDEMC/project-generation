@@ -251,8 +251,18 @@
       "additionalProperties": false,
       "properties": {
         "name": {
-          "title": "Name",
-          "type": "string"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ValueDefinition"
+            },
+            {
+              "$ref": "#/$defs/NameTemplateDefinition"
+            }
+          ],
+          "title": "Name"
         },
         "pins": {
           "anyOf": [
@@ -514,7 +524,14 @@
         },
         "group_by": {
           "items": {
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/GroupByFieldDefinition"
+              }
+            ]
           },
           "title": "Group By",
           "type": "array"
@@ -1262,6 +1279,33 @@
         "source"
       ],
       "title": "HardwareDefinition",
+      "type": "object"
+    },
+    "GroupByFieldDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "title": "Source",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "When"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "GroupByFieldDefinition",
       "type": "object"
     }
   },

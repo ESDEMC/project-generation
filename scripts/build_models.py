@@ -19,6 +19,7 @@ REQUIRED_MODEL_CLASSES = {
     "ExplicitGroupDefinition",
     "ExplicitTestPlanDefinition",
     "FormatterDefinition",
+    "GroupByFieldDefinition",
     "GroupGenerationRule",
     "HardwareDefinition",
     "InlineSource",

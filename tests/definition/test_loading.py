@@ -79,7 +79,8 @@ def test_relative_spreadsheet_source_is_resolved_from_generation_file(monkeypatc
 
     generated = ProjectGenerationProcessor().process(definition)
 
-    assert generated.name == "External Spreadsheet Pin Source"
+    assert generated.name == "Spreadsheet Source Demo"
+    assert generated.dut_name == "CUSTOMER-IC-42-DEMO-42"
     assert [pin.designator for pin in generated.pins] == ["1", "2", "3", "4", "5"]
 
 
@@ -106,6 +107,78 @@ def test_realis_project_metadata_is_loaded_from_input() -> None:
     generated = ProjectGenerationProcessor().process(definition, base_directory=EXAMPLE_DIRECTORY)
 
     assert generated.name == "Q25FMA14_FMA103"
+    assert generated.dut_name == "R3874-BTS80320-SSPL-4ES"
     assert generated.metadata["test_id"] == 3263975
     assert generated.metadata["lab_tracking_number"] == "VQ254216.13-FMA103U"
     assert generated.metadata["sales_code"] == "BTS80320-SSPL-4ES"
+
+
+def test_dut_name_can_be_resolved_from_project_name() -> None:
+    from project_generation import ProjectGenerationProcessor
+    from project_generation.definition.models import ProjectGenerationDefinition
+
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {"name": "Resolved DUT"},
+            "dut": {
+                "name": {"from": "project.name"},
+                "pins": {"source": {"type": "inline", "records": []}},
+            },
+        }
+    )
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert generated.dut_name == "Resolved DUT"
+
+
+def test_dut_name_can_be_resolved_from_project_metadata() -> None:
+    from project_generation import ProjectGenerationProcessor
+    from project_generation.definition.models import ProjectGenerationDefinition
+
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {
+                "name": "Project",
+                "metadata": {"product_basic_type": "R3874"},
+            },
+            "dut": {
+                "name": {"from": "project.metadata.product_basic_type"},
+                "pins": {"source": {"type": "inline", "records": []}},
+            },
+        }
+    )
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert generated.dut_name == "R3874"
+
+
+def test_dut_name_can_be_rendered_from_project_template() -> None:
+    from project_generation import ProjectGenerationProcessor
+    from project_generation.definition.models import ProjectGenerationDefinition
+
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {
+                "name": "Project",
+                "metadata": {
+                    "product_basic_type": "R3874",
+                    "sales_code": "BTS80320-SSPL-4ES",
+                },
+            },
+            "dut": {
+                "name": {
+                    "template": "{project.metadata.product_basic_type}-{project.metadata.sales_code}"
+                },
+                "pins": {"source": {"type": "inline", "records": []}},
+            },
+        }
+    )
+
+    generated = ProjectGenerationProcessor().process(definition)
+
+    assert generated.dut_name == "R3874-BTS80320-SSPL-4ES"

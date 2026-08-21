@@ -34,6 +34,7 @@ class Bindings:
     StressPlan = latchup_test_plan_module.StressPlan
     TestPlanID = latchup_test_plan_module.TestPlanID
     TimingInfo = latchup_test_plan_module.TimingInfo
+    TemperatureControl = latchup_test_plan_module.TemperatureControl
 
 TestGroupType = dut_module.SignalTestGroup | dut_module.SupplyTestGroup | dut_module.PinGroup
 
@@ -204,6 +205,18 @@ class LatchUpProjectCoreAdapter:
             result.logic_level = bindings.LogicLevelEnum(str(logic_level).title())
         if stress_plan := _build_stress_plan(plan, dut, bindings):
             result._stresses = stress_plan.stresses
+        if plan.temperature_control is not None:
+            temperature = plan.temperature_control
+            result.temperature_control = bindings.TemperatureControl(
+                enabled=temperature.enabled,
+                temperature=temperature.temperature,
+                soak_time=temperature.soak_time,
+                factor=temperature.factor,
+                offset=temperature.offset,
+                start_tolerance=temperature.start_tolerance,
+                cool_temperature=temperature.cool_temperature,
+                timeout=temperature.timeout,
+            )
         if plan.device_state:
 
             result.device_state = copy.deepcopy(states[plan.device_state])

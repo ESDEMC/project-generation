@@ -13,10 +13,12 @@ from project_generation.definition.models import (
     ExplicitGroupDefinition,
     ExplicitTestPlanDefinition,
     FormatterDefinition,
+    GroupByFieldDefinition,
     GroupGenerationRule,
     InlineSource,
     JsonSource,
     JsonValue,
+    NameTemplateDefinition,
     ProjectGenerationDefinition,
     SourceDefinition,
     SourceFieldMapping,
@@ -45,6 +47,7 @@ from project_generation.generation.models import (
     GeneratedTestGroup,
     GeneratedTestPlan,
     GeneratedStressSupplyAssignment,
+    GeneratedTemperatureControl,
 )
 from project_generation.generation.rules import (
     GroupRecord,
@@ -84,9 +87,13 @@ class ProjectGenerationProcessor:
         power_resources = self._load_power_resources(definition, base_directory)
         definition = definition.model_copy(update={"power_resources": power_resources})
         project_name, project_metadata = self._load_project_metadata(definition, base_directory)
-        effective_definition = definition.model_copy(
-            update={"project": definition.project.model_copy(update={"name": project_name, "metadata": project_metadata})}
-        )
+        effective_project = definition.project.model_copy(update={"name": project_name, "metadata": project_metadata})
+        effective_definition = definition.model_copy(update={"project": effective_project})
+        dut_name = self._resolve_dut_name(effective_definition)
+        if effective_definition.dut is not None:
+            effective_definition = effective_definition.model_copy(
+                update={"dut": effective_definition.dut.model_copy(update={"name": dut_name})}
+            )
         pins = self._load_pins(effective_definition, base_directory)
         groups = self._generate_groups(effective_definition, pins)
         device_states = self._generate_device_states(effective_definition, groups)
@@ -113,6 +120,39 @@ class ProjectGenerationProcessor:
         return generated_project
 
 
+
+
+    def _resolve_dut_name(self, definition: ProjectGenerationDefinition) -> str | None:
+        if definition.dut is None:
+            return None
+
+        name_definition = definition.dut.name
+        context = {
+            "project": {
+                "name": definition.project.name,
+                "metadata": dict(definition.project.metadata),
+            }
+        }
+        if isinstance(name_definition, str):
+            name = name_definition
+        elif isinstance(name_definition, NameTemplateDefinition):
+            name = render_value_template(
+                name_definition.model_dump(by_alias=True, exclude_none=True),
+                context,
+                owner="DUT name",
+                mappings=definition.mappings,
+                formatters=definition.formatters,
+            )
+        else:
+            name = resolve_value_tree(name_definition, context, definition=definition)
+
+        if name is _OMIT or name is None or not str(name).strip():
+            raise ProjectGenerationError(
+                "DUT name did not resolve to a non-empty value",
+                code="dut.missing_name",
+                location="dut.name",
+            )
+        return str(name)
 
     @staticmethod
     def _load_power_resources(
@@ -292,7 +332,8 @@ class ProjectGenerationProcessor:
         selected = [pin for pin in pins if matches(rule.select.where, pin.context())]
         buckets: dict[tuple[Any, ...], list[GeneratedPin]] = {}
         for pin in selected:
-            key = tuple(resolve_required_path(pin.context(), field, f'group rule "{rule.id}"') for field in rule.group_by)
+            pin_context = pin.context()
+            key = tuple(resolve_group_by_value(field, pin_context, rule.id) for field in rule.group_by)
             buckets.setdefault(key, []).append(pin)
 
         generated: list[GeneratedGroup] = []
@@ -818,6 +859,8 @@ class ProjectGenerationProcessor:
             if not test_type:
                 raise ProjectGenerationError(f'Test plan rule "{rule.id}" did not resolve test_type')
 
+            temperature_control = self._resolve_temperature_control(definition, values, candidate)
+
             plans.append(
                 GeneratedTestPlan(
                     id=uuid.uuid5(namespace, name),
@@ -827,11 +870,47 @@ class ProjectGenerationProcessor:
                     device_state=str(values["device_state"]) if values.get("device_state") is not None else None,
                     device_state_id=self._resolve_device_state_id(values.get("device_state"), device_states, rule.id),
                     test_groups=tuple(test_groups),
+                    temperature_control=temperature_control,
                     generation_rule_id=rule.id,
                 )
             )
 
         return plans
+
+    @staticmethod
+    def _resolve_temperature_control(
+        definition: ProjectGenerationDefinition,
+        values: Mapping[str, Any],
+        candidate: Any,
+    ) -> GeneratedTemperatureControl | None:
+        config = values.get("temperature_control")
+        if config is None:
+            return None
+        if not isinstance(config, Mapping):
+            raise ProjectGenerationError("temperature_control must be an object")
+
+        context = candidate_context(candidate)
+        context["project"] = {
+            "name": definition.project.name,
+            "metadata": dict(definition.project.metadata),
+        }
+        resolved = resolve_value_tree(config, context, definition=definition)
+        if not isinstance(resolved, Mapping):
+            raise ProjectGenerationError("temperature_control must resolve to an object")
+
+        try:
+            return GeneratedTemperatureControl(
+                enabled=bool(resolved.get("enabled", True)),
+                temperature=float(resolved.get("temperature", 25.0)),
+                soak_time=float(resolved.get("soak_time", 0.0)),
+                factor=float(resolved.get("factor", 1.0)),
+                offset=float(resolved.get("offset", 0.0)),
+                start_tolerance=float(resolved.get("start_tolerance", 10.0)),
+                cool_temperature=float(resolved.get("cool_temperature", 24.0)),
+                timeout=float(resolved.get("timeout", 900.0)),
+            )
+        except (TypeError, ValueError) as error:
+            raise ProjectGenerationError(f"Invalid temperature_control value: {error}") from error
 
     @staticmethod
     def _resolve_stress_supplies(
@@ -1117,10 +1196,34 @@ def get_aliased_field_value(model: Any, alias: str) -> Any:
             return values[alias]
     raise ProjectGenerationError(f'Model {type(model).__name__} does not define field "{alias}"')
 
-def build_partition_context(fields: list[str], key: tuple[Any, ...]) -> dict[str, Any]:
+_OMITTED_GROUP_BY_VALUE = object()
+
+
+def group_by_source(field: str | GroupByFieldDefinition) -> str:
+    if isinstance(field, str):
+        return field
+    return field.source
+
+
+def resolve_group_by_value(
+    field: str | GroupByFieldDefinition,
+    context: Mapping[str, Any],
+    rule_id: str,
+) -> Any:
+    if not isinstance(field, str) and field.when is not None and not matches(field.when, context):
+        return _OMITTED_GROUP_BY_VALUE
+    return resolve_required_path(context, group_by_source(field), f'group rule "{rule_id}"')
+
+
+def build_partition_context(
+    fields: list[str | GroupByFieldDefinition],
+    key: tuple[Any, ...],
+) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for field, value in zip(fields, key, strict=True):
-        set_path(result, field, value)
+        if value is _OMITTED_GROUP_BY_VALUE:
+            continue
+        set_path(result, group_by_source(field), value)
     return result
 
 

@@ -1,12 +1,17 @@
 # Changelog
+- Added generated test-plan temperature control and wired the REALIS project temperature metadata into each Latch-Up test plan.
+- Added conditional grouping fields for selected group types, and updated REALIS to keep non-voltage group names unsuffixed while using a local hardware source.
 
 All notable changes to Project Generation are recorded here.
 
 The project is still under active development. Until the public generation format is declared stable, changes under `Unreleased` may
 include structural changes to the package, examples, and generation definition.
 
+
 ## Unreleased
 
+- Set the REALIS signal and supply stress pulse width to a consistent 10 ms default.
+- Allow `dut.name` to use literals, direct value references, or templates composed from parsed project data and metadata.
 - Resolve relative source paths from the directory containing the generation definition.
 - Add `examples/sources/spreadsheet_pin_source` with an Excel-backed pin source example.
 - Standardize biased-pulse stress terminology on `pulse_width`; `hold_time` remains a legacy input alias only.

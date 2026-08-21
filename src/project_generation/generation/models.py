@@ -103,6 +103,18 @@ class GeneratedTestGroup:
 
 
 @dataclass(frozen=True, kw_only=True)
+class GeneratedTemperatureControl:
+    enabled: bool = True
+    temperature: float = 25.0
+    soak_time: float = 0.0
+    factor: float = 1.0
+    offset: float = 0.0
+    start_tolerance: float = 10.0
+    cool_temperature: float = 24.0
+    timeout: float = 900.0
+
+
+@dataclass(frozen=True, kw_only=True)
 class GeneratedStressSupplyAssignment:
     resource: str
     strategy: str
@@ -117,6 +129,7 @@ class GeneratedTestPlan:
     device_state_id: uuid.UUID | None
     test_groups: tuple[GeneratedTestGroup, ...]
     stress_supply: GeneratedStressSupplyAssignment | None = None
+    temperature_control: GeneratedTemperatureControl | None = None
     generation_rule_id: str | None = None
 
 

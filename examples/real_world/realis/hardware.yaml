@@ -68,53 +68,77 @@ relay_matrix:
 power_supply:
   hardware_connections:
   - channel:
-      power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
-      channel_id: a7b97fe3-5c0e-4332-8905-f7eed33d19e7
+      power_supply_id: 636cc5d3-822a-4648-955a-f342f6adb4a3
+      channel_id: 68a9d676-207b-4fcf-8c08-5e51c08e5f61
       channel_num: 1
-      power_supply_address: GPIB::MOCK
+      power_supply_address: 1::MOCK
       channel_name: Ch 1-Rear
     matrix_assignment: EXT1
     mode: bias
   - channel:
-      power_supply_id: 7b4d4aab-3bcf-4cc0-b330-8818d5c8000a
-      channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+      power_supply_id: 717d47b9-df9c-42dd-80a3-94576f457316
+      channel_id: 5bd125be-0cd6-4f97-a910-af6b274f9f1e
       channel_num: 1
       power_supply_address: Virtual
       channel_name: Source Switch
     matrix_assignment: DC1
     mode: switch
   - channel:
-      power_supply_id: 65f8f9ad-9d9d-4eca-9650-d7537004e87f
-      channel_id: f79c86d3-5de5-4402-b215-f10c7869d121
+      power_supply_id: 2fafcf93-1566-4a1b-a17a-7b415d538f67
+      channel_id: 0a5ad5c2-6cb5-48f0-9772-257bf4043195
       channel_num: 1
-      power_supply_address: 1::MOCK
+      power_supply_address: 2::MOCK
       channel_name: Ch 1
     matrix_assignment: DC2
     mode: bias
   - channel:
-      power_supply_id: 3f5f703c-7681-4ee6-b747-790220d670e9
-      channel_id: 7c44fbfe-5504-4ec0-a0e8-25af00ee7f51
+      power_supply_id: 08573974-a225-422b-9bef-c4b25372657c
+      channel_id: ffe0fb0b-a6b6-4f11-9299-74cfafa2f3a9
       channel_num: 1
-      power_supply_address: 2::MOCK
+      power_supply_address: 3::MOCK
       channel_name: Ch 1
     matrix_assignment: DC3
+    mode: bias
+  - channel:
+      power_supply_id: d9fa4235-518c-4c40-87ae-6849786c6754
+      channel_id: 6e741af4-0b83-45ec-8756-7c3bb59507d3
+      channel_num: 1
+      power_supply_address: 5::MOCK
+      channel_name: Ch 1
+    matrix_assignment: DC5
+    mode: bias
+  - channel:
+      power_supply_id: 37e591be-a6c8-41d4-8e54-b890e0352644
+      channel_id: 99daa1d3-79f3-4a36-893d-22ba6c732ddf
+      channel_num: 1
+      power_supply_address: 6::MOCK
+      channel_name: Ch 1
+    matrix_assignment: DC6
+    mode: bias
+  - channel:
+      power_supply_id: 580c68ac-7057-40a5-aadb-8e5504f64d2b
+      channel_id: 3aa8b91f-c34c-4af3-9ab3-f6d16e9626bd
+      channel_num: 1
+      power_supply_address: 7::MOCK
+      channel_name: Ch 1
+    matrix_assignment: DC7
     mode: bias
   bridged_power_supplies: []
   source_switch_connections:
   - name: Source Switch
     enabled: true
-    channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+    channel_id: 5bd125be-0cd6-4f97-a910-af6b274f9f1e
     pulse_channel:
-      power_supply_id: d950d36f-3cad-4ee4-867e-cd5eaed04516
-      channel_id: c274e44e-6cd4-444b-b615-3e41975a3b29
+      power_supply_id: 38810344-68d9-4a0b-b339-2470fd44f27e
+      channel_id: e5e43140-665e-49c6-955e-823ae7dfe712
       channel_num: 1
       power_supply_address: a::MOCK
       channel_name: Ch 1-Front
     bias_channel:
-      power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
-      channel_id: 5c647c9f-c239-4db9-a74e-2f29b88e1147
+      power_supply_id: 636cc5d3-822a-4648-955a-f342f6adb4a3
+      channel_id: e3ac5373-c894-407c-880f-0dd364054ae0
       channel_num: 1
-      power_supply_address: GPIB::MOCK
+      power_supply_address: 1::MOCK
       channel_name: Ch 1-Front
 iv_monitor: {}
 io_controller:
@@ -123,39 +147,499 @@ io_controller:
 metadata:
   power_supply:
   - matrix_assignment: DC3
-    name: Ans HL150V1A [2::MOCK] - Ch 1
-    power_supply_id: 3f5f703c-7681-4ee6-b747-790220d670e9
-    channel_id: 7c44fbfe-5504-4ec0-a0e8-25af00ee7f51
+    name: Ans HL300V1A [3::MOCK] - Ch 1
+    power_supply_id: 08573974-a225-422b-9bef-c4b25372657c
+    channel_id: ffe0fb0b-a6b6-4f11-9299-74cfafa2f3a9
     power_envelopes:
       DC:
       - output_type: DC
-        max_voltage: 150
+        max_voltage: 300
         max_current: 1
         min_voltage: 1
         min_current: 0.001
   - matrix_assignment: DC2
-    name: Ans HL150V1A [1::MOCK] - Ch 1
-    power_supply_id: 65f8f9ad-9d9d-4eca-9650-d7537004e87f
-    channel_id: f79c86d3-5de5-4402-b215-f10c7869d121
+    name: Ans HL300V1A [2::MOCK] - Ch 1
+    power_supply_id: 2fafcf93-1566-4a1b-a17a-7b415d538f67
+    channel_id: 0a5ad5c2-6cb5-48f0-9772-257bf4043195
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 300
+        max_current: 1
+        min_voltage: 1
+        min_current: 0.001
+  - matrix_assignment: DC6
+    name: Itech IT6933B [6::MOCK] - Ch 1
+    power_supply_id: 37e591be-a6c8-41d4-8e54-b890e0352644
+    channel_id: 99daa1d3-79f3-4a36-893d-22ba6c732ddf
     power_envelopes:
       DC:
       - output_type: DC
         max_voltage: 150
-        max_current: 1
-        min_voltage: 1
-        min_current: 0.001
-  - matrix_assignment: DC1
-    name: Source Switch [Virtual] - Source Switch
-    power_supply_id: 7b4d4aab-3bcf-4cc0-b330-8818d5c8000a
-    channel_id: 6b01745b-dfff-4400-af40-7eeebe02d2fd
+        max_current: 5
+        max_power: 200
+  - matrix_assignment: DC7
+    name: Itech IT6933B [7::MOCK] - Ch 1
+    power_supply_id: 580c68ac-7057-40a5-aadb-8e5504f64d2b
+    channel_id: 3aa8b91f-c34c-4af3-9ab3-f6d16e9626bd
     power_envelopes:
       DC:
       - output_type: DC
-        max_voltage: 20
-        max_current: 1
+        max_voltage: 150
+        max_current: 5
+        max_power: 200
+  - matrix_assignment: EXT1
+    name: Keithley Instruments MODEL 2450 [1::MOCK] - Ch 1-Rear
+    power_supply_id: 636cc5d3-822a-4648-955a-f342f6adb4a3
+    channel_id: 68a9d676-207b-4fcf-8c08-5e51c08e5f61
+    power_envelopes:
+      DC:
       - output_type: DC
-        max_voltage: 200
-        max_current: 0.1
+        voltage_range: 0.02
+        current_range: 1.0e-08
+        max_voltage: 0.021
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-07
+        max_voltage: 0.021
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-06
+        max_voltage: 0.021
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-05
+        max_voltage: 0.021
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.0001
+        max_voltage: 0.021
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.001
+        max_voltage: 0.021
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.01
+        max_voltage: 0.021
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.1
+        max_voltage: 0.021
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0
+        max_voltage: 0.021
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-08
+        max_voltage: 0.21
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-07
+        max_voltage: 0.21
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-06
+        max_voltage: 0.21
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-05
+        max_voltage: 0.21
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.0001
+        max_voltage: 0.21
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.001
+        max_voltage: 0.21
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.01
+        max_voltage: 0.21
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.1
+        max_voltage: 0.21
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0
+        max_voltage: 0.21
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-08
+        max_voltage: 2.1
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-07
+        max_voltage: 2.1
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-06
+        max_voltage: 2.1
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-05
+        max_voltage: 2.1
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.0001
+        max_voltage: 2.1
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.001
+        max_voltage: 2.1
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.01
+        max_voltage: 2.1
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.1
+        max_voltage: 2.1
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0
+        max_voltage: 2.1
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-08
+        max_voltage: 21.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-07
+        max_voltage: 21.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-06
+        max_voltage: 21.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-05
+        max_voltage: 21.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.0001
+        max_voltage: 21.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.001
+        max_voltage: 21.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.01
+        max_voltage: 21.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.1
+        max_voltage: 21.0
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0
+        max_voltage: 21.0
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-08
+        max_voltage: 210.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-07
+        max_voltage: 210.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-06
+        max_voltage: 210.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-05
+        max_voltage: 210.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.0001
+        max_voltage: 210.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.001
+        max_voltage: 210.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.01
+        max_voltage: 210.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.1
+        max_voltage: 210.0
+        max_current: 0.105
+  - matrix_assignment: DC1
+    name: Source Switch [Virtual] - Source Switch
+    power_supply_id: 717d47b9-df9c-42dd-80a3-94576f457316
+    channel_id: 5bd125be-0cd6-4f97-a910-af6b274f9f1e
+    power_envelopes:
+      DC:
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-08
+        max_voltage: 0.021
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-07
+        max_voltage: 0.021
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-06
+        max_voltage: 0.021
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-05
+        max_voltage: 0.021
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.0001
+        max_voltage: 0.021
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.001
+        max_voltage: 0.021
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.01
+        max_voltage: 0.021
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.1
+        max_voltage: 0.021
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0
+        max_voltage: 0.021
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-08
+        max_voltage: 0.21
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-07
+        max_voltage: 0.21
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-06
+        max_voltage: 0.21
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-05
+        max_voltage: 0.21
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.0001
+        max_voltage: 0.21
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.001
+        max_voltage: 0.21
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.01
+        max_voltage: 0.21
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.1
+        max_voltage: 0.21
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0
+        max_voltage: 0.21
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-08
+        max_voltage: 2.1
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-07
+        max_voltage: 2.1
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-06
+        max_voltage: 2.1
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-05
+        max_voltage: 2.1
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.0001
+        max_voltage: 2.1
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.001
+        max_voltage: 2.1
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.01
+        max_voltage: 2.1
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.1
+        max_voltage: 2.1
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0
+        max_voltage: 2.1
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-08
+        max_voltage: 21.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-07
+        max_voltage: 21.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-06
+        max_voltage: 21.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-05
+        max_voltage: 21.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.0001
+        max_voltage: 21.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.001
+        max_voltage: 21.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.01
+        max_voltage: 21.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.1
+        max_voltage: 21.0
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0
+        max_voltage: 21.0
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-08
+        max_voltage: 210.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-07
+        max_voltage: 210.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-06
+        max_voltage: 210.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-05
+        max_voltage: 210.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.0001
+        max_voltage: 210.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.001
+        max_voltage: 210.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.01
+        max_voltage: 210.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.1
+        max_voltage: 210.0
+        max_current: 0.105
       PULSE:
       - output_type: PULSE
         max_peak_voltage: 300.0
@@ -229,15 +713,14 @@ metadata:
         min_pulse_width: 0.0002
         max_pulse_width: 0.001
         max_duty_cycle: 0.05
-  - matrix_assignment: EXT1
-    name: Keithley Instruments MODEL 2450 [GPIB::MOCK] - Ch 1-Rear
-    power_supply_id: c1a77859-9549-4690-b69e-58d006d1157c
-    channel_id: a7b97fe3-5c0e-4332-8905-f7eed33d19e7
+  - matrix_assignment: DC5
+    name: Ans HL300V1A [5::MOCK] - Ch 1
+    power_supply_id: d9fa4235-518c-4c40-87ae-6849786c6754
+    channel_id: 6e741af4-0b83-45ec-8756-7c3bb59507d3
     power_envelopes:
       DC:
       - output_type: DC
-        max_voltage: 20
+        max_voltage: 300
         max_current: 1
-      - output_type: DC
-        max_voltage: 200
-        max_current: 0.1
+        min_voltage: 1
+        min_current: 0.001

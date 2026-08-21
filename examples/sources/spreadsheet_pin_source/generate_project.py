@@ -6,6 +6,14 @@ not to the directory where this script is launched.
 Relevant generation.yaml:
 
     sources:
+      customer_project:
+        type: excel
+        path: ./data/customer-device.xlsx
+        sheet: Project
+        mapping:
+          name: project_name
+          metadata.product_basic_type: product_basic_type
+
       customer_pins:
         type: excel
         path: ./data/customer-device.xlsx
@@ -15,8 +23,19 @@ Relevant generation.yaml:
           name: signal_name
           parameters.pin_type: latch_up_type
 
-The Pins worksheet contains one pin per row. The source mapping converts the
-spreadsheet column names into the project-generation pin model.
+    project:
+      source: customer_project
+
+    dut:
+      name:
+        template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
+      pins:
+        source: customer_pins
+
+The Project worksheet supplies project data and metadata. The DUT name template
+combines product_basic_type and sales_code from that parsed metadata. The Pins
+worksheet contains one pin per row. Both source paths are resolved relative to
+generation.yaml.
 """
 
 import os

@@ -23,8 +23,6 @@ __all__ = [
     "SmuSourceMode",
 ]
 
-import numpy as np
-
 T = typing.TypeVar("T")
 SourceMode = typing.Literal["voltage", "current"]
 
@@ -427,40 +425,6 @@ class SweepOrder(enum.StrEnum):
     HIGH_LOW = "High -> Low"
     LOW_HIGH_LOW = "Dual (Low -> High -> Low)"
     HIGH_LOW_HIGH = "Dual (High -> Low -> High)"
-
-    def apply(self, *sweeps: list[float]) -> list[float]:
-        points = np.unique(np.concatenate(sweeps).flatten())
-
-        high_to_low = np.flip(points)
-        low_to_high = points
-
-        sort_mode = self
-
-        if not points.any():
-            leakage_points = np.array([])
-        elif sort_mode == SweepOrder.LOW_HIGH:
-            leakage_points = low_to_high
-            # Split the array into positive and negative, then flip the negative and concatenate negative first
-        elif sort_mode == SweepOrder.ASCENDING_MAGNITUDE:
-            # Someone else designed this without negative only in mind, adding try/except to fix -Mike
-            try:
-                split_index = np.where(points > 0)[0][0]
-                positive_values = points[split_index:]
-                negative_values = np.flip(points[:split_index])
-                leakage_points = np.concatenate((negative_values, positive_values))
-            except IndexError:
-                leakage_points = np.flip(points)
-        elif sort_mode == SweepOrder.HIGH_LOW:
-            leakage_points = high_to_low
-        elif sort_mode == SweepOrder.LOW_HIGH_LOW:
-            leakage_points = np.concatenate((low_to_high, high_to_low[1:]))
-        elif sort_mode == SweepOrder.HIGH_LOW_HIGH:
-            leakage_points = np.concatenate((high_to_low, low_to_high[1:]))
-        else:
-            raise ValueError(f"Invalid sorting mode: {sort_mode}")
-
-        return leakage_points.flatten().tolist()
-
 
 
 SensorMode = SensorModes

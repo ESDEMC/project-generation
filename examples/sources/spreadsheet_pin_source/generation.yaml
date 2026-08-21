@@ -2,6 +2,14 @@ schema_version: '1.0'
 
 # Sources
 sources:
+  customer_project:
+    type: excel
+    path: ./data/customer-device.xlsx
+    sheet: Project
+    mapping:
+      name: project_name
+      metadata.product_basic_type: product_basic_type
+      metadata.sales_code: sales_code
   customer_pins:
     type: excel
     path: ./data/customer-device.xlsx
@@ -14,10 +22,11 @@ sources:
       parameters.v_min: v_min
 
 project:
-  name: External Spreadsheet Pin Source
+  source: customer_project
 
 dut:
-  name: Customer DUT
+  name:
+    template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
   pins:
     source: customer_pins
 

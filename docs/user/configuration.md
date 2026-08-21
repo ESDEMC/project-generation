@@ -121,6 +121,19 @@ If the pins already exist in a customer export, define a source once:
 
 Other supported source types are `csv` and `excel` (Excel requires the optional Excel dependency).
 
+
+`dut.name` may be a literal string, a value reference, or a template resolved after project data has been loaded. Templates can combine multiple values from the parsed project data and metadata.
+
+```yaml
+dut:
+  name:
+    template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
+  pins:
+    source: pins
+```
+
+The reference sees the effective project context, including values loaded through `project.source`.
+
 ## Named mappings
 
 Mappings translate customer values into the values used by generation rules. For example, customer exports might use several labels for the same pin type:
@@ -327,6 +340,32 @@ This allows one template to name different group types without creating separate
 ```
 
 A POWER partition can render only `{prefix}`, while INPUT/IO/OUTPUT partitions include the formatted voltage suffix.
+
+### Conditional grouping fields
+
+A grouping field can be conditional. When its `when` clause does not match a pin, that field is omitted from the partition key and from the resulting `partition` context. This is useful when a property such as voltage only applies to some group types.
+
+```yaml
+group_by:
+- parameters.pin_type
+- source: parameters.v_max
+  when:
+    parameters.pin_type:
+      in:
+      - INPUT
+      - IO
+      - OUTPUT
+      - POWER
+```
+
+With this definition, voltage-bearing groups are split by `v_max`, while GROUND and NC each remain a single partition. The matching name-field condition leaves voltage out of those names.
+
+```text
+In5V0
+Su3V3
+GND
+NC
+```
 
 ### Mix explicit and generated groups
 

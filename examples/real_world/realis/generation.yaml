@@ -44,7 +44,7 @@ sources:
       parameters.v_min: VoltageLevelMin
 
 hardware:
-  source: ../../sources/hardware_config/hardware.yaml
+  source: hardware.yaml
 
 project:
   source: realis_project
@@ -78,7 +78,8 @@ formatters:
     separator: V
     decimal_places: 1
 dut:
-  name: REALIS DUT
+  name:
+    template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
   pins:
     source: realis_pins
 groups:
@@ -86,13 +87,27 @@ groups:
   - id: groups_by_type_and_vmax
     group_by:
     - parameters.pin_type
-    - parameters.v_max
+    - source: parameters.v_max
+      when:
+        parameters.pin_type:
+          in:
+          - INPUT
+          - IO
+          - OUTPUT
+          - POWER
     set:
       group_type:
         from: partition.parameters.pin_type
       parameters.v_max:
-          from: partition.parameters.v_max
-          cast: float
+        from: partition.parameters.v_max
+        cast: float
+        when:
+          partition.parameters.pin_type:
+            in:
+            - INPUT
+            - IO
+            - OUTPUT
+            - POWER
       parameters.v_min: 0.0
       parameters.compliance_limit:
         - when:
@@ -114,13 +129,13 @@ groups:
         voltage:
           source: partition.parameters.v_max
           formatter: voltage_token
-#          when:
-#            partition.parameters.pin_type:
-#                in:
-#                - INPUT
-#                - IO
-#                - OUTPUT
-#                - POWER
+          when:
+            partition.parameters.pin_type:
+              in:
+              - INPUT
+              - IO
+              - OUTPUT
+              - POWER
 device_states:
   logic_low:
     allocation:
@@ -250,11 +265,22 @@ test_plan_generation:
           polarity:
             source: polarity
             mapping: polarity_token
+      temperature_control:
+        enabled: true
+        temperature:
+          from: project.metadata.temperature
+          cast: float
+        soak_time: 0.0
+        factor: 1.0
+        offset: 0.0
+        start_tolerance: 10.0
+        cool_temperature: 24.0
+        timeout: 900.0
       stress_parameters:
         source_mode: voltage
         base: 0.0
         compliance: 0.12
-        pulse_width: 0.1
+        pulse_width: 0.01
   - id: supply_tests
     groups:
       select:
@@ -283,6 +309,17 @@ test_plan_generation:
           logic:
             source: logic_level
             mapping: logic_level_token
+      temperature_control:
+        enabled: true
+        temperature:
+          from: project.metadata.temperature
+          cast: float
+        soak_time: 0.0
+        factor: 1.0
+        offset: 0.0
+        start_tolerance: 10.0
+        cool_temperature: 24.0
+        timeout: 900.0
       stress_parameters:
         source_mode: voltage
         base: 0.0

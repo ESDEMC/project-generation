@@ -194,6 +194,17 @@ Group rules select normalized pins and group them by one or more fields.
 }
 ```
 
+A `group_by` entry may also be an object containing `source` and `when`. If `when` does not match a pin, that grouping field is omitted for that pin. This allows a dimension to apply only to selected group types.
+
+```yaml
+group_by:
+- parameters.pin_type
+- source: parameters.v_max
+  when:
+    parameters.pin_type:
+      in: [INPUT, IO, OUTPUT, POWER]
+```
+
 Initial query operators:
 
 - equals
