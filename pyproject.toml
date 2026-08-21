@@ -25,9 +25,7 @@ excel = ["openpyxl>=3.1"]
 
 [tool.setuptools_scm]
 version_scheme = "no-guess-dev"
-local_scheme = "node-and-date"
-version_file = "src/project_generation/_version.py"
-write_to_source = true
+local_scheme = "dirty-tag"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -17,7 +17,9 @@ from .diagnostics import (
 )
 from .generation.models import GeneratedProject
 from .generation.processor import ProjectGenerationProcessor
+from .version import get_package_version
 
+__version__ = get_package_version()
 
 def load_project_definition(path: str | pathlib.Path) -> ProjectGenerationDefinition:
     return ProjectGenerationDefinition.load(path)
@@ -66,4 +68,5 @@ __all__ = [
     "load_project_definition",
     "process_project_definition",
     "validate_project_definition",
+    "__version__",
 ]
