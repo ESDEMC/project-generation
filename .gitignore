@@ -3,3 +3,4 @@
 **/generated/
 .idea/
 .venv/
+src/project_generation/_version.py

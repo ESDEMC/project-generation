@@ -15,15 +15,19 @@ dependencies = [
     "datamodel-code-generator>=0.72.4",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "jsonschema>=4",
+    "setuptools-scm[toml]>=8.0",
+]
+excel = ["openpyxl>=3.1"]
+
 [tool.setuptools_scm]
 version_scheme = "no-guess-dev"
 local_scheme = "node-and-date"
-
-[project.optional-dependencies]
-dev = ["pytest>=8", "jsonschema>=4"]
-excel = ["openpyxl>=3.1"]
-yaml = ["pyyaml"]
-latchup = ["dataclasses-json>=0.5"]
+version_file = "src/project_generation/_version.py"
+write_to_source = true
 
 [tool.setuptools.packages.find]
 where = ["src"]
