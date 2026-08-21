@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "setuptools-scm[toml]>=8.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "project-generation"
-version = "0.2.0"
+dynamic = ["version"]
 description = "Declarative generation.json parsing, validation, and processing"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,6 +14,10 @@ dependencies = [
     "mashumaro",
     "datamodel-code-generator>=0.72.4",
 ]
+
+[tool.setuptools_scm]
+version_scheme = "no-guess-dev"
+local_scheme = "node-and-date"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "jsonschema>=4"]
