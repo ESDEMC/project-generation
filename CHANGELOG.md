@@ -21,6 +21,8 @@ include structural changes to the package, examples, and generation definition.
 
 ### Added
 
+- Added GitHub Actions CI for the Python 3.11-3.13 test matrix, generated-model drift checking, and package artifacts.
+
 - Added `hardware.source` so generation can use the runtime `hardware.yaml` as the physical power-resource source.
 - Added hardware-aware device-state allocation and validation using connection mode and DC power envelopes.
 - Added validation that hardware-backed `power_resources` overlays cannot invent resources that are not physically connected.

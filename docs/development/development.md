@@ -127,3 +127,12 @@ tests/
 Put unit tests beside the corresponding architectural area. Keep customer example execution tests under `tests/examples/`,
 and keep shared test-only paths or helpers under `tests/support/`. Test-only definitions should stay in the test suite rather than
 being added to `examples/` solely to satisfy tests.
+
+## GitHub Actions CI
+
+The repository includes `.github/workflows/ci.yml`. The workflow runs on pushes to `main`, `master`, and `develop`, on pull requests, and by manual dispatch.
+
+CI tests Python 3.11, 3.12, and 3.13. It verifies that `uv.lock` is current, installs all declared extras with the lockfile held fixed, and runs the complete test suite. A separate job rebuilds the schema-derived Pydantic models and fails if the committed generated model differs from the schema. After those checks pass, CI builds the wheel and source distribution and uploads `dist/` as the `distributions` workflow artifact.
+
+For branch protection, require the three Python test checks and `Generated models are current`. The package build then acts as the final integration check.
+

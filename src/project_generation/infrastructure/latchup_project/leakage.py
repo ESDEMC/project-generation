@@ -4,7 +4,6 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 
-import numpy as np
 from dataclasses_json import DataClassJsonMixin
 
 LeakagePlanID = uuid.UUID
@@ -43,8 +42,8 @@ class SweepOrder(enum.StrEnum):
 class DCSweepData:
     data_id: uuid.UUID = field(default_factory=uuid.uuid4)
     timestamp: datetime = field(default_factory=datetime.now)
-    voltage: np.ndarray = field(default_factory=lambda: np.array([]))
-    current: np.ndarray = field(default_factory=lambda: np.array([]))
+    voltage: list[float] = field(default_factory=list)
+    current: list[float] = field(default_factory=list)
     source_type: LeakageSources | SourceType = SourceType.VOLTAGE
 
 

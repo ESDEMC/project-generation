@@ -23,6 +23,7 @@ __all__ = [
     "SmuSourceMode",
 ]
 
+
 T = typing.TypeVar("T")
 SourceMode = typing.Literal["voltage", "current"]
 
@@ -426,9 +427,3 @@ class SweepOrder(enum.StrEnum):
     LOW_HIGH_LOW = "Dual (Low -> High -> Low)"
     HIGH_LOW_HIGH = "Dual (High -> Low -> High)"
 
-
-SensorMode = SensorModes
-SmuSourceMode = SourceModeEnum
-LogicLevel = LogicLevelEnum
-Polarity = PolarityEnum
-LatchUpTestType = LuTestType
