@@ -92,6 +92,7 @@ def generate_models(schema_path: Path, output_path: Path) -> None:
         "3.11",
         "--use-standard-collections",
         "--use-union-operator",
+        "--disable-timestamp",
         "--formatters",
         "builtin",
     ]

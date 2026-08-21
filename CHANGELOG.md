@@ -10,6 +10,8 @@ include structural changes to the package, examples, and generation definition.
 
 ## Unreleased
 
+- Make schema-derived model generation deterministic by disabling generated timestamps.
+
 - Set the REALIS signal and supply stress pulse width to a consistent 10 ms default.
 - Allow `dut.name` to use literals, direct value references, or templates composed from parsed project data and metadata.
 - Resolve relative source paths from the directory containing the generation definition.
