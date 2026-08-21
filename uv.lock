@@ -384,13 +384,13 @@ dependencies = [
     { name = "mashumaro" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "setuptools-scm" },
 ]
 
 [package.optional-dependencies]
 dev = [
     { name = "jsonschema" },
     { name = "pytest" },
-    { name = "setuptools-scm" },
 ]
 excel = [
     { name = "openpyxl" },
@@ -406,7 +406,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.8" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "pyyaml" },
-    { name = "setuptools-scm", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "setuptools-scm", extras = ["toml"], specifier = ">=8.0" },
 ]
 provides-extras = ["dev", "excel"]
 
