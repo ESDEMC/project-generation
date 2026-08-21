@@ -13,13 +13,13 @@ dependencies = [
     "pyyaml",
     "mashumaro",
     "datamodel-code-generator>=0.72.4",
+    "setuptools-scm[toml]>=8.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
     "jsonschema>=4",
-    "setuptools-scm[toml]>=8.0",
 ]
 excel = ["openpyxl>=3.1"]
 
