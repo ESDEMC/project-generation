@@ -413,7 +413,7 @@
         },
         "test_type": {
           "$ref": "#/$defs/TestType",
-          "title": "Test Type",
+          "title": "Test Type"
         },
         "dimensions": {
           "additionalProperties": true,
