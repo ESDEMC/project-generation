@@ -353,8 +353,6 @@ def _test_type(value: str, b: Any) -> Any:
     aliases = {
         "SIGNAL": "SIGNAL_TEST",
         "SUPPLY": "SUPPLY_TEST",
-        "ITEST": "I_TEST",
-        "ETEST": "E_TEST",
     }
     normalized = aliases.get(normalized, normalized)
     try:

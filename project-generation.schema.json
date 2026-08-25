@@ -412,8 +412,8 @@
           "type": "string"
         },
         "test_type": {
+          "$ref": "#/$defs/TestType",
           "title": "Test Type",
-          "type": "string"
         },
         "dimensions": {
           "additionalProperties": true,
@@ -1114,6 +1114,14 @@
       ],
       "title": "TestPlanRuleDefinition",
       "type": "object"
+    },
+    "TestType": {
+      "enum": [
+        "SIGNAL",
+        "SUPPLY"
+      ],
+      "title": "TestType",
+      "type": "string"
     },
     "TimingDefinition": {
       "additionalProperties": false,

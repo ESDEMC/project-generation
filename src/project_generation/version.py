@@ -11,8 +11,6 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _get_live_scm_version() -> str:
-    print(Path.cwd())
-
     result = subprocess.run(
         [sys.executable, "-m", "setuptools_scm"],
         cwd=PROJECT_ROOT,

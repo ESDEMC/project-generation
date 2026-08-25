@@ -81,17 +81,6 @@ class ExplicitTestGroupDefinition(BaseModel):
     stress_points: list[dict[str, Any]] = Field(..., title='Stress Points')
 
 
-class ExplicitTestPlanDefinition(BaseModel):
-    model_config = ConfigDict(
-        extra='forbid',
-    )
-    name: str = Field(..., title='Name')
-    test_type: str = Field(..., title='Test Type')
-    dimensions: dict[str, Any] | None = Field({}, title='Dimensions')
-    device_state: str | None = Field(None, title='Device State')
-    test_groups: list[ExplicitTestGroupDefinition] = Field(..., title='Test Groups')
-
-
 class FormatterDefinition(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -200,6 +189,11 @@ class TestGroupsDefinition(BaseModel):
     ) = Field(..., discriminator='mode', title='Partition')
 
 
+class TestType(StrEnum):
+    SIGNAL = 'SIGNAL'
+    SUPPLY = 'SUPPLY'
+
+
 class TimingDefinition(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -300,6 +294,17 @@ class ExcelSource(BaseModel):
     mapping: dict[str, str | SourceFieldMapping] | None = Field(
         {}, title='Mapping', validate_default=True
     )
+
+
+class ExplicitTestPlanDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    name: str = Field(..., title='Name')
+    test_type: TestType = Field(..., title='Test Type')
+    dimensions: dict[str, Any] | None = Field({}, title='Dimensions')
+    device_state: str | None = Field(None, title='Device State')
+    test_groups: list[ExplicitTestGroupDefinition] = Field(..., title='Test Groups')
 
 
 class GroupGenerationRule(BaseModel):
