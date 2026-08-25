@@ -3,24 +3,23 @@ import enum
 
 
 __all__ = [
-    "LuTestType",
-    "DevicePinType",
-    "PolarityEnum",
-    "LogicLevelEnum",
-    "SignalPinType",
-    "SupplyPinType",
-    "SourceMode",
-    "SweepMethod",
-    "SignalTestType",
-    "SupplyTestType",
-    "BridgeMode",
     "BridgeCalculationMode",
-    "SourceModeEnum",
-    "SensorModes",
+    "BridgeMode",
+    "DevicePinType",
+    "LatchUpTestPlanType",
+    "LogicLevelEnum",
+    "LuTestType",
     "MatrixAssignment",
+    "PolarityEnum",
+    "SensorModes",
+    "SignalPinType",
+    "SignalTestType",
+    "SourceMode",
+    "SourceModeEnum",
+    "SupplyPinType",
+    "SupplyTestType",
+    "SweepMethod",
     "SweepOrder",
-    "SensorMode",
-    "SmuSourceMode",
 ]
 
 
@@ -246,6 +245,19 @@ class DevicePinType(enum.StrEnum):
 
 SignalPinType = typing.Literal[DevicePinType.INPUT, DevicePinType.OUTPUT, DevicePinType.IO]
 SupplyPinType = typing.Literal[DevicePinType.POWER, DevicePinType.GROUND]
+
+
+class LatchUpTestPlanType(enum.StrEnum):
+    SUPPLY_TEST = "Supply Test"
+    SIGNAL_TEST = "Signal Test"
+    SIGNAL_IDD_TEST = "Signal IDD-Test"
+    SUPPLY_IDD_TEST = "Supply IDD-Test"
+
+    def lu_test_type(self):
+        return LuTestType(str(self))
+
+    def __getattr__(self, item):
+        return getattr(self.lu_test_type(), item)
 
 
 class LuTestType(enum.StrEnum):

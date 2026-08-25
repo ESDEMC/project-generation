@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from dataclasses_json import DataClassJsonMixin
 
 from .dut import PinGroup, PinDescriptor, TestGroupDescriptor, DeviceDescriptor
-from .enums import SourceMode, MatrixAssignment, LuTestType, PolarityEnum, LogicLevelEnum
+from .enums import SourceMode, MatrixAssignment, PolarityEnum, LogicLevelEnum, LatchUpTestPlanType
 
 PinID = str
 TestGroupID = str
@@ -176,7 +176,7 @@ class LatchUpTestPlan(DataClassJsonMixin):
     test_pins: list[PinID]
     device_info: DeviceDescriptor
     power_sequence: PowerSequence = dataclasses.field(default_factory=PowerSequence)
-    test_type: LuTestType = LuTestType.SIGNAL_TEST
+    test_type: LatchUpTestPlanType = LatchUpTestPlanType.SIGNAL_TEST
     polarity: PolarityEnum = PolarityEnum.POSITIVE
     device_state: DeviceState = field(default_factory=DeviceState)
     logic_level: LogicLevelEnum = LogicLevelEnum.HIGH

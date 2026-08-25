@@ -21,7 +21,8 @@ class Bindings:
     LatchUpPulseParameters = latchup_test_plan_module.LatchUpPulseParameters
     LatchUpTestPlan = latchup_test_plan_module.LatchUpTestPlan
     LogicLevelEnum = latchup_test_plan_module.LogicLevelEnum
-    LuTestType = latchup_test_plan_module.LuTestType
+    LatchUpTestPlanType = latchup_test_plan_module.LatchUpTestPlanType
+    SignalTestType = latchup_test_plan_module.LuTestType
     MatrixAssignment = latchup_test_plan_module.MatrixAssignment
     Pin = dut_module.DutPin
     PinGroup = dut_module.PinGroup
