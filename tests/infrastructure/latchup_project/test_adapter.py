@@ -1,6 +1,7 @@
 from tests.support.paths import EXPLICIT_PROJECT
 
-from project_generation.infrastructure.latchup_project.enums import LogicLevelEnum, LuTestType, MatrixAssignment, PolarityEnum
+from project_generation.infrastructure.latchup_project.enums import LogicLevelEnum, MatrixAssignment, \
+    PolarityEnum, LatchUpTestPlanType
 from project_generation.infrastructure.latchup_project.latchup_adapter import adapt_to_latchup_project
 from project_generation import process_project_definition
 
@@ -16,7 +17,7 @@ def test_adapter_builds_real_latchup_domain_objects() -> None:
 
     plan = artifacts.test_plans[0]
     assert plan.name == "IN5V5_HIGH_POSITIVE"
-    assert plan.test_type is LuTestType.SIGNAL_TEST
+    assert plan.test_type is LatchUpTestPlanType.SIGNAL_TEST
     assert plan.polarity is PolarityEnum.POSITIVE
     assert plan.logic_level is LogicLevelEnum.HIGH
     assert [group.name for group in plan.test_groups] == ["IN5V5"]
