@@ -1,4 +1,5 @@
 import copy
+import typing
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -22,7 +23,6 @@ class Bindings:
     LatchUpTestPlan = latchup_test_plan_module.LatchUpTestPlan
     LogicLevelEnum = latchup_test_plan_module.LogicLevelEnum
     LatchUpTestPlanType = latchup_test_plan_module.LatchUpTestPlanType
-    SignalTestType = latchup_test_plan_module.LuTestType
     MatrixAssignment = latchup_test_plan_module.MatrixAssignment
     Pin = dut_module.DutPin
     PinGroup = dut_module.PinGroup
@@ -157,7 +157,7 @@ class LatchUpProjectCoreAdapter:
         return result
 
     @staticmethod
-    def _build_power_sequence(state: GeneratedDeviceState, b: Any) -> Any:
+    def _build_power_sequence(state: GeneratedDeviceState, b: Bindings) -> Any:
         sequence = b.PowerSequence()
         on_by_assignment = {step.assignment: step for step in state.power_on_sequence}
         off_by_assignment = {step.assignment: step for step in state.power_off_sequence}
@@ -241,8 +241,15 @@ def _build_stress_plan(plan: GeneratedTestPlan, dut: Bindings.Dut, b: Bindings) 
     return stress_plan if stress_plan else None
 
 
-def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name: str, b: Any) -> Any:
-    source_mode = str(values.get("source_mode", "voltage")).lower()
+
+def require_source_mode(source_mode: str) -> typing.Literal["voltage", "current"]:
+    if source_mode not in ["voltage", "current"]:
+        raise ProjectGenerationError(f"Invalid source mode: {source_mode}")
+    return source_mode
+
+
+def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name: str, b: Bindings) -> Any:
+    source_mode = require_source_mode(values.get("source_mode", "voltage").lower())
     peak = values.get("peak", values.get("stress_voltage", values.get("stress_current")))
     compliance = values.get("compliance_limit", values.get("compliance"))
     if peak is None:
@@ -311,7 +318,7 @@ def adapt_to_latchup_project(project: GeneratedProject) -> LatchUpProjectArtifac
     return LatchUpProjectCoreAdapter().build(project)
 
 
-def _matrix_assignment(value: str, b: Any) -> Any:
+def _matrix_assignment(value: str, b: Bindings) -> Any:
     normalized = {"GROUND": "GND", "FLOATING": "FLOAT"}.get(value.upper(), value.upper())
     try:
         return b.MatrixAssignment[normalized]
@@ -323,8 +330,8 @@ def _matrix_assignment(value: str, b: Any) -> Any:
         ) from error
 
 
-def _bias_parameters(values: Mapping[str, Any], b: Any) -> Any | None:
-    mode = str(values.get("mode", "")).lower()
+def _bias_parameters(values: Mapping[str, Any], b: Bindings) -> Bindings.LatchUpBiasParameters | None:
+    mode = require_source_mode(values.get("mode", "").lower())
     if mode in {"ground", "floating", ""}:
         return None
     level = values.get("level")
@@ -338,7 +345,7 @@ def _bias_parameters(values: Mapping[str, Any], b: Any) -> Any | None:
     )
 
 
-def _timing_info(step: Any, by_assignment: Mapping[str, Any], b: Any) -> Any:
+def _timing_info(step: Any, by_assignment: Mapping[str, Any], b: Bindings) -> Any:
     if step is None:
         return b.TimingInfo()
     reference = None
@@ -349,7 +356,7 @@ def _timing_info(step: Any, by_assignment: Mapping[str, Any], b: Any) -> Any:
     return b.TimingInfo(delay=step.delay, reference=reference)
 
 
-def _test_type(value: str, b: Any) -> Any:
+def _test_type(value: str, b: Bindings) -> Any:
     normalized = value.strip().upper().replace("-", "_").replace(" ", "_")
     aliases = {
         "SIGNAL": "SIGNAL_TEST",
@@ -357,7 +364,7 @@ def _test_type(value: str, b: Any) -> Any:
     }
     normalized = aliases.get(normalized, normalized)
     try:
-        return b.LuTestType[normalized]
+        return b.LatchUpTestPlanType[normalized]
     except KeyError as error:
         raise ProjectGenerationError(
             f'Cannot adapt test type "{value}" to latchup-project-core',
