@@ -1,6 +1,4 @@
 schema_version: '1.0'
-
-# Sources
 sources:
   customer_project:
     type: excel
@@ -20,60 +18,59 @@ sources:
       parameters.pin_type: latch_up_type
       parameters.v_max: v_max
       parameters.v_min: v_min
-
 project:
   source: customer_project
-
 dut:
   name:
     template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
   pins:
     source: customer_pins
-
 groups:
   explicit:
   - name: SU5V5
     group_type: POWER
-    pins: ['1']
+    pins:
+    - '1'
     parameters:
       v_max: 5.5
+    bias_spec:
+      level: 5.5
+      compliance_limit: 0.2
   - name: IN5V5
     group_type: INPUT
-    pins: ['2', '3']
+    pins:
+    - '2'
+    - '3'
     parameters:
       v_max: 5.5
       v_min: 0.0
+    bias_spec:
+      level: 5.5
+      compliance_limit: 0.02
   - name: OUT3V3
     group_type: OUTPUT
-    pins: ['4']
+    pins:
+    - '4'
     parameters:
       v_max: 3.3
       v_min: 0.0
   - name: GND
     group_type: GROUND
-    pins: ['5']
-
+    pins:
+    - '5'
+    bias_spec:
+      mode: GROUND
 power_resources:
   DC1:
     role: STRESS
   DC2:
     role: BIAS
-
 device_states:
   logic_high:
-    power_domains:
-    - name: ground
-      groups: [GND]
-      assignment: GROUND
-      bias:
-        mode: GROUND
-    - name: logic_5v5
-      groups: [SU5V5, IN5V5]
-      assignment: DC2
-      bias:
-        mode: VOLTAGE
-        level: 5.5
-
+    allocation:
+      reserve:
+      - DC1
+      ganging_policy: same_voltage
 test_plans:
 - name: IN5V5_HIGH_POSITIVE
   test_type: SIGNAL

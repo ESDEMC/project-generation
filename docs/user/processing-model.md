@@ -20,7 +20,7 @@ Normalize pins and source values
 Create explicit and generated groups
         │
         ▼
-Resolve device states and power allocation
+Resolve group bias specs, power domains, and power allocation
         │
         ▼
 Create and expand test plans
@@ -74,18 +74,31 @@ original source selectors.
 
 ## Device-state resolution
 
-Device-state processing resolves:
+Device-state processing deliberately follows the canonical power model:
 
-- inheritance through `extends`;
-- explicit named power domains;
-- per-group rules;
-- group bias objects;
-- direct, automatic, or hybrid assignments;
-- reserved and stress-resource exclusions;
-- optional exact-bias ganging; and
-- deterministic power-on and power-off sequences.
+```text
+Group.bias_spec
+      ↓
+Apply device-state bias_spec rules
+      ↓
+Gang compatible group specs
+      ↓
+Merge and complete the domain bias
+      ↓
+Select a compatible DC source
+      ↓
+GeneratedPowerDomain
+```
 
-The generated project therefore contains resolved group states and assignments rather than unresolved rule expressions.
+A group owns its baseline, possibly incomplete, bias requirement. Device-state rules modify only `bias_spec`; there is no generated
+per-group state or separate power-assignment model. `PowerDomain` is the canonical generated representation of groups that are biased
+together by one source with one concrete configuration.
+
+Compliance is authored in each group `bias_spec`. When compatible groups are ganged, `compliance_limit` is merged using the maximum
+requested value. Python does not infer compliance from `group_type`. Hardware compatibility is checked against the merged domain bias.
+
+Inheritance carries effective group bias specs, then re-runs ganging and source selection for the child state. This prevents a parent's
+chosen source from becoming an accidental requirement of the child.
 
 ## Power sequence compilation
 
@@ -119,7 +132,7 @@ This ordering is significant. Later overrides can intentionally replace values p
 After the rules are resolved and validated, the configured writer creates the final project package. With the default Latch-Up writer, the
 output contains the DUT definition, generated test plans, project manifest, and the relationships required by the target application.
 
-The writer preserves the resolved project content produced by the earlier stages, including group membership, device-state assignments,
+The writer preserves the resolved project content produced by the earlier stages, including group membership, device-state power domains,
 power timing, dimensions, and stress plans.
 
 For an end-to-end example of generating customer files, see the [REALIS real-world example](../real-world/realis.md).

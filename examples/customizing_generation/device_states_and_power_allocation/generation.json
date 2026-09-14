@@ -55,6 +55,10 @@
         ],
         "parameters": {
           "v_max": 5.0
+        },
+        "bias_spec": {
+          "level": 5.0,
+          "compliance_limit": 0.2
         }
       },
       {
@@ -65,6 +69,10 @@
         ],
         "parameters": {
           "v_max": 3.3
+        },
+        "bias_spec": {
+          "level": 3.3,
+          "compliance_limit": 0.2
         }
       },
       {
@@ -76,6 +84,9 @@
         "parameters": {
           "v_max": 5.0,
           "v_min": 0.0
+        },
+        "bias_spec": {
+          "compliance_limit": 0.02
         }
       },
       {
@@ -83,7 +94,10 @@
         "group_type": "GROUND",
         "pins": [
           "4"
-        ]
+        ],
+        "bias_spec": {
+          "mode": "GROUND"
+        }
       }
     ]
   },
@@ -104,51 +118,19 @@
   "device_states": {
     "logic_low": {
       "allocation": {
-        "mode": "hybrid",
         "strategy": "voltage_first",
         "reserve": [
           "DC1"
         ],
         "ganging_policy": "same_voltage"
       },
-      "power_domains": [
-        {
-          "name": "ground",
-          "groups": [
-            "GND"
-          ],
-          "assignment": "GROUND",
-          "bias": {
-            "mode": "GROUND"
-          }
-        }
-      ],
       "rules": [
-        {
-          "when": {
-            "group.group_type": {
-              "in": [
-                "POWER",
-                "INPUT"
-              ]
-            }
-          },
-          "set": {
-            "bias": {
-              "mode": "VOLTAGE",
-              "level": {
-                "from": "group.v_max"
-              }
-            }
-          }
-        },
         {
           "when": {
             "group.group_type": "INPUT"
           },
           "set": {
-            "assignment": "GROUND",
-            "bias": {
+            "bias_spec": {
               "mode": "GROUND"
             }
           }
@@ -157,38 +139,19 @@
     },
     "logic_high": {
       "allocation": {
-        "mode": "hybrid",
         "strategy": "voltage_first",
         "reserve": [
           "DC1"
         ],
         "ganging_policy": "same_voltage"
       },
-      "power_domains": [
-        {
-          "name": "ground",
-          "groups": [
-            "GND"
-          ],
-          "assignment": "GROUND",
-          "bias": {
-            "mode": "GROUND"
-          }
-        }
-      ],
       "rules": [
         {
           "when": {
-            "group.group_type": {
-              "in": [
-                "POWER",
-                "INPUT"
-              ]
-            }
+            "group.group_type": "INPUT"
           },
           "set": {
-            "bias": {
-              "mode": "VOLTAGE",
+            "bias_spec": {
               "level": {
                 "from": "group.v_max"
               }

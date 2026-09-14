@@ -27,15 +27,19 @@ class GeneratedGroup:
     name: str
     group_type: str
     pin_ids: tuple[uuid.UUID, ...]
+    bias_spec: Mapping[str, Any] = field(default_factory=dict)
     parameters: Mapping[str, Any] = field(default_factory=dict)
     generation_rule_id: str | None = None
 
     def context(self) -> dict[str, Any]:
+        parameters = dict(self.parameters)
         return {
             "id": str(self.id),
             "name": self.name,
             "group_type": self.group_type,
-            "parameters": dict(self.parameters),
+            "bias_spec": dict(self.bias_spec),
+            "parameters": parameters,
+            **parameters,
         }
 
     def as_group_record(self) -> GroupRecord:
@@ -50,22 +54,6 @@ class GeneratedPowerDomain:
     assignment: str
     bias: Mapping[str, Any]
     timing: Mapping[str, Any] | None = None
-
-
-@dataclass(frozen=True, kw_only=True)
-class GeneratedGroupState:
-    group_id: uuid.UUID
-    group_name: str
-    values: Mapping[str, Any]
-
-
-@dataclass(frozen=True, kw_only=True)
-class GeneratedPowerAssignment:
-    group_id: uuid.UUID
-    group_name: str
-    assignment: str
-    bias: Mapping[str, Any]
-    source: str
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -85,10 +73,7 @@ class GeneratedDeviceState:
     id: uuid.UUID
     name: str
     extends: str | None
-    allocation: Mapping[str, Any] | None
     power_domains: tuple[GeneratedPowerDomain, ...]
-    group_states: tuple[GeneratedGroupState, ...]
-    power_assignments: tuple[GeneratedPowerAssignment, ...]
     power_on_sequence: tuple[GeneratedPowerSequenceStep, ...]
     power_off_sequence: tuple[GeneratedPowerSequenceStep, ...]
 

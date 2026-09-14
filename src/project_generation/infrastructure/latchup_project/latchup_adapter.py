@@ -132,21 +132,31 @@ class LatchUpProjectCoreAdapter:
         result = bindings.DeviceState(device_state_id=bindings.DeviceStateID(str(state.id)))
         dut_descriptor = dut.descriptor()
         descriptor_by_id = {group.group_id: group for group in dut_descriptor.test_groups}
-        for assignment in state.power_assignments:
-            group_id = bindings.PinGroupID(str(assignment.group_id))
-            group = groups_by_id[group_id]
-            matrix_assignment = _matrix_assignment(assignment.assignment, bindings)
+        for domain in state.power_domains:
+            matrix_assignment = _matrix_assignment(domain.assignment, bindings)
+            group_ids = [bindings.PinGroupID(str(group_id)) for group_id in domain.group_ids]
+            groups = [groups_by_id[group_id] for group_id in group_ids]
             if matrix_assignment == bindings.MatrixAssignment.GND:
-                result.ground_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.ground_pins)
+                for group in groups:
+                    result.ground_pins.extend(
+                        dut_descriptor.get_pin(pin)
+                        for pin in group.pins
+                        if pin not in result.ground_pins
+                    )
                 continue
             if matrix_assignment == bindings.MatrixAssignment.FLOAT:
-                result.floating_pins.extend(dut_descriptor.get_pin(pin) for pin in group.pins if pin not in result.floating_pins)
+                for group in groups:
+                    result.floating_pins.extend(
+                        dut_descriptor.get_pin(pin)
+                        for pin in group.pins
+                        if pin not in result.floating_pins
+                    )
                 continue
-            bias = _bias_parameters(assignment.bias, bindings)
+            bias = _bias_parameters(domain.bias, bindings)
             result.power_domains.append(
                 bindings.PowerDomain(
                     matrix_assignment=matrix_assignment,
-                    test_groups=[descriptor_by_id[group_id]],
+                    test_groups=[descriptor_by_id[group_id] for group_id in group_ids],
                     bias_config=bias,
                 )
             )

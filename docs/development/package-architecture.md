@@ -14,9 +14,15 @@ project_generation/
 │   └── validation.py             Diagnostic definition validation
 ├── generation/
 │   ├── models.py
-│   ├── processor.py
+│   ├── processor.py              Thin pipeline coordinator
+│   ├── groups.py                 Group compilation
+│   ├── device_states.py          Bias -> ganging -> source -> PowerDomain
+│   ├── bias.py                   Bias completion defaults
+│   ├── ganging.py                Bias-spec compatibility/ganging
+│   ├── power_sequence.py         Existing power-sequence compilation
+│   ├── sources.py                Source loading
+│   ├── values.py                 Value/template resolution
 │   ├── rules.py
-│   ├── ganging.py
 │   └── validation.py
 ├── application/
 │   ├── ports.py
@@ -70,7 +76,7 @@ Put code here for:
 - pins and groups;
 - dimension/rule expansion;
 - partitioning;
-- power assignment and ganging;
+- bias-spec merging, ganging, and power-domain source selection;
 - device states;
 - generated test plans and stress points;
 - validation of generated identities and references.

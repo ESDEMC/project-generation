@@ -22,7 +22,7 @@ python -m pip install -e ".[excel]"
 pytest
 ```
 
-The test suite covers definition loading, source and group processing, device states, allocation, ganging, power sequencing, dimensions,
+The test suite covers definition loading, source and group processing, device states, bias-spec merging, ganging, power-domain allocation, power sequencing, dimensions,
 overrides, stress expansion, serialization, diagnostics, schema behavior, and the optional latch-up adapter.
 
 Tests should not depend on the process working directory. Resolve fixtures and examples relative to the test module or repository location.

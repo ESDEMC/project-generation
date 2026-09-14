@@ -58,7 +58,7 @@ def _validate_named_references(definition: ProjectGenerationDefinition, diagnost
                         f"device_states.{state_name}.allocation.reserve",
                     )
         for domain_index, domain in enumerate(state.power_domains):
-            if definition.hardware is None and domain.assignment not in definition.power_resources and domain.assignment != "GROUND":
+            if definition.hardware is None and domain.assignment not in definition.power_resources and domain.assignment not in {"GROUND", "FLOATING"}:
                 _error(
                     diagnostics,
                     "POWER_RESOURCE_NOT_FOUND",

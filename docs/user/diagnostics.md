@@ -95,7 +95,7 @@ only on spelling similarity.
 
 ### Insufficient or incompatible power resources
 
-Hardware-backed allocation raises `PowerResourceResolutionError`, a `ProjectGenerationError` subtype. It carries one or more structured
+Hardware-backed power-domain resolution raises `PowerResourceResolutionError`, a `ProjectGenerationError` subtype. It carries one or more structured
 resolution issues so a CLI or UI can report every unresolved group together. Each issue includes the device state, group, required bias,
 optional explicitly requested resource, and every candidate resource with its acceptance/rejection reason.
 

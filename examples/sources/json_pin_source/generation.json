@@ -19,6 +19,10 @@
         ],
         "parameters": {
           "v_max": 5.5
+        },
+        "bias_spec": {
+          "level": 5.5,
+          "compliance_limit": 0.2
         }
       },
       {
@@ -31,6 +35,10 @@
         "parameters": {
           "v_max": 5.5,
           "v_min": 0.0
+        },
+        "bias_spec": {
+          "level": 5.5,
+          "compliance_limit": 0.02
         }
       },
       {
@@ -49,7 +57,10 @@
         "group_type": "GROUND",
         "pins": [
           "5"
-        ]
+        ],
+        "bias_spec": {
+          "mode": "GROUND"
+        }
       }
     ]
   },
@@ -63,30 +74,12 @@
   },
   "device_states": {
     "logic_high": {
-      "power_domains": [
-        {
-          "name": "ground",
-          "groups": [
-            "GND"
-          ],
-          "assignment": "GROUND",
-          "bias": {
-            "mode": "GROUND"
-          }
-        },
-        {
-          "name": "logic_5v5",
-          "groups": [
-            "SU5V5",
-            "IN5V5"
-          ],
-          "assignment": "DC2",
-          "bias": {
-            "mode": "VOLTAGE",
-            "level": 5.5
-          }
-        }
-      ]
+      "allocation": {
+        "reserve": [
+          "DC1"
+        ],
+        "ganging_policy": "same_voltage"
+      }
     }
   },
   "test_plans": [

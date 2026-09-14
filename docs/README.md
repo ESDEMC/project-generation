@@ -32,7 +32,6 @@ These documents are primarily for developers extending or maintaining the packag
 - [Package architecture](development/package-architecture.md)
 - [Development guide](development/development.md)
 - [Release checklist](development/release-checklist.md)
-- [Roadmap](../ROADMAP.md)
 
 ## Documentation navigation
 

@@ -11,10 +11,7 @@ from project_generation import (
     load_project_definition,
     process_project_definition,
 )
-from project_generation.generation.processor import (
-    apply_record_mapping,
-    select_json_records,
-)
+from project_generation.generation.sources import apply_record_mapping, select_json_records
 
 
 

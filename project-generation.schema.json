@@ -18,15 +18,6 @@
     "AllocationDefinition": {
       "additionalProperties": false,
       "properties": {
-        "mode": {
-          "enum": [
-            "direct",
-            "automatic",
-            "hybrid"
-          ],
-          "title": "Mode",
-          "type": "string"
-        },
         "strategy": {
           "anyOf": [
             {
@@ -60,9 +51,6 @@
           "title": "Ganging Policy"
         }
       },
-      "required": [
-        "mode"
-      ],
       "title": "AllocationDefinition",
       "type": "object"
     },
@@ -365,6 +353,12 @@
           },
           "title": "Pins",
           "type": "array"
+        },
+        "bias_spec": {
+          "additionalProperties": true,
+          "title": "Bias Spec",
+          "type": "object",
+          "default": {}
         },
         "parameters": {
           "additionalProperties": true,

@@ -1,9 +1,6 @@
 schema_version: '1.0'
-
-# Sources
 hardware:
   source: hardware.yaml
-
 project:
   name: Hardware Configuration Source Demo
 dut:
@@ -34,43 +31,39 @@ groups:
   explicit:
   - name: SU5V0
     group_type: POWER
-    pins: ['1']
+    pins:
+    - '1'
     parameters:
       v_max: 5.0
+    bias_spec:
+      level: 5.0
+      compliance_limit: 0.2
   - name: SU3V3
     group_type: POWER
-    pins: ['2']
+    pins:
+    - '2'
     parameters:
       v_max: 3.3
+    bias_spec:
+      level: 3.3
+      compliance_limit: 0.2
   - name: GND
     group_type: GROUND
-    pins: ['3']
+    pins:
+    - '3'
+    bias_spec:
+      mode: GROUND
   - name: IN
     group_type: INPUT
-    pins: ['4']
+    pins:
+    - '4'
 device_states:
   powered:
     allocation:
-      mode: hybrid
       strategy: voltage_first
-      reserve: [DC1]
+      reserve:
+      - DC1
       ganging_policy: same_voltage
-    rules:
-    - when:
-        group.group_type: GROUND
-      set:
-        assignment: GROUND
-        bias:
-          mode: GROUND
-    - when:
-        group.group_type: POWER
-      set:
-        bias:
-          mode: VOLTAGE
-          level:
-            from: group.v_max
-
-
 test_plans:
 - name: LU_IN
   test_type: SIGNAL

@@ -6,12 +6,7 @@ from typing import Any, Iterable, Mapping
 from project_generation.definition.models import ProjectGenerationDefinition
 from project_generation.diagnostics import ProjectGenerationError
 from project_generation.generation.hardware import power_resource_compatibility
-from project_generation.generation.models import (
-    GeneratedDeviceState,
-    GeneratedGroup,
-    GeneratedPowerAssignment,
-    GeneratedProject,
-)
+from project_generation.generation.models import GeneratedDeviceState, GeneratedGroup, GeneratedProject
 from project_generation.generation.rules import StressPoint, matches
 
 @dataclass(frozen=True, kw_only=True)
@@ -117,64 +112,7 @@ class ValidateGeneratedProjectRequest:
         pseudo_resources = {"GROUND", "FLOATING"}
 
         for state in self.project.device_states:
-            assignment_by_group: dict[str, GeneratedPowerAssignment] = {}
-            for assignment in state.power_assignments:
-                group = groups_by_id.get(assignment.group_id)
-                if group is None or group.name != assignment.group_name:
-                    raise ProjectGenerationError(
-                        f'Device state "{state.name}" has a power assignment for an unknown group',
-                        code="generated_project.invalid_power_assignment_group",
-                        location=f"generated_project.device_states.{state.name}.power_assignments",
-                        owner=state.name,
-                        context={"group_name": assignment.group_name, "group_id": str(assignment.group_id)},
-                    )
-                if assignment.group_name in assignment_by_group:
-                    raise ProjectGenerationError(
-                        f'Device state "{state.name}" assigns group "{assignment.group_name}" more than once',
-                        code="generated_project.duplicate_power_assignment",
-                        location=f"generated_project.device_states.{state.name}.power_assignments",
-                        owner=state.name,
-                        context={"group_name": assignment.group_name},
-                    )
-                if assignment.assignment not in resources | pseudo_resources:
-                    raise ProjectGenerationError(
-                        f'Device state "{state.name}" uses unknown power resource "{assignment.assignment}"',
-                        code="generated_project.unknown_power_resource",
-                        location=f"generated_project.device_states.{state.name}.power_assignments",
-                        owner=state.name,
-                    )
-                self._validate_assignment_bias(state.name, assignment.group_name, assignment.assignment, assignment.bias)
-                if assignment.assignment in resources:
-                    resource = self.definition.power_resources[assignment.assignment]
-                    incompatibility = power_resource_compatibility(resource, assignment.bias)
-                    if incompatibility is not None:
-                        raise ProjectGenerationError(
-                            f'Device state "{state.name}" cannot assign group "{assignment.group_name}" to '
-                            f'"{assignment.assignment}": {incompatibility}',
-                            code="generated_project.incompatible_power_resource",
-                            location=f"generated_project.device_states.{state.name}.power_assignments.{assignment.group_name}",
-                            owner=state.name,
-                        )
-                assignment_by_group[assignment.group_name] = assignment
-
-            for group_state in state.group_states:
-                group = groups_by_id.get(group_state.group_id)
-                if group is None or group.name != group_state.group_name:
-                    raise ProjectGenerationError(
-                        f'Device state "{state.name}" contains values for an unknown group',
-                        code="generated_project.invalid_group_state",
-                        location=f"generated_project.device_states.{state.name}.group_states",
-                        owner=state.name,
-                        context={"group_name": group_state.group_name, "group_id": str(group_state.group_id)},
-                    )
-                if "bias" in group_state.values and group_state.group_name not in assignment_by_group:
-                    raise ProjectGenerationError(
-                        f'Device state "{state.name}" has a biased group without a resolved assignment: {group_state.group_name}',
-                        code="generated_project.unassigned_biased_group",
-                        location=f"generated_project.device_states.{state.name}.group_states.{group_state.group_name}",
-                        owner=state.name,
-                    )
-
+            assigned_groups: set[str] = set()
             for domain in state.power_domains:
                 if len(domain.group_ids) != len(domain.group_names):
                     raise ProjectGenerationError(
@@ -183,6 +121,28 @@ class ValidateGeneratedProjectRequest:
                         location=f"generated_project.device_states.{state.name}.power_domains.{domain.name}",
                         owner=state.name,
                     )
+                if domain.assignment not in resources | pseudo_resources:
+                    raise ProjectGenerationError(
+                        f'Device state "{state.name}" uses unknown power resource "{domain.assignment}"',
+                        code="generated_project.unknown_power_resource",
+                        location=f"generated_project.device_states.{state.name}.power_domains.{domain.name}",
+                        owner=state.name,
+                    )
+                self._validate_assignment_bias(state.name, domain.name, domain.assignment, domain.bias)
+                if domain.assignment in resources:
+                    incompatibility = power_resource_compatibility(
+                        self.definition.power_resources[domain.assignment],
+                        domain.bias,
+                    )
+                    if incompatibility is not None:
+                        raise ProjectGenerationError(
+                            f'Device state "{state.name}" cannot assign power domain "{domain.name}" to '
+                            f'"{domain.assignment}": {incompatibility}',
+                            code="generated_project.incompatible_power_resource",
+                            location=f"generated_project.device_states.{state.name}.power_domains.{domain.name}",
+                            owner=state.name,
+                        )
+
                 for group_id, group_name in zip(domain.group_ids, domain.group_names, strict=True):
                     group = groups_by_id.get(group_id)
                     if group is None or group.name != group_name or group_name not in groups_by_name:
@@ -193,22 +153,32 @@ class ValidateGeneratedProjectRequest:
                             owner=state.name,
                             context={"group_name": group_name, "group_id": str(group_id)},
                         )
+                    if group_name in assigned_groups:
+                        raise ProjectGenerationError(
+                            f'Device state "{state.name}" assigns group "{group_name}" to more than one power domain',
+                            code="generated_project.duplicate_power_domain_group",
+                            location=f"generated_project.device_states.{state.name}.power_domains.{domain.name}",
+                            owner=state.name,
+                        )
+                    assigned_groups.add(group_name)
 
     @staticmethod
-    def _validate_assignment_bias(state_name: str, group_name: str, assignment: str, bias: Mapping[str, Any]) -> None:
+    def _validate_assignment_bias(state_name: str, domain_name: str, assignment: str, bias: Mapping[str, Any]) -> None:
         mode = str(bias.get("mode", "")).upper()
         if assignment == "GROUND" and mode != "GROUND":
             raise ProjectGenerationError(
-                f'Device state "{state_name}" assigns group "{group_name}" to GROUND with bias mode "{mode or "<missing>"}"',
+                f'Device state "{state_name}" assigns power domain "{domain_name}" to GROUND with bias mode '
+                f'"{mode or "<missing>"}"',
                 code="generated_project.inconsistent_ground_bias",
-                location=f"generated_project.device_states.{state_name}.power_assignments.{group_name}",
+                location=f"generated_project.device_states.{state_name}.power_domains.{domain_name}",
                 owner=state_name,
             )
         if assignment == "FLOATING" and mode != "FLOATING":
             raise ProjectGenerationError(
-                f'Device state "{state_name}" assigns group "{group_name}" to FLOATING with bias mode "{mode or "<missing>"}"',
+                f'Device state "{state_name}" assigns power domain "{domain_name}" to FLOATING with bias mode '
+                f'"{mode or "<missing>"}"',
                 code="generated_project.inconsistent_floating_bias",
-                location=f"generated_project.device_states.{state_name}.power_assignments.{group_name}",
+                location=f"generated_project.device_states.{state_name}.power_domains.{domain_name}",
                 owner=state_name,
             )
 

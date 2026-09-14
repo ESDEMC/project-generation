@@ -255,7 +255,7 @@ Use a generation rule when the same grouping rule applies repeatedly:
 ### Set generated values
 
 A group rule's `set` object writes resolved values into the generated group. Keys may use dotted paths such as
-`parameters.v_max`.
+`parameters.v_max` or `bias_spec.level`.
 
 A scalar is a literal value:
 
@@ -289,10 +289,10 @@ A `set` target can select from ordered conditional alternatives. The first entry
 ```json
 {
   "set": {
-    "parameters.compliance_limit": [
+    "bias_spec.compliance_limit": [
       {
         "when": {"partition.parameters.pin_type": "POWER"},
-        "value": 0.2
+        "value": 0.3
       },
       {
         "when": {
@@ -300,7 +300,7 @@ A `set` target can select from ordered conditional alternatives. The first entry
             "in": ["INPUT", "IO", "OUTPUT"]
           }
         },
-        "value": 0.12
+        "value": 0.05
       }
     ]
   }
@@ -436,56 +436,43 @@ A `STRESS` resource is not automatically used as a normal bias resource.
 
 ## Device states
 
-### Assign power domains directly
+### Bias specifications belong to groups
 
-If the assignments are known, list them explicitly:
+A group's `bias_spec` describes what that group requires when it is biased. It may be intentionally incomplete. For example, a POWER
+group normally needs only its voltage declared:
 
 ```json
 {
-  "device_states": {
-    "logic_high": {
-      "power_domains": [
-        {
-          "name": "ground",
-          "groups": ["GND"],
-          "assignment": "GROUND",
-          "bias": {"mode": "GROUND"}
-        },
-        {
-          "name": "logic_5v5",
-          "groups": ["SU5V5", "IN5V5"],
-          "assignment": "DC2",
-          "bias": {"mode": "VOLTAGE", "level": 5.5}
-        }
-      ]
-    }
-  }
+  "name": "SU5V5",
+  "group_type": "POWER",
+  "pins": ["1"],
+  "bias_spec": {"level": 5.5}
 }
 ```
 
-### Let generation allocate bias resources
+When a numeric `level` is present without a mode, the device-state generator interprets it as voltage sourcing. `GROUND` and
+`FLOATING` are expressed directly as bias modes.
 
-For larger projects, describe the rules and let the allocator choose from the available resources:
+### Modify bias by device state
+
+Device-state rules may modify only `bias_spec`. This keeps transient state settings in the same model as the baseline group requirement:
 
 ```json
 {
   "device_states": {
-    "logic_high": {
-      "allocation": {
-        "mode": "hybrid",
-        "strategy": "voltage_first",
-        "reserve": ["DC1"],
-        "ganging_policy": "same_voltage"
-      },
+    "logic_low": {
       "rules": [
         {
-          "when": {"group.group_type": {"in": ["POWER", "INPUT"]}},
-          "set": {
-            "bias": {
-              "mode": "VOLTAGE",
-              "level": {"from": "group.v_max"}
-            }
-          }
+          "when": {"group.group_type": "INPUT"},
+          "set": {"bias_spec": {"mode": "GROUND"}}
+        }
+      ]
+    },
+    "logic_high": {
+      "rules": [
+        {
+          "when": {"group.group_type": "INPUT"},
+          "set": {"bias_spec": {"level": {"from": "group.v_max"}}}
         }
       ]
     }
@@ -493,7 +480,67 @@ For larger projects, describe the rules and let the allocator choose from the av
 }
 ```
 
-Allocation modes are `direct`, `automatic`, and `hybrid`.
+State inheritance carries the effective per-group bias specifications forward. Allocation artifacts from the parent state are not
+inherited; the child state is ganged and allocated again from its effective specs.
+
+### Ganging and resource selection
+
+Allocation configuration is policy, not generated state. `ganging_policy` decides which compatible groups may share one domain; only
+after that does the allocator choose a source for the domain.
+
+```json
+{
+  "allocation": {
+    "strategy": "voltage_first",
+    "reserve": ["DC1"],
+    "ganging_policy": "same_voltage"
+  }
+}
+```
+
+`same_voltage` gangs compatible specs that can be merged without conflict. Resource selection then checks the completed domain bias
+against the connected resource's hardware envelope. A real source cannot be assigned to two separate simultaneous domains.
+
+### Compliance limits
+
+Compliance is part of each group's `bias_spec`; the generator does not infer a current limit from `group_type`. This keeps the electrical policy in the generation definition:
+
+```json
+{
+  "group_type": "POWER",
+  "bias_spec": {
+    "level": 5.0,
+    "compliance_limit": 0.2
+  }
+}
+```
+
+When groups are ganged, `compliance_limit` is merged using the largest requested value.
+
+```text
+20 mA + 200 mA -> 200 mA
+```
+
+Other conflicting concrete bias fields remain incompatible. Hardware compatibility is checked against the merged domain bias.
+
+### Explicit power domains
+
+An explicit `power_domains` entry is still available when a particular domain, source, or timing relationship must be fixed manually:
+
+```json
+{
+  "power_domains": [
+    {
+      "name": "logic_5v5",
+      "groups": ["SU5V5", "IN5V5"],
+      "assignment": "DC2",
+      "bias": {"mode": "VOLTAGE", "level": 5.5}
+    }
+  ]
+}
+```
+
+Explicit domains use the compliance limit authored in their `bias`; no group-type default is injected by Python.
 
 ## Test plans
 

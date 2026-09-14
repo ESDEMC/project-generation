@@ -16,17 +16,10 @@ class AllPartitionDefinition(BaseModel):
     mode: Literal['all'] = Field(..., title='Mode')
 
 
-class Mode(StrEnum):
-    direct = 'direct'
-    automatic = 'automatic'
-    hybrid = 'hybrid'
-
-
 class AllocationDefinition(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
     )
-    mode: Mode = Field(..., title='Mode')
     strategy: str | None = Field(None, title='Strategy')
     reserve: list[str] | None = Field([], title='Reserve')
     ganging_policy: str | None = Field(None, title='Ganging Policy')
@@ -70,6 +63,7 @@ class ExplicitGroupDefinition(BaseModel):
     name: str = Field(..., title='Name')
     group_type: str = Field(..., title='Group Type')
     pins: list[str] = Field(..., title='Pins')
+    bias_spec: dict[str, Any] | None = Field({}, title='Bias Spec')
     parameters: dict[str, Any] | None = Field({}, title='Parameters')
 
 

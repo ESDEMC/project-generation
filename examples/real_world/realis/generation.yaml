@@ -1,6 +1,4 @@
 schema_version: '1.0'
-
-# Sources
 sources:
   realis_project:
     type: json
@@ -42,10 +40,8 @@ sources:
         mapping: realis_pin_type
       parameters.v_max: VoltageLevelMax
       parameters.v_min: VoltageLevelMin
-
 hardware:
   source: hardware.yaml
-
 project:
   source: realis_project
 mappings:
@@ -70,7 +66,7 @@ mappings:
     HIGH: H
     LOW: L
   polarity_token:
-    POSITIVE: '+'
+    POSITIVE: +
     NEGATIVE: '-'
 formatters:
   voltage_token:
@@ -109,7 +105,20 @@ groups:
             - OUTPUT
             - POWER
       parameters.v_min: 0.0
-      parameters.compliance_limit:
+      bias_spec:
+        mode:
+        - when:
+            partition.parameters.pin_type: GROUND
+          value: GROUND
+        - when:
+            partition.parameters.pin_type: NC
+          value: FLOATING
+        level:
+          from: partition.parameters.v_max
+          cast: float
+          when:
+            partition.parameters.pin_type: POWER
+        compliance_limit:
         - when:
             partition.parameters.pin_type: POWER
           value: 0.2
@@ -119,7 +128,7 @@ groups:
               - INPUT
               - IO
               - OUTPUT
-          value: 0.12
+          value: 0.02
     name:
       template: '{prefix}{voltage}'
       fields:
@@ -139,75 +148,43 @@ groups:
 device_states:
   logic_low:
     allocation:
-      mode: hybrid
       strategy: voltage_first
       reserve:
       - DC1
       ganging_policy: same_voltage
     rules:
     - when:
-        group.group_type: GROUND
+        group.group_type: OUTPUT
       set:
-        assignment: GROUND
-        bias:
-          mode: GROUND
-    - when:
-        group.group_type:
-        in:
-          - OUTPUT
-          - NC
-      set:
-        assignment: FLOATING
-        bias:
+        bias_spec:
           mode: FLOATING
-    - when:
-        group.group_type: POWER
-      set:
-        bias:
-          mode: VOLTAGE
-          level:
-            from: group.v_max
     - when:
         group.group_type:
           in:
           - INPUT
           - IO
       set:
-        assignment: GROUND
-        bias:
+        bias_spec:
           mode: GROUND
   logic_high:
     allocation:
-      mode: hybrid
       strategy: voltage_first
       reserve:
       - DC1
       ganging_policy: same_voltage
     rules:
     - when:
-        group.group_type: GROUND
+        group.group_type: OUTPUT
       set:
-        assignment: GROUND
-        bias:
-          mode: GROUND
-    - when:
-        group.group_type:
-        in:
-          - OUTPUT
-          - NC
-      set:
-        assignment: FLOATING
-        bias:
+        bias_spec:
           mode: FLOATING
     - when:
         group.group_type:
           in:
           - INPUT
           - IO
-          - POWER
       set:
-        bias:
-          mode: VOLTAGE
+        bias_spec:
           level:
             from: group.v_max
 test_plan_generation:

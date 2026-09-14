@@ -24,13 +24,18 @@ Directory: `examples/basics/explicit_project/`
 
 Start here. Pins, groups, device state, and the test plan are written directly.
 
-An explicit group looks like:
+An explicit group can carry an incomplete `bias_spec`. The generator completes it later when it creates a power domain:
 
 ```json
 {
   "groups": {
     "explicit": [
-      {"name": "IN5V5", "group_type": "INPUT", "pins": ["2"]}
+      {
+        "name": "IN5V5",
+        "group_type": "INPUT",
+        "pins": ["2"],
+        "bias_spec": {"level": 5.5}
+      }
     ]
   }
 }
@@ -192,23 +197,25 @@ python examples/customizing_generation/group_generation/demo.py
 
 Directory: `examples/customizing_generation/device_states_and_power_allocation/`
 
-Reserve `DC1` for stress, then let the allocator choose bias resources for the groups that match the rules:
+Groups define their baseline bias requirements. Device-state rules modify only `bias_spec`; after that the generator gangs compatible
+groups, completes missing source settings such as compliance, and chooses a compatible DC resource.
+
+POWER groups in the demo define only their voltage. The high-logic state then gives the INPUT group its high-level voltage:
 
 ```json
 {
   "device_states": {
     "logic_high": {
       "allocation": {
-        "mode": "hybrid",
         "strategy": "voltage_first",
         "reserve": ["DC1"],
         "ganging_policy": "same_voltage"
       },
       "rules": [
         {
-          "when": {"group.group_type": {"in": ["POWER", "INPUT"]}},
+          "when": {"group.group_type": "INPUT"},
           "set": {
-            "bias": {"mode": "VOLTAGE", "level": {"from": "group.v_max"}}
+            "bias_spec": {"level": {"from": "group.v_max"}}
           }
         }
       ]
@@ -216,6 +223,8 @@ Reserve `DC1` for stress, then let the allocator choose bias resources for the g
   }
 }
 ```
+
+Compliance belongs in the group `bias_spec`. In this example, POWER groups request 200 mA and signal groups request 20 mA in the generation file. If compatible groups are ganged, the domain uses the maximum declared `compliance_limit`.
 
 ```bash
 python examples/customizing_generation/device_states_and_power_allocation/demo.py

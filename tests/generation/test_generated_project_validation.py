@@ -2,20 +2,19 @@ import uuid
 
 import pytest
 
-from project_generation.diagnostics import ProjectGenerationError
 from project_generation.definition.models import ProjectGenerationDefinition
-from project_generation.generation.rules import StressPoint
-from project_generation.generation.processor import (
+from project_generation.diagnostics import ProjectGenerationError
+from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
-    GeneratedGroupState,
     GeneratedPin,
-    GeneratedPowerAssignment,
+    GeneratedPowerDomain,
     GeneratedProject,
     GeneratedTestGroup,
     GeneratedTestPlan,
-    ValidateGeneratedProjectRequest,
 )
+from project_generation.generation.rules import StressPoint
+from project_generation.generation.validation import ValidateGeneratedProjectRequest
 
 
 def make_definition() -> ProjectGenerationDefinition:
@@ -32,35 +31,34 @@ def make_project() -> GeneratedProject:
     pin_id = uuid.uuid4()
     group_id = uuid.uuid4()
     state_id = uuid.uuid4()
+    domain = GeneratedPowerDomain(
+        name="In5V0",
+        group_ids=(group_id,),
+        group_names=("In5V0",),
+        assignment="DC2",
+        bias={"mode": "VOLTAGE", "level": 5.0},
+    )
     return GeneratedProject(
         name="Test",
         metadata={},
         dut_name="DUT",
         pins=(GeneratedPin(id=pin_id, designator="1", name="IN", parameters={}),),
-        groups=(GeneratedGroup(id=group_id, name="In5V0", group_type="INPUT", pin_ids=(pin_id,), parameters={}),),
+        groups=(
+            GeneratedGroup(
+                id=group_id,
+                name="In5V0",
+                group_type="INPUT",
+                pin_ids=(pin_id,),
+                bias_spec={"mode": "VOLTAGE", "level": 5.0},
+                parameters={},
+            ),
+        ),
         device_states=(
             GeneratedDeviceState(
                 id=state_id,
                 name="logic_high",
                 extends=None,
-                allocation={"mode": "hybrid"},
-                power_domains=(),
-                group_states=(
-                    GeneratedGroupState(
-                        group_id=group_id,
-                        group_name="In5V0",
-                        values={"bias": {"mode": "VOLTAGE", "level": 5.0}},
-                    ),
-                ),
-                power_assignments=(
-                    GeneratedPowerAssignment(
-                        group_id=group_id,
-                        group_name="In5V0",
-                        assignment="DC2",
-                        bias={"mode": "VOLTAGE", "level": 5.0},
-                        source="automatic",
-                    ),
-                ),
+                power_domains=(domain,),
                 power_on_sequence=(),
                 power_off_sequence=(),
             ),
@@ -97,6 +95,7 @@ def test_group_must_reference_existing_pin() -> None:
         name=project.groups[0].name,
         group_type=project.groups[0].group_type,
         pin_ids=(uuid.uuid4(),),
+        bias_spec=project.groups[0].bias_spec,
         parameters={},
     )
     project = GeneratedProject(**{**project.__dict__, "groups": (bad_group,)})
@@ -105,17 +104,17 @@ def test_group_must_reference_existing_pin() -> None:
         ValidateGeneratedProjectRequest(definition=make_definition(), project=project).validate()
 
 
-def test_floating_assignment_requires_floating_bias() -> None:
+def test_floating_domain_requires_floating_bias() -> None:
     project = make_project()
     state = project.device_states[0]
-    bad_assignment = GeneratedPowerAssignment(
-        group_id=project.groups[0].id,
-        group_name=project.groups[0].name,
+    bad_domain = GeneratedPowerDomain(
+        name="floating",
+        group_ids=(project.groups[0].id,),
+        group_names=(project.groups[0].name,),
         assignment="FLOATING",
         bias={"mode": "VOLTAGE", "level": 5.0},
-        source="group_rule",
     )
-    bad_state = GeneratedDeviceState(**{**state.__dict__, "power_assignments": (bad_assignment,)})
+    bad_state = GeneratedDeviceState(**{**state.__dict__, "power_domains": (bad_domain,)})
     project = GeneratedProject(**{**project.__dict__, "device_states": (bad_state,)})
 
     with pytest.raises(ProjectGenerationError, match="to FLOATING with bias mode"):

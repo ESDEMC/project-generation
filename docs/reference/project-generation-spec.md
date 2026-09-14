@@ -18,7 +18,7 @@ The compiled project must contain no unresolved queries, dimensions, formatters,
 4. Test-plan dimensions are dynamic and are not hard-coded as logic level, polarity, temperature, or any other customer-specific concept.
 5. Test-group selection and partitioning are separate from dimension expansion.
 6. Device states may be named globally or declared inline.
-7. Explicit assignments are resolved before automatic allocation.
+7. Group bias requirements are resolved and ganged before DC resources are selected.
 8. Automatic behavior is selected by named strategies implemented in Python.
 9. Overrides are ordered, visible, and deterministic.
 10. Stress-parameter series use domain-oriented array and range operations rather than arbitrary expressions.
@@ -52,7 +52,7 @@ Apply dimension value settings
         ↓
 Apply matching plan overrides
         ↓
-Resolve power domains and assignments
+Resolve group bias specs, power domains, and source assignments
         ↓
 Resolve per-group stress-parameter definitions
         ↓
@@ -284,10 +284,10 @@ the literal value `null`.
 ```json
 {
   "set": {
-    "parameters.compliance_limit": [
+    "bias_spec.compliance_limit": [
       {
         "when": {"partition.parameters.pin_type": "POWER"},
-        "value": 0.2
+        "value": 0.3
       },
       {
         "when": {
@@ -295,7 +295,7 @@ the literal value `null`.
             "in": ["INPUT", "IO", "OUTPUT"]
           }
         },
-        "value": 0.12
+        "value": 0.05
       }
     ]
   }
@@ -320,110 +320,72 @@ A resource may carry capabilities or constraints used by allocation strategies.
 
 ### 8.2 Device states
 
-Device states may be globally named and referenced by test plans or generated dimension values.
+Device states may be globally named and referenced by test plans or generated dimension values. A state may inherit another state with
+`extends`.
+
+A device state does not create a parallel per-group state model. It resolves each group's effective `bias_spec`, then generates concrete
+power domains.
+
+### 8.3 Group bias specifications
+
+`bias_spec` is a property of a group and may be incomplete. A typical POWER group declares only the voltage it requires:
 
 ```json
 {
-  "device_states": {
-    "logic_low": {},
-    "logic_high": {}
-  }
+  "name": "SU5V5",
+  "group_type": "POWER",
+  "pins": ["1"],
+  "bias_spec": {"level": 5.5}
 }
 ```
 
-Inline states may extend named states.
+A numeric level without a mode is normalized to `VOLTAGE`. Device-state rules may modify only `bias_spec`:
 
 ```json
 {
-  "device_state": {
-    "extends": "logic_high"
-  }
+  "when": {"group.group_type": "INPUT"},
+  "set": {"bias_spec": {"level": {"from": "group.v_max"}}}
 }
 ```
 
-### 8.3 Power domains
+### 8.4 Power domains and ganging
 
-Power domains are the units that receive logical power-resource assignments.
+A `PowerDomain` is the canonical generated unit for a set of groups biased together by one source with one concrete bias configuration.
+There is no generated `GroupState` or `PowerAssignment` object in addition to the domain.
 
-```json
-{
-  "name": "logic_5v5",
-  "groups": ["SU5V5", "IN5V5"],
-  "assignment": "DC2",
-  "bias": {
-    "mode": "VOLTAGE",
-    "level": 5.5
-  }
-}
+The ganging policy runs before source selection and answers only which compatible groups may share a configuration. `same_voltage` merges
+non-conflicting compatible specs; it does not inspect or select hardware resources.
+
+The canonical resolution order is:
+
+```text
+effective group bias specs
+    -> ganging
+    -> merged domain bias (`compliance_limit` uses max)
+    -> compatible source selection
+    -> PowerDomain
 ```
 
-A domain naturally models ganging.
+### 8.5 Allocation policy and compliance merging
 
-### 8.4 Assignment modes
-
-Device-state definitions may use direct, automatic, or hybrid allocation.
-
-Direct mode is appropriate when assignments are already known:
-
-```json
-{
-  "allocation": {"mode": "direct"},
-  "power_domains": [
-    {
-      "name": "logic_5v5",
-      "groups": ["SU5V5", "IN5V5"],
-      "assignment": "DC2",
-      "bias": {"mode": "VOLTAGE", "level": 5.5}
-    }
-  ]
-}
-```
-
-Automatic mode lets the selected strategy choose assignments:
+Allocation configuration controls source-selection policy:
 
 ```json
 {
   "allocation": {
-    "mode": "automatic",
-    "strategy": "voltage_first",
-    "reserve": ["DC1"]
-  }
-}
-```
-
-Hybrid mode keeps explicit assignments and automatically fills the rest:
-
-```json
-{
-  "allocation": {
-    "mode": "hybrid",
     "strategy": "voltage_first",
     "reserve": ["DC1"],
     "ganging_policy": "same_voltage"
-  },
-  "power_domains": [
-    {
-      "name": "ground",
-      "groups": ["GND"],
-      "assignment": "GROUND",
-      "bias": {"mode": "GROUND"}
-    }
-  ]
+  }
 }
 ```
 
-Hybrid assignment resolves explicit assignments first, then runs the selected allocation strategy for remaining groups.
+There is no `direct`/`automatic`/`hybrid` mode switch. Explicit `power_domains` may still be authored for exceptional fixed domains; all
+remaining biased groups are generated from their effective specs.
 
-### 8.5 Allocation and ganging
+`compliance_limit` is part of the authored group `bias_spec`; the compiler does not derive it from `group_type`. During ganging, `compliance_limit` is merged with `max()`, while other conflicting concrete bias fields make the groups incompatible. Hardware compatibility is then checked against the merged domain bias.
 
-Named strategies remain implemented in Python. The initial strategy may reserve the stress resource, assign supply groups first, assign static-bias groups, then assign remaining signal groups.
-
-Ganging is a separate policy rather than hidden inside the assignment strategy.
-
-Initial policies:
-
-- none
-- same_voltage
+Explicit domains retain their authored assignment, timing, and bias. Their bias is normalized and validated against the selected resource, but no compliance default is injected.
 
 ### 8.6 Timing
 

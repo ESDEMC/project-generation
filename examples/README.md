@@ -15,7 +15,7 @@ examples/
 │   └── hardware_config/                     Load physical power resources from hardware.yaml
 ├── customizing_generation/
 │   ├── group_generation/                    Generate groups from pin properties
-│   ├── device_states_and_power_allocation/  Generate DUT states and assign DC resources
+│   ├── device_states_and_power_allocation/  Generate DUT states from group bias specs and assign DC resources
 │   ├── test_plan_dimensions/                Expand one rule into combinations of test plans
 │   └── stress_series_and_overrides/         Generate stress series and change selected cases
 └── real_world/

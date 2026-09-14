@@ -124,7 +124,7 @@ hardware:
 ```
 
 The hardware file defines the connected matrix assignments, connection modes, and DC power envelopes. Device-state allocation therefore
-uses only connected bias-capable resources that can realize the requested voltage. `DC1` is present in the hardware configuration as the
+uses only connected bias-capable resources that can realize the merged domain bias. The generation rule declares 200 mA compliance for POWER groups and 20 mA for INPUT/OUTPUT/IO groups. When compatible groups gang, the largest declared `compliance_limit` is used. `DC1` is present in the hardware configuration as the
 switch/stress connection and is not available for ordinary bias allocation.
 
 ## Device states
@@ -134,13 +134,14 @@ The example defines `logic_low` and `logic_high` states.
 Both states:
 
 - reserve `DC1` for stress;
-- use hybrid, voltage-first allocation against `hardware.yaml`;
+- use voltage-first allocation against `hardware.yaml`;
 - permit exact same-bias ganging;
 - ground ground groups; and
 - leave output and NC groups floating.
 
-For `logic_low`, input and IO groups are grounded while power groups are biased to their maximum voltage. For `logic_high`, input, IO, and
-power groups are biased to their maximum voltage.
+POWER groups carry their maximum-voltage requirement directly in their generated `bias_spec`. For `logic_low`, input and IO groups are
+grounded. For `logic_high`, input and IO groups receive their maximum-voltage requirement from state rules. Output groups are floating in
+both states. Compatible specs are then ganged before resources are selected.
 
 These are project-generation rules and must be reviewed against the customer's intended test behavior before delivery.
 
