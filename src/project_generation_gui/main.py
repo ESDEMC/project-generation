@@ -3,7 +3,7 @@ from pathlib import Path
 
 from qtpy.QtWidgets import QApplication
 
-from .main_window import MainWindow
+from project_generation_gui.main_window import MainWindow
 
 
 def main() -> int:
