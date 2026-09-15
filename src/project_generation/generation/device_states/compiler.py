@@ -9,10 +9,10 @@ from project_generation.diagnostics import (
     PowerResourceResolutionIssue,
     ProjectGenerationError,
 )
-from project_generation.generation.ganging import get_ganging_policy, merge_bias_specs
+from project_generation.generation.device_states.ganging import get_ganging_policy, merge_bias_specs
+from project_generation.generation.device_states.power_sequence import PowerSequenceResolver
 from project_generation.generation.hardware import power_resource_compatibility
 from project_generation.generation.models import GeneratedDeviceState, GeneratedGroup, GeneratedPowerDomain
-from project_generation.generation.power_sequence import PowerSequenceResolver
 from project_generation.generation.rules import matches
 from project_generation.generation.values import merge_value_tree, resolve_value_tree
 

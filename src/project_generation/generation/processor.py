@@ -17,7 +17,7 @@ from project_generation.diagnostics import (
     StressSupplyResolutionError,
     StressSupplyResolutionIssue,
 )
-from project_generation.generation.hardware_domain import BiasedPulseStress, SourceSwitchStressStrategy
+from project_generation.generation.hardware import BiasedPulseStress, SourceSwitchStressStrategy
 from project_generation.generation.device_states import DeviceStateGenerator
 from project_generation.generation.groups import GroupGenerator
 from project_generation.generation.sources import load_source_records

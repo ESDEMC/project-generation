@@ -16,10 +16,13 @@ project_generation/
 │   ├── models.py
 │   ├── processor.py              Thin pipeline coordinator
 │   ├── groups.py                 Group compilation
-│   ├── device_states.py          Bias -> ganging -> source -> PowerDomain
-│   ├── bias.py                   Bias completion defaults
-│   ├── ganging.py                Bias-spec compatibility/ganging
-│   ├── power_sequence.py         Existing power-sequence compilation
+│   ├── device_states/
+│   │   ├── compiler.py           Bias -> ganging -> source -> PowerDomain
+│   │   ├── ganging.py            Bias-spec compatibility/ganging
+│   │   └── power_sequence.py     Power-sequence compilation
+│   ├── hardware/
+│   │   ├── models.py             Hardware capability domain models
+│   │   └── resources.py          Hardware resource loading and compatibility
 │   ├── sources.py                Source loading
 │   ├── values.py                 Value/template resolution
 │   ├── rules.py

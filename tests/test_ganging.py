@@ -1,6 +1,6 @@
 import pytest
 
-from project_generation.generation.ganging import SameVoltageGangingPolicy, merge_bias_specs
+from project_generation.generation.device_states.ganging import SameVoltageGangingPolicy, merge_bias_specs
 
 
 def test_merge_incomplete_bias_specs() -> None:

@@ -22,6 +22,8 @@
 ### Changed
 
 - Device-state generation now follows a single pipeline: effective group bias specs -> ganging -> merged bias -> source selection -> `PowerDomain`.
+- Removed unused duplicate generation modules left behind by the processor split; value resolution remains in `values.py`, while input and test-plan coordination remain in `processor.py`.
+- Grouped device-state compilation and hardware support into dedicated `generation.device_states` and `generation.hardware` packages.
 - State inheritance carries effective per-group bias specs and re-runs ganging/source selection instead of inheriting generated assignments.
 - Missing bias mode defaults to `VOLTAGE` when a numeric bias level is present.
 - `GROUND` and `FLOATING` remain pseudo-resources and do not consume physical DC sources.

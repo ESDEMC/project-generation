@@ -5,7 +5,7 @@ import yaml
 
 from project_generation.definition.models import PowerResourceDefinition
 from project_generation.diagnostics import ProjectGenerationError
-from project_generation.generation.hardware_domain import HardwarePowerResource, OperatingPoint, PowerSupplyCapabilities
+from project_generation.generation.hardware.models import HardwarePowerResource, OperatingPoint, PowerSupplyCapabilities
 
 
 def load_hardware_power_resources(path: str | pathlib.Path) -> dict[str, PowerResourceDefinition]:
