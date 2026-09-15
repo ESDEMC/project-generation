@@ -21,6 +21,7 @@ from project_generation.generation.hardware_domain import BiasedPulseStress, Sou
 from project_generation.generation.device_states import DeviceStateGenerator
 from project_generation.generation.groups import GroupGenerator
 from project_generation.generation.sources import load_source_records
+from project_generation.generation.snapshot import GenerationSnapshot
 from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
@@ -65,6 +66,14 @@ class ProjectGenerationProcessor:
         *,
         base_directory: str | pathlib.Path | None = None,
     ) -> GeneratedProject:
+        return self.process_with_snapshot(definition, base_directory=base_directory).generated_project
+
+    def process_with_snapshot(
+        self,
+        definition: ProjectGenerationDefinition,
+        *,
+        base_directory: str | pathlib.Path | None = None,
+    ) -> GenerationSnapshot:
         if definition.definition_directory is not None:
             base_directory = definition.definition_directory
         elif base_directory is None:
@@ -104,7 +113,14 @@ class ProjectGenerationProcessor:
             definition=effective_definition,
             project=generated_project,
         ).validate()
-        return generated_project
+        return GenerationSnapshot(
+            definition=effective_definition,
+            pins=tuple(pins),
+            groups=tuple(groups),
+            device_states=tuple(device_states),
+            test_plans=tuple(test_plans),
+            generated_project=generated_project,
+        )
 
     def _resolve_dut_name(self, definition: ProjectGenerationDefinition) -> str | None:
         if definition.dut is None:
