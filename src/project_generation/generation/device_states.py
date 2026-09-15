@@ -66,6 +66,7 @@ class DeviceStateGenerator:
             bias_specs=bias_specs,
             explicit_domains=explicit_domains,
         )
+        power_domains = self._add_stress_bus_domains(power_domains)
 
         generated = GeneratedDeviceState(
             id=uuid.uuid5(self.namespace, name),
@@ -231,6 +232,38 @@ class DeviceStateGenerator:
 
         if issues:
             raise PowerResourceResolutionError(tuple(issues))
+        return domains
+
+    def _add_stress_bus_domains(self, power_domains: list[GeneratedPowerDomain]) -> list[GeneratedPowerDomain]:
+        stress_resources = sorted(
+            resource_name
+            for resource_name, resource in self.definition.power_resources.items()
+            if (resource.role or "").upper() == "STRESS"
+        )
+        assigned_resources = {domain.assignment for domain in power_domains}
+        missing_resources = [resource for resource in stress_resources if resource not in assigned_resources]
+        if not missing_resources:
+            return power_domains
+
+        domains = list(power_domains)
+        existing_names = {domain.name for domain in domains}
+        for resource_name in missing_resources:
+            base_name = "stress_bus" if len(stress_resources) == 1 else f"stress_bus_{resource_name.lower()}"
+            domain_name = base_name
+            suffix = 2
+            while domain_name in existing_names:
+                domain_name = f"{base_name}_{suffix}"
+                suffix += 1
+            existing_names.add(domain_name)
+            domains.append(
+                GeneratedPowerDomain(
+                    name=domain_name,
+                    group_ids=(),
+                    group_names=(),
+                    assignment=resource_name,
+                    bias={},
+                )
+            )
         return domains
 
     @staticmethod

@@ -17,6 +17,7 @@
 ### Added
 
 - Added dedicated generation modules for device states, group generation, source loading, value resolution, and power sequencing.
+- Added stress resources to generated device states as empty-group stress-bus power domains and included them in power-on and power-off sequences.
 
 ### Changed
 

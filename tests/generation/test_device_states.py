@@ -51,7 +51,8 @@ def _definition(
                 ]
             },
             "power_resources": resources
-            or {
+            if resources is not None
+            else {
                 "DC1": {"role": "STRESS"},
                 "DC2": {"role": "BIAS"},
                 "DC3": {"role": "BIAS"},
@@ -70,8 +71,45 @@ def test_group_bias_specs_generate_power_domains() -> None:
     assert [(domain.group_names, domain.assignment) for domain in state.power_domains] == [
         (("A",), "DC2"),
         (("B",), "DC3"),
+        ((), "DC1"),
     ]
     assert state.power_domains[0].bias == {"level": 3.3, "mode": "VOLTAGE", "compliance_limit": 0.02}
+
+
+def test_stress_bus_is_added_to_device_state_and_power_sequences() -> None:
+    generated = ProjectGenerationProcessor().process(_definition(a_bias={"level": 3.3}))
+    state = generated.device_states[0]
+
+    stress_bus = state.power_domains[-1]
+    assert stress_bus.name == "stress_bus"
+    assert stress_bus.assignment == "DC1"
+    assert stress_bus.group_ids == ()
+    assert stress_bus.group_names == ()
+    assert stress_bus.bias == {}
+    assert state.power_on_sequence[-1].domain_name == "stress_bus"
+    assert state.power_off_sequence[0].domain_name == "stress_bus"
+
+
+def test_explicit_stress_bus_is_not_duplicated() -> None:
+    generated = ProjectGenerationProcessor().process(
+        _definition(
+            a_bias={"level": 3.3},
+            state={
+                "power_domains": [
+                    {
+                        "name": "stress",
+                        "groups": [],
+                        "assignment": "DC1",
+                        "bias": {"mode": "VOLTAGE"},
+                    }
+                ]
+            },
+        )
+    )
+    state = generated.device_states[0]
+
+    assert [domain.assignment for domain in state.power_domains].count("DC1") == 1
+    assert [step.assignment for step in state.power_on_sequence].count("DC1") == 1
 
 
 def test_same_voltage_ganging_creates_one_domain() -> None:
@@ -119,7 +157,11 @@ def test_state_rule_modifies_bias_spec_before_ganging() -> None:
         )
     )
 
-    assert [domain.bias["level"] for domain in generated.device_states[0].power_domains] == [3.3, 5.0]
+    assert [
+        domain.bias["level"]
+        for domain in generated.device_states[0].power_domains
+        if domain.group_names
+    ] == [3.3, 5.0]
 
 
 def test_state_rule_rejects_non_bias_spec_fields() -> None:
@@ -147,8 +189,8 @@ def test_state_inheritance_carries_effective_bias_specs_then_regangs() -> None:
     generated = ProjectGenerationProcessor().process(ProjectGenerationDefinition.model_validate(data))
     base, child = generated.device_states
 
-    assert len(base.power_domains) == 1
-    assert len(child.power_domains) == 2
+    assert len(base.power_domains) == 2
+    assert len(child.power_domains) == 3
 
 
 def test_ground_and_floating_do_not_consume_dc_sources() -> None:
