@@ -27,7 +27,7 @@ from project_generation import (
     StressSupplyResolutionError,
     ProjectGenerationError,
 )
-from project_generation.application.workflows import raise_for_diagnostics, replace_source_paths
+from project_generation.application.workflows import bind_input_files, raise_for_diagnostics
 
 EXAMPLE_DIRECTORY = pathlib.Path(__file__).resolve().parent
 DEFAULT_DEFINITION_PATH = EXAMPLE_DIRECTORY / "generation.yaml"
@@ -35,7 +35,6 @@ DEFAULT_INPUT_DIRECTORY = EXAMPLE_DIRECTORY / "input"
 DEFAULT_OUTPUT_DIRECTORY = pathlib.Path(
     os.environ.get("PROJECT_GENERATION_OUTPUT_DIRECTORY", EXAMPLE_DIRECTORY / "generated")
 )
-REALIS_SOURCE_NAMES = ("realis_project", "realis_pins")
 
 
 def main() -> None:
@@ -71,7 +70,7 @@ def generate_realis_project(
     input_path = input_path.resolve()
 
     definition = load_project_definition(definition_path)
-    definition = replace_source_paths(definition, {name: input_path for name in REALIS_SOURCE_NAMES})
+    definition = bind_input_files(definition, {"input_file": input_path})
     raise_for_diagnostics(validate_project_definition(definition))
 
     return generate_project(

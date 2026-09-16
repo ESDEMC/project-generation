@@ -94,3 +94,22 @@ def test_loaded_definition_uses_its_own_directory(tmp_path: pathlib.Path) -> Non
     project_path = generate_project(definition, tmp_path)
 
     assert project_path.is_file()
+
+
+def test_source_path_directives_returns_realis_input_file() -> None:
+    from project_generation.application.workflows import source_path_directives
+
+    definition = load_project_definition(REALIS / "generation.yaml")
+
+    assert source_path_directives(definition) == ("input_file",)
+
+
+def test_bind_input_files_formats_all_sources_using_directive() -> None:
+    from project_generation.application.workflows import bind_input_files
+
+    definition = load_project_definition(REALIS / "generation.yaml")
+    updated = bind_input_files(definition, {"input_file": "device.json"})
+
+    assert updated.sources["realis_project"].path == "device.json"
+    assert updated.sources["realis_pins"].path == "device.json"
+    assert definition.sources["realis_project"].path == "{input_file}"
