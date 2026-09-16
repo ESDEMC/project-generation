@@ -341,9 +341,10 @@ def _matrix_assignment(value: str, b: Bindings) -> Any:
 
 
 def _bias_parameters(values: Mapping[str, Any], b: Bindings) -> Bindings.LatchUpBiasParameters | None:
-    mode = require_source_mode(values.get("mode", "").lower())
-    if mode in {"ground", "floating", ""}:
+    mode_value = str(values.get("mode", "")).lower()
+    if mode_value in {"ground", "floating", ""}:
         return None
+    mode = require_source_mode(mode_value)
     level = values.get("level")
     compliance = values.get("compliance_limit", values.get("compliance"))
     if level is None or compliance is None:
@@ -381,4 +382,3 @@ def _test_type(value: str, b: Bindings) -> Any:
             code="adapter.unsupported_test_type",
             context={"test_type": value},
         ) from error
-

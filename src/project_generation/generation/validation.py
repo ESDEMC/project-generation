@@ -130,10 +130,9 @@ class ValidateGeneratedProjectRequest:
                     )
                 self._validate_assignment_bias(state.name, domain.name, domain.assignment, domain.bias)
                 if domain.assignment in resources:
-                    incompatibility = power_resource_compatibility(
-                        self.definition.power_resources[domain.assignment],
-                        domain.bias,
-                    )
+                    resource = self.definition.power_resources[domain.assignment]
+                    is_stress_bus = (resource.role or "").upper() == "STRESS" and not domain.group_ids
+                    incompatibility = None if is_stress_bus else power_resource_compatibility(resource, domain.bias)
                     if incompatibility is not None:
                         raise ProjectGenerationError(
                             f'Device state "{state.name}" cannot assign power domain "{domain.name}" to '
@@ -258,5 +257,4 @@ class ValidateGeneratedProjectRequest:
                     location=f"generated_project.test_plans.{plan_name}.test_groups.{group_name}.stress_points[{index}].{name}",
                     owner=plan_name,
                 )
-
 

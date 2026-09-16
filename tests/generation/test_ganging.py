@@ -1,6 +1,6 @@
 import pytest
 
-from project_generation.generation.ganging import (
+from project_generation.generation.device_states.ganging import (
     NoGangingPolicy,
     SameVoltageGangingPolicy,
     bias_specs_are_compatible,
