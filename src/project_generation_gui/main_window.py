@@ -1,7 +1,8 @@
+from html import escape
 from pathlib import Path
 
-from qtpy.QtCore import QSettings, Qt, QTimer
-from qtpy.QtGui import QAction
+from qtpy.QtCore import QCoreApplication, QEvent, QEventLoop, QSettings, Qt, QTimer, QUrl
+from qtpy.QtGui import QAction, QDesktopServices
 import PySide6QtAds as QtAds
 
 from qtpy.QtWidgets import (
@@ -9,6 +10,7 @@ from qtpy.QtWidgets import (
     QFileDialog,
     QInputDialog,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QMainWindow,
     QPushButton,
@@ -22,10 +24,9 @@ from qtpy.QtWidgets import (
 
 from .colors import ColorSettingsDialog, ColorTheme
 from .documents import TextDocument
-from .preferences import EditorPreferences
+from .preferences import ApplicationPreferences, EditorPreferences, install_application_style
 from .session import ProjectSession
 from .widgets import (
-    EditorArea,
     GenerationViews,
     ObjectTree,
     TextEditor,
@@ -35,29 +36,50 @@ from .widgets import (
 
 
 class MainWindow(QMainWindow):
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        editor_preferences: EditorPreferences | None = None,
+        application_preferences: ApplicationPreferences | None = None,
+    ) -> None:
+        if editor_preferences is None:
+            install_application_style()
         super().__init__()
         self.setWindowTitle("Project Generation")
         self.resize(1400, 900)
         self.session = ProjectSession()
         self.color_theme = ColorTheme(self)
-        self.editor_preferences = EditorPreferences(self)
-        self.editor_preferences.apply_theme()
+        if editor_preferences is None:
+            editor_preferences = EditorPreferences(self)
+            editor_preferences.apply_theme()
+        elif editor_preferences.parent() is None:
+            editor_preferences.setParent(self)
+        self.editor_preferences = editor_preferences
         self.editor_preferences.changed.connect(self._editor_preferences_changed)
+        if application_preferences is None:
+            application_preferences = ApplicationPreferences(self)
+        elif application_preferences.parent() is None:
+            application_preferences.setParent(self)
+        self.application_preferences = application_preferences
         self._editors: dict[Path, TextEditor] = {}
+        self._document_docks: dict[Path, QtAds.CDockWidget] = {}
+        self._current_editor: TextEditor | None = None
         self._regenerate_timer = QTimer(self)
         self._regenerate_timer.setSingleShot(True)
         self._regenerate_timer.setInterval(300)
-        self._regenerate_timer.timeout.connect(self._regenerate)
+        self._regenerate_timer.timeout.connect(self._auto_regenerate)
 
         self._layout_settings = QSettings("project-generation", "project-generation-gui")
+        self._docking_state_key = "docking/state"
 
         self.project_tree = QTreeWidget()
+        self.project_tree.setColumnCount(2)
         self.project_tree.setHeaderHidden(True)
+        self.project_tree.header().setStretchLastSection(False)
+        self.project_tree.header().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.project_tree.header().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.project_tree.itemClicked.connect(self._project_item_activated)
         self.project_tree.itemActivated.connect(self._project_item_activated)
-
-        self.editor_area = EditorArea()
 
         self.inspector = ObjectTree()
         self.inspector.setHeaderLabels(["Parsed definition", "Value"])
@@ -80,33 +102,47 @@ class MainWindow(QMainWindow):
         self.generation_tables = GenerationViews(self.color_theme)
         self.snapshot_view = ObjectTree()
 
-        # Qt Advanced Docking System owns the complete workspace layout. The
-        # central editor must be registered before any other dock widgets.
         self.dock_manager = QtAds.CDockManager(self)
-        self.workspace_dock = QtAds.CDockWidget("Workspace")
-        self.workspace_dock.setObjectName("WorkspaceDock")
-        self.workspace_dock.setWidget(self.editor_area)
-        self.dock_manager.setCentralWidget(self.workspace_dock)
+        self._generated_docks: dict[str, QtAds.CDockWidget] = {}
+
+        self.central_workspace = QWidget()
+        self.central_dock_manager = QtAds.CDockManager(self.central_workspace)
+        central_layout = QVBoxLayout(self.central_workspace)
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.addWidget(self.central_dock_manager)
+
+        self.document_workspace_dock = QtAds.CDockWidget("Central Workspace")
+        self.document_workspace_dock.setObjectName("CentralWorkspaceDock")
+        self.document_workspace_dock.setWidget(self.central_workspace)
+        self.dock_manager.setCentralWidget(self.document_workspace_dock)
 
         self.project_dock = self._add_dock(
             "Project", self.project_tree, QtAds.DockWidgetArea.LeftDockWidgetArea
         )
+
         self.inspector_dock = self._add_dock(
             "Parsed Definition", self.inspector, QtAds.DockWidgetArea.RightDockWidgetArea
         )
+        right_area = self.inspector_dock.dockAreaWidget()
+        self.parsed_dock = self._add_dock_tab("Parsed Data", self.parsed_view, right_area)
+        self.snapshot_dock = self._add_dock_tab("Generation Snapshot", self.snapshot_view, right_area)
+
         self.problems_dock = self._add_dock(
             "Problems", self.problems_panel, QtAds.DockWidgetArea.BottomDockWidgetArea
         )
-        bottom_area = self.problems_dock.dockAreaWidget()
-        self.parsed_dock = self._add_dock_tab("Parsed Data", self.parsed_view, bottom_area)
-        self.snapshot_dock = self._add_dock_tab("Generation Snapshot", self.snapshot_view, bottom_area)
+
+        self._default_docking_state = self.dock_manager.saveState()
+
+        self.export_status_label = QLabel()
+        self.export_status_label.setTextFormat(Qt.RichText)
+        self.export_status_label.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        self.export_status_label.setOpenExternalLinks(False)
+        self.export_status_label.linkActivated.connect(self._open_export_status_link)
+        self.statusBar().addPermanentWidget(self.export_status_label)
+        self._set_export_status("")
 
         self._create_actions()
         QTimer.singleShot(0, self._restore_layout)
-
-    def _collapse_bottom_docks(self) -> None:
-        for dock in (self.problems_dock, self.parsed_dock, self.snapshot_dock):
-            dock.toggleView(False)
 
     def _add_dock(self, title: str, widget: QWidget, area) -> QtAds.CDockWidget:
         dock = QtAds.CDockWidget(title)
@@ -122,20 +158,64 @@ class MainWindow(QMainWindow):
         self.dock_manager.addDockWidgetTabToArea(dock, dock_area)
         return dock
 
+    def _central_dock_area(self, dock: QtAds.CDockWidget | None = None):
+        for existing_dock in (*self._document_docks.values(), *self._generated_docks.values()):
+            if existing_dock is dock:
+                continue
+            if existing_dock.dockManager() is not self.central_dock_manager:
+                continue
+            area = existing_dock.dockAreaWidget()
+            if area is not None:
+                return area
+        return None
+
+    def _add_central_dock(self, dock: QtAds.CDockWidget) -> None:
+        dock_area = self._central_dock_area(dock)
+        if dock_area is None:
+            self.central_dock_manager.addDockWidget(
+                QtAds.DockWidgetArea.CenterDockWidgetArea,
+                dock,
+            )
+        else:
+            self.central_dock_manager.addDockWidgetTabToArea(dock, dock_area)
+
+    def _show_editor(self, editor: TextEditor) -> QtAds.CDockWidget:
+        dock = self._document_docks.get(editor.path)
+        if dock is None:
+            dock = QtAds.CDockWidget(editor.path.name)
+            dock.setObjectName(self._document_dock_object_name(editor.path))
+            dock.setWidget(editor)
+            self._document_docks[editor.path] = dock
+            self._add_central_dock(dock)
+        else:
+            dock.toggleView(True)
+
+        self._current_editor = editor
+        editor.setFocus()
+        return dock
+
+    @staticmethod
+    def _document_dock_object_name(path: Path) -> str:
+        safe = "_".join(part for part in path.parts if part).replace(":", "")
+        return f"DocumentDock_{safe}"
+
     def _restore_layout(self) -> None:
         geometry = self._layout_settings.value("window/geometry")
         if geometry is not None:
             self.restoreGeometry(geometry)
 
-        state = self._layout_settings.value("docking/state")
+        state = self._layout_settings.value(self._docking_state_key)
         if state is not None:
             self.dock_manager.restoreState(state)
-        else:
-            self._collapse_bottom_docks()
 
     def _save_layout(self) -> None:
         self._layout_settings.setValue("window/geometry", self.saveGeometry())
-        self._layout_settings.setValue("docking/state", self.dock_manager.saveState())
+        self._layout_settings.setValue(self._docking_state_key, self.dock_manager.saveState())
+        self._layout_settings.sync()
+
+    def _reset_layout(self) -> None:
+        self.dock_manager.restoreState(self._default_docking_state)
+        self._layout_settings.remove(self._docking_state_key)
         self._layout_settings.sync()
 
     def closeEvent(self, event) -> None:
@@ -162,8 +242,8 @@ class MainWindow(QMainWindow):
         regenerate_action.setShortcut("Ctrl+R")
         regenerate_action.triggered.connect(self._regenerate)
 
-        export_action = QAction("Export Project…", self)
-        export_action.triggered.connect(lambda _checked=False: self.export_project_dialog())
+        self.export_action = QAction("Export Project…", self)
+        self.export_action.triggered.connect(lambda _checked=False: self.export_project_dialog())
 
         settings_action = QAction("Settings…", self)
         settings_action.triggered.connect(lambda _checked=False: self.open_settings())
@@ -176,12 +256,18 @@ class MainWindow(QMainWindow):
         file_menu.addAction(save_all_action)
         generate_menu = self.menuBar().addMenu("Generate")
         generate_menu.addAction(regenerate_action)
-        generate_menu.addAction(export_action)
+        generate_menu.addAction(self.export_action)
 
         tools_menu = self.menuBar().addMenu("Tools")
         tools_menu.addAction(settings_action)
 
-        view_menu = self.menuBar().addMenu("View")
+        self.view_menu = self.menuBar().addMenu("View")
+        self.reset_layout_action = QAction("Reset Layout", self)
+        self.reset_layout_action.triggered.connect(self._reset_layout)
+        self.view_menu.addAction(self.reset_layout_action)
+        self.view_menu.addSeparator()
+
+        self.panels_menu = self.view_menu.addMenu("Panels")
         for dock in (
             self.project_dock,
             self.inspector_dock,
@@ -189,13 +275,13 @@ class MainWindow(QMainWindow):
             self.parsed_dock,
             self.snapshot_dock,
         ):
-            view_menu.addAction(dock.toggleViewAction())
+            self.panels_menu.addAction(dock.toggleViewAction())
 
         toolbar = self.addToolBar("Main")
         toolbar.addAction(open_action)
         toolbar.addAction(save_action)
         toolbar.addAction(regenerate_action)
-        toolbar.addAction(export_action)
+        toolbar.addAction(self.export_action)
 
     def export_project_dialog(self) -> None:
         if self.session.definition_document is None:
@@ -205,19 +291,47 @@ class MainWindow(QMainWindow):
         output_directory = QFileDialog.getExistingDirectory(self, "Export Project", start)
         if not output_directory:
             return
+
+        self._set_export_status("Exporting…")
+        self.statusBar().showMessage("Exporting…")
+        self.export_action.setEnabled(False)
+        QCoreApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
         try:
             project_path = self.session.export_project(output_directory)
         except Exception:
             self._refresh_views()
             self.problems_dock.toggleView(True)
+            self._set_export_status("Export failed")
             self.statusBar().showMessage("Export failed — see Problems")
             return
+        finally:
+            self.export_action.setEnabled(True)
+
         self._refresh_views()
+        export_folder = project_path.parent
+        self._set_export_status(
+            f'Exported: <a href="{QUrl.fromLocalFile(str(export_folder)).toString()}">{escape(str(export_folder))}</a>'
+        )
         self.statusBar().showMessage(f"Exported project to {project_path}")
+        if self.application_preferences.open_folder_after_export:
+            self._open_folder(export_folder)
+
+    def _set_export_status(self, text: str) -> None:
+        self.export_status_label.setText(text)
+        self.export_status_label.setVisible(bool(text))
+
+    def _open_export_status_link(self, link: str) -> None:
+        QDesktopServices.openUrl(QUrl(link))
+
+    def _open_folder(self, path: Path) -> None:
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(path)))
 
     def open_settings(self) -> None:
         dialog = ColorSettingsDialog(
-            self.color_theme, self, editor_preferences=self.editor_preferences
+            self.color_theme,
+            self,
+            editor_preferences=self.editor_preferences,
+            application_preferences=self.application_preferences,
         )
         dialog.exec()
 
@@ -259,9 +373,9 @@ class MainWindow(QMainWindow):
     def open_definition(self, path: Path) -> None:
         self.session.open_definition(path)
         self._sync_documents()
+        if self.session.definition_document is not None:
+            self._show_editor(self._ensure_editor(self.session.definition_document))
         self._refresh_views()
-        if self.session.snapshot is not None:
-            self._show_generated_items()
 
     def _sync_documents(self) -> None:
         for document in self.session.active_documents():
@@ -275,8 +389,8 @@ class MainWindow(QMainWindow):
         editor = TextEditor(document.path, document.text)
         editor.set_font_size(self.editor_preferences.font_size)
         editor.document_text_changed.connect(lambda text, path=document.path: self._document_changed(path, text))
+        editor.installEventFilter(self)
         self._editors[document.path] = editor
-        self.editor_area.add_editor(editor, document.path.name)
         return editor
 
     def _document_changed(self, path: Path, text: str) -> None:
@@ -284,15 +398,19 @@ class MainWindow(QMainWindow):
         self._update_tab_titles()
         self._regenerate_timer.start()
 
+    def _auto_regenerate(self) -> None:
+        self.session.regenerate(report_missing_inputs=False)
+        self._sync_documents()
+        self._refresh_views()
+
     def _regenerate(self) -> None:
-        self.session.regenerate()
+        self.session.regenerate(report_missing_inputs=True)
         self._sync_documents()
         self._refresh_views()
 
     def save_current(self) -> None:
-        editor = self.editor_area.current_editor()
-        if isinstance(editor, TextEditor):
-            self.session.save(editor.path)
+        if self._current_editor is not None:
+            self.session.save(self._current_editor.path)
             self._update_tab_titles()
 
     def save_all(self) -> None:
@@ -346,16 +464,14 @@ class MainWindow(QMainWindow):
         root.addChild(inputs)
         for directive in self.session.input_directives():
             path = self.session.input_bindings.get(directive)
-            item = QTreeWidgetItem([directive])
-            item.setToolTip(0, str(path) if path is not None else f"Format directive {{{directive}}}")
+            item = QTreeWidgetItem()
             item.setData(0, Qt.UserRole, ("input", directive))
-            inputs.addChild(item)
+            self._update_input_file_item(item, directive, path)
             severity = self._severity_for_location_token(f"inputs.{directive}")
-            self.project_tree.setItemWidget(
-                item,
-                0,
-                self._input_file_row_widget(directive, path, severity=severity),
-            )
+            if severity is not None:
+                item.setData(0, Qt.DecorationRole, severity_icon(self, severity))
+            inputs.addChild(item)
+            self.project_tree.setItemWidget(item, 1, self._input_file_browse_button(directive))
 
         sources = QTreeWidgetItem(["Referenced Files"])
         root.addChild(sources)
@@ -435,41 +551,8 @@ class MainWindow(QMainWindow):
         inputs.setExpanded(True)
         sources.setExpanded(True)
 
-    def _input_file_row_widget(
-        self,
-        directive: str,
-        path: Path | None,
-        *,
-        severity: str | None = None,
-    ) -> QWidget:
-        row = QWidget(self.project_tree)
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(2, 0, 2, 0)
-        layout.setSpacing(6)
-
-        if severity is not None:
-            icon_label = QLabel(row)
-            icon_label.setPixmap(severity_icon(self, severity).pixmap(16, 16))
-            layout.addWidget(icon_label)
-
-        document = self.session.documents.get(path) if path is not None else None
-        dirty = bool(document and document.dirty)
-        if path is None:
-            text = f"{directive}: <not set>"
-            tooltip = f"No file is set for {{{directive}}}"
-        else:
-            text = f"{directive}: {path.name}{'*' if dirty else ''}"
-            tooltip = str(path)
-
-        label = QLabel(text, row)
-        label.setObjectName("inputFileLabel")
-        label.setToolTip(tooltip)
-        font = label.font()
-        font.setItalic(dirty)
-        label.setFont(font)
-        layout.addWidget(label, 1)
-
-        browse = QPushButton("Browse…", row)
+    def _input_file_browse_button(self, directive: str) -> QPushButton:
+        browse = QPushButton("Browse…", self.project_tree)
         browse.setObjectName(f"inputFileBrowseButton_{directive}")
         browse.setToolTip(f"Select a file for {{{directive}}}")
         browse.setFlat(True)
@@ -478,8 +561,25 @@ class MainWindow(QMainWindow):
                 directive=input_directive
             )
         )
-        layout.addWidget(browse)
-        return row
+        return browse
+
+    def _update_input_file_item(
+        self,
+        item: QTreeWidgetItem,
+        directive: str,
+        path: Path | None,
+    ) -> None:
+        document = self.session.documents.get(path) if path is not None else None
+        dirty = bool(document and document.dirty)
+        if path is None:
+            item.setText(0, f"{directive}: <not set>")
+            item.setToolTip(0, f"No file is set for {{{directive}}}")
+        else:
+            item.setText(0, f"{directive}: {path.name}{'*' if dirty else ''}")
+            item.setToolTip(0, str(path))
+        font = item.font(0)
+        font.setItalic(dirty)
+        item.setFont(0, font)
 
     def _project_item_activated(self, item: QTreeWidgetItem, _column: int = 0) -> None:
         value = item.data(0, Qt.UserRole)
@@ -500,29 +600,40 @@ class MainWindow(QMainWindow):
             path = Path(payload)
         editor = self._editors.get(path)
         if editor is not None:
-            if not self.editor_area.contains_editor(editor):
-                document = self.session.documents.get(path)
-                dirty = bool(document and document.dirty)
-                self.editor_area.add_editor(editor, editor.path.name + ("*" if dirty else ""))
-                self.editor_area.set_editor_modified(editor, dirty)
-            else:
-                self.editor_area.set_current_editor(editor)
-
+            self._show_editor(editor)
 
     def _show_generated_items(self, collection: str | None = None) -> None:
-        if collection is not None:
-            self.generation_tables.show_collection(collection)
-        if not any(editor is self.generation_tables for _group, _index, editor in self.editor_area.iter_editors()):
-            self.editor_area.add_editor(self.generation_tables, "Generated Items")
-        else:
-            self.editor_area.set_current_editor(self.generation_tables)
+        if collection is None:
+            return
+
+        view = self.generation_tables.view(collection)
+        if view is None:
+            return
+
+        dock = self._generated_docks.get(collection)
+        if dock is None:
+            dock = QtAds.CDockWidget(collection)
+            dock.setObjectName("Generated" + collection.replace(" ", "") + "Dock")
+            dock.setWidget(view)
+            self._add_central_dock(dock)
+            self._generated_docks[collection] = dock
+            if hasattr(self, "panels_menu"):
+                self.panels_menu.addAction(dock.toggleViewAction())
+
+        dock.toggleView(True)
 
     def _update_tab_titles(self) -> None:
         for editor in self._editors.values():
             document = self.session.documents.get(editor.path)
             dirty = bool(document and document.dirty)
-            self.editor_area.set_editor_title(editor, editor.path.name + ("*" if dirty else ""))
-            self.editor_area.set_editor_modified(editor, dirty)
+            dock = self._document_docks.get(editor.path)
+            if dock is not None:
+                dock.setWindowTitle(editor.path.name + ("*" if dirty else ""))
+                tab = dock.tabWidget() if hasattr(dock, "tabWidget") else None
+                if tab is not None:
+                    font = tab.font()
+                    font.setItalic(dirty)
+                    tab.setFont(font)
         self._update_document_item_states()
 
     @staticmethod
@@ -550,18 +661,7 @@ class MainWindow(QMainWindow):
                         self._apply_document_item_font(item, document)
                 elif kind == "input":
                     path = self.session.input_bindings.get(payload)
-                    document = self.session.documents.get(path) if path is not None else None
-                    row = self.project_tree.itemWidget(item, 0)
-                    label = row.findChild(QLabel, "inputFileLabel") if row is not None else None
-                    if label is not None:
-                        dirty = bool(document and document.dirty)
-                        if path is None:
-                            label.setText(f"{payload}: <not set>")
-                        else:
-                            label.setText(f"{payload}: {path.name}{'*' if dirty else ''}")
-                        font = label.font()
-                        font.setItalic(dirty)
-                        label.setFont(font)
+                    self._update_input_file_item(item, payload, path)
             for index in range(item.childCount()):
                 visit(item.child(index))
 
@@ -612,6 +712,11 @@ class MainWindow(QMainWindow):
             if diagnostic.code in {"SCHEMA_VALIDATION_ERROR"}:
                 severities.append(diagnostic.severity)
         return highest_severity(severities)
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched in self._editors.values() and event.type() in (QEvent.FocusIn, QEvent.MouseButtonPress):
+            self._current_editor = watched
+        return super().eventFilter(watched, event)
 
     def _editor_preferences_changed(self) -> None:
         for editor in self._editors.values():

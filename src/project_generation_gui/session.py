@@ -1,5 +1,6 @@
 import json
 import tempfile
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -43,7 +44,7 @@ class ProjectSession:
         self.definition = None
         self.snapshot = None
         self.diagnostics = ()
-        self.regenerate()
+        self.regenerate(report_missing_inputs=False)
 
     def update_document(self, path: str | Path, text: str) -> None:
         document = self.documents.get(path)
@@ -74,6 +75,8 @@ class ProjectSession:
             generated = self._process_working_copy_strict(self.definition)
             return LatchUpProjectWriter().write(generated, output_directory)
         except Exception as error:
+            if not isinstance(error, ProjectGenerationError):
+                traceback.print_exception(error)
             diagnostic = self._exception_diagnostic(error)
             self.diagnostics = self.diagnostics + (diagnostic,)
             raise
@@ -99,11 +102,11 @@ class ProjectSession:
             raise FileNotFoundError(resolved)
         self.input_bindings[directive] = resolved
         self.documents.open(resolved)
-        self.regenerate()
+        self.regenerate(report_missing_inputs=False)
 
     def clear_input_file(self, directive: str) -> None:
         self.input_bindings.pop(directive, None)
-        self.regenerate()
+        self.regenerate(report_missing_inputs=False)
 
     def input_documents(self) -> tuple[tuple[str, TextDocument], ...]:
         result: list[tuple[str, TextDocument]] = []
@@ -116,7 +119,7 @@ class ProjectSession:
                 result.append((directive, document))
         return tuple(result)
 
-    def regenerate(self) -> None:
+    def regenerate(self, *, report_missing_inputs: bool = True) -> None:
         document = self.definition_document
         if document is None:
             return
@@ -135,19 +138,6 @@ class ProjectSession:
 
         self.definition = definition
         self._open_referenced_documents(definition)
-
-        missing_inputs = [name for name in source_path_directives(definition) if name not in self.input_bindings]
-        if missing_inputs:
-            self.diagnostics = tuple(
-                SessionDiagnostic(
-                    "error",
-                    "INPUT_FILE_NOT_SET",
-                    f'Input file for directive "{name}" has not been selected',
-                    f"inputs.{name}",
-                )
-                for name in missing_inputs
-            )
-            return
 
         syntax_diagnostics = tuple(
             diagnostic
@@ -173,9 +163,31 @@ class ProjectSession:
             self.diagnostics = diagnostics
             return
 
+        missing_inputs = tuple(
+            name for name in source_path_directives(definition) if name not in self.input_bindings
+        )
+        if missing_inputs:
+            self.snapshot = None
+            if report_missing_inputs:
+                missing_diagnostics = tuple(
+                    SessionDiagnostic(
+                        "error",
+                        "INPUT_FILE_NOT_SET",
+                        f'Input file for directive "{name}" has not been selected',
+                        f"inputs.{name}",
+                    )
+                    for name in missing_inputs
+                )
+                self.diagnostics = diagnostics + missing_diagnostics
+            else:
+                self.diagnostics = diagnostics
+            return
+
         try:
             snapshot = self._generate_from_working_copy(definition)
-        except Exception as error:  # surfaced as a diagnostic; GUI must survive generation failures
+        except Exception as error:
+            if not isinstance(error, ProjectGenerationError):
+                traceback.print_exception(error)
             self.diagnostics = diagnostics + (self._exception_diagnostic(error),)
             return
 
@@ -246,8 +258,6 @@ class ProjectSession:
 
     @staticmethod
     def _validate_definition(payload: Any, document: TextDocument) -> ProjectGenerationDefinition:
-        # ProjectGenerationDefinition is generated from the authoritative JSON Schema,
-        # so this is the structural/schema pass after YAML/JSON syntax has succeeded.
         if payload is None:
             payload = {}
         definition = ProjectGenerationDefinition.model_validate(payload)

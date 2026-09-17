@@ -9,6 +9,18 @@ THEME_DARK = "Dark"
 THEMES = (THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
 
 
+def install_application_style() -> None:
+    """Install the single application style before any application widgets are created."""
+    app = QApplication.instance()
+    if app is None:
+        return
+    if app.style().objectName().lower() == "fusion":
+        return
+    fusion = QStyleFactory.create("Fusion")
+    if fusion is not None:
+        app.setStyle(fusion)
+
+
 class EditorPreferences(QObject):
     changed = Signal()
 
@@ -21,8 +33,9 @@ class EditorPreferences(QObject):
         self._font_size = int(self._settings.value("editor/font_size", 10))
 
         app = QApplication.instance()
-        self._system_style_name = app.style().objectName() if app is not None else ""
-        self._system_palette = QPalette(app.palette()) if app is not None else QPalette()
+        self._style_hints = app.styleHints() if app is not None else None
+        if self._style_hints is not None:
+            self._style_hints.colorSchemeChanged.connect(self._system_color_scheme_changed)
 
     @property
     def theme(self) -> str:
@@ -56,23 +69,82 @@ class EditorPreferences(QObject):
             return
 
         if self._theme == THEME_SYSTEM:
-            if self._system_style_name:
-                QApplication.setStyle(self._system_style_name)
-            app.setPalette(self._system_palette)
+            app.setPalette(app.style().standardPalette())
             return
 
-        fusion = QStyleFactory.create("Fusion")
-        if fusion is not None:
-            QApplication.setStyle(fusion)
-
         if self._theme == THEME_LIGHT:
-            app.setPalette(QApplication.style().standardPalette())
+            app.setPalette(_light_palette())
         else:
             app.setPalette(_dark_palette())
 
+    def _system_color_scheme_changed(self, *_args) -> None:
+        if self._theme == THEME_SYSTEM:
+            self.apply_theme()
+
+
+class ApplicationPreferences(QObject):
+    changed = Signal()
+
+    def __init__(self, parent: QObject | None = None, *, settings: QSettings | None = None) -> None:
+        super().__init__(parent)
+        self._settings = settings or QSettings("project-generation", "project-generation-gui")
+        value = self._settings.value("export/open_folder_after_export", True)
+        self._open_folder_after_export = value if isinstance(value, bool) else str(value).lower() == "true"
+
+    @property
+    def open_folder_after_export(self) -> bool:
+        return self._open_folder_after_export
+
+    def set_open_folder_after_export(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._open_folder_after_export:
+            return
+        self._open_folder_after_export = enabled
+        self._settings.setValue("export/open_folder_after_export", enabled)
+        self.changed.emit()
+
+
+def _fresh_fusion_palette() -> QPalette:
+    """Return a fresh copy of the current Fusion style palette."""
+    app = QApplication.instance()
+    if app is None:
+        return QPalette()
+    return QPalette(app.style().standardPalette())
+
+
+def _light_palette() -> QPalette:
+    """Return a deterministic light palette using a fresh Fusion baseline."""
+    palette = _fresh_fusion_palette()
+    palette.setColor(QPalette.Window, QColor(240, 240, 240))
+    palette.setColor(QPalette.WindowText, QColor(0, 0, 0))
+    palette.setColor(QPalette.Base, QColor(255, 255, 255))
+    palette.setColor(QPalette.AlternateBase, QColor(245, 245, 245))
+    palette.setColor(QPalette.ToolTipBase, QColor(255, 255, 220))
+    palette.setColor(QPalette.ToolTipText, QColor(0, 0, 0))
+    palette.setColor(QPalette.Text, QColor(0, 0, 0))
+    palette.setColor(QPalette.Button, QColor(240, 240, 240))
+    palette.setColor(QPalette.ButtonText, QColor(0, 0, 0))
+    palette.setColor(QPalette.BrightText, QColor(255, 0, 0))
+    palette.setColor(QPalette.Light, QColor(255, 255, 255))
+    palette.setColor(QPalette.Midlight, QColor(227, 227, 227))
+    palette.setColor(QPalette.Dark, QColor(160, 160, 160))
+    palette.setColor(QPalette.Mid, QColor(184, 184, 184))
+    palette.setColor(QPalette.Shadow, QColor(105, 105, 105))
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
+    palette.setColor(QPalette.Link, QColor(0, 0, 255))
+    palette.setColor(QPalette.LinkVisited, QColor(128, 0, 128))
+    palette.setColor(QPalette.PlaceholderText, QColor(128, 128, 128))
+    palette.setColor(QPalette.Disabled, QPalette.WindowText, QColor(120, 120, 120))
+    palette.setColor(QPalette.Disabled, QPalette.Text, QColor(120, 120, 120))
+    palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(120, 120, 120))
+    palette.setColor(QPalette.Disabled, QPalette.HighlightedText, QColor(190, 190, 190))
+    return palette
+
 
 def _dark_palette() -> QPalette:
-    palette = QPalette()
+    """Return a dark palette using a fresh Fusion baseline."""
+    palette = _fresh_fusion_palette()
     palette.setColor(QPalette.Window, QColor(45, 45, 45))
     palette.setColor(QPalette.WindowText, QColor(230, 230, 230))
     palette.setColor(QPalette.Base, QColor(30, 30, 30))

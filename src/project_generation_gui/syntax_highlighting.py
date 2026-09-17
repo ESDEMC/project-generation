@@ -104,8 +104,6 @@ class PygmentsSearchHighlighter(QSyntaxHighlighter):
         block_start = self.currentBlock().position()
         block_end = block_start + len(text)
         for absolute_start, absolute_end in self._matches:
-            # QTextDocument matches are the source of truth. Only paint the
-            # portion of a match that intersects this text block.
             start = max(absolute_start, block_start)
             end = min(absolute_end, block_end)
             if start >= end:

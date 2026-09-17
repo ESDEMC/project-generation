@@ -6,6 +6,7 @@ from typing import Any, Mapping, Sequence
 from uuid import UUID
 
 from pydantic import BaseModel
+from quantiphy import Quantity
 from qtpy.QtCore import QEvent, QModelIndex, QSortFilterProxyModel, Qt, Signal
 from qtpy.QtGui import (
     QColor,
@@ -26,7 +27,6 @@ from qtpy.QtWidgets import (
     QPlainTextEdit,
     QShortcut,
     QSplitter,
-    QStackedWidget,
     QStyledItemDelegate,
     QStyle,
     QStyleOptionTab,
@@ -63,8 +63,6 @@ class TextEditor(QPlainTextEdit):
     document_text_changed = Signal(str)
 
     def __init__(self, path: Path, text: str, parent=None) -> None:
-        # Qt may dispatch events while the base widget is still being constructed.
-        # Initialize attributes used by eventFilter before QPlainTextEdit.__init__.
         self.search_edit: QLineEdit | None = None
         self._search_matches: list[tuple[int, int]] = []
         self._search_index = -1
@@ -194,8 +192,6 @@ class TextEditor(QPlainTextEdit):
     def _text_changed(self) -> None:
         self.document_text_changed.emit(self.toPlainText())
         if self.search_bar.isVisible():
-            # Edits invalidate the previous navigation anchor. Recompute matches,
-            # but leave the editor cursor and selection entirely untouched.
             self._search_navigation_valid = False
             self._update_search_matches(preserve_current=True)
 
@@ -234,7 +230,6 @@ class TextEditor(QPlainTextEdit):
         else:
             self._search_navigation_valid = False
 
-        # A query with no matches must not leave stale highlighting behind.
         current_match = self._current_search_match() if self._search_navigation_valid else None
         self._search_highlighter.set_matches(self._search_matches, current_match)
         self._update_search_count()
@@ -290,8 +285,6 @@ class TextEditor(QPlainTextEdit):
         cursor.setPosition(start)
         cursor.setPosition(end, QTextCursor.KeepAnchor)
 
-        # Moving the editor cursor is intentional search navigation. Do not let
-        # cursorPositionChanged invalidate the search state that initiated it.
         self._search_cursor_move_in_progress = True
         try:
             self.setTextCursor(cursor)
@@ -399,8 +392,9 @@ class EditorArea(QWidget):
 
 
 class ObjectTree(QTreeWidget):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent=None, *, generated_formatting: bool = False) -> None:
         super().__init__(parent)
+        self.generated_formatting = generated_formatting
         self.setHeaderLabels(["Name", "Value"])
         self.setAlternatingRowColors(True)
 
@@ -409,28 +403,31 @@ class ObjectTree(QTreeWidget):
         self._append(self.invisibleRootItem(), "root", value)
         self.expandToDepth(1)
 
-    def _append(self, parent: QTreeWidgetItem, name: str, value: Any) -> None:
+    def _append(self, parent: QTreeWidgetItem, name: str, value: Any, context: Mapping[str, Any] | None = None) -> None:
         if isinstance(value, BaseModel):
             value = value.model_dump(mode="python", by_alias=True)
         elif is_dataclass(value) and not isinstance(value, type):
             value = {field.name: getattr(value, field.name) for field in fields(value)}
 
+        display_name = _title_case_label(name) if self.generated_formatting else name
         if isinstance(value, Mapping):
-            item = QTreeWidgetItem([name, f"{{{len(value)}}}"])
+            item = QTreeWidgetItem([display_name, f"{{{len(value)}}}"])
             parent.addChild(item)
             for key, child in value.items():
-                self._append(item, str(key), child)
+                self._append(item, str(key), child, value)
         elif isinstance(value, (list, tuple)):
-            item = QTreeWidgetItem([name, f"[{len(value)}]"])
+            item = QTreeWidgetItem([display_name, f"[{len(value)}]"])
             parent.addChild(item)
             for index, child in enumerate(value):
-                self._append(item, f"[{index}]", child)
+                self._append(item, f"[{index}]", child, context)
         else:
             if isinstance(value, Enum):
                 value = value.value
             elif isinstance(value, UUID):
                 value = str(value)
-            parent.addChild(QTreeWidgetItem([name, "" if value is None else str(value)]))
+            if self.generated_formatting:
+                value = _generated_display_value(name, value, context)
+            parent.addChild(QTreeWidgetItem([display_name, "" if value is None else str(value)]))
 
 
 RICH_TEXT_ROLE = Qt.UserRole + 1
@@ -444,6 +441,7 @@ class StyledValue:
     segments: tuple[tuple[str, str | None, object | None], ...] = ()
     foreground: QColor | None = None
     tooltip: str | None = None
+    context: Mapping[str, Any] | None = None
 
 
 class RichTextDelegate(QStyledItemDelegate):
@@ -459,9 +457,6 @@ class RichTextDelegate(QStyledItemDelegate):
             super().paint(painter, option, index)
             return
 
-        # Let Qt paint the normal cell background, selection, focus indicator, and
-        # spacing. Only suppress its text so our segment colors use exactly the
-        # same text rectangle and vertical alignment as neighboring cells.
         styled_option = QStyleOptionViewItem(option)
         self.initStyleOption(styled_option, index)
         styled_option.text = ""
@@ -494,6 +489,77 @@ class RichTextDelegate(QStyledItemDelegate):
             painter.drawText(int(x), int(baseline), segment_text)
             x += width
         painter.restore()
+
+
+def _title_case_label(value: str) -> str:
+    acronyms = {"id": "ID", "dc": "DC", "io": "IO", "vdd": "VDD", "vss": "VSS"}
+    parts = []
+    for section in str(value).split(":"):
+        words = section.strip().replace("_", " ").split()
+        formatted = []
+        for word in words:
+            lower = word.lower()
+            if lower in acronyms:
+                formatted.append(acronyms[lower])
+            elif word.isupper() or any(character.isupper() for character in word[1:]):
+                formatted.append(word)
+            else:
+                formatted.append(word.title())
+        parts.append(" ".join(formatted))
+    return ": ".join(parts)
+
+
+def _quantity_unit(field_name: str, context: Mapping[str, Any] | None = None) -> str | None:
+    key = field_name.split(":")[-1].strip().lower().replace(" ", "_")
+    mode = str((context or {}).get("source_mode", (context or {}).get("mode", "voltage"))).lower()
+    if key in {"delay", "timeout", "soak_time", "pulse_width", "rise_time", "fall_time", "duration"}:
+        return "s"
+    if key in {"temperature", "cool_temperature", "start_tolerance"}:
+        return "°C"
+    if key.startswith("v_") or key.endswith("_voltage") or key.endswith("_voltage_v") or key in {"voltage", "max_voltage", "min_voltage", "max_peak_voltage"}:
+        return "V"
+    if key.startswith("i_") or key.endswith("_current") or key.endswith("_current_a") or key in {"current", "max_current", "min_current", "max_peak_current"}:
+        return "A"
+    if key in {"level", "bias_level", "base_level", "peak_level", "base", "peak"}:
+        return "A" if mode == "current" else "V"
+    if key in {"compliance", "compliance_limit", "base_limit", "peak_limit", "bias_compliance", "bias_compliance_limit"}:
+        return "V" if mode == "current" else "A"
+    if key.endswith("_frequency") or key == "frequency":
+        return "Hz"
+    if key.endswith("_resistance") or key in {"resistance", "ohms"}:
+        return "Ω"
+    if key.endswith("_power") or key in {"power", "wattage"}:
+        return "W"
+    return None
+
+
+def _format_quantity(value: int | float, unit: str) -> str:
+    return Quantity(value, unit).render(prec=4)
+
+
+def _generated_display_value(
+    field_name: str,
+    value: Any,
+    context: Mapping[str, Any] | None = None,
+) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, Enum):
+        return str(value.value)
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, Mapping):
+        return "{" + ", ".join(
+            f"{key}: {_generated_display_value(str(key), child, value)}"
+            for key, child in sorted(value.items(), key=lambda item: str(item[0]))
+        ) + "}"
+    if isinstance(value, (list, tuple, set)):
+        return ", ".join(_generated_display_value(field_name, item, context) for item in value)
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        unit = _quantity_unit(field_name, context)
+        if unit is not None:
+            return _format_quantity(value, unit)
+    return str(value)
 
 
 def _severity_name(value: Any) -> str:
@@ -556,9 +622,11 @@ class GeneratedItemsTable(QTableView):
 
     def set_rows(self, headers: Sequence[str], rows: Sequence[Sequence[Any]]) -> None:
         self._source_model.clear()
-        self._source_model.setHorizontalHeaderLabels(list(headers))
+        self._source_model.setHorizontalHeaderLabels([_title_case_label(header) for header in headers])
         for row in rows:
-            self._source_model.appendRow([self._make_item(value) for value in row])
+            self._source_model.appendRow(
+                [self._make_item(value, headers[index]) for index, value in enumerate(row)]
+            )
         self.resizeColumnsToContents()
         self.viewport().update()
 
@@ -574,9 +642,9 @@ class GeneratedItemsTable(QTableView):
                     item.setForeground(self.theme.color(category, key))
         self.viewport().update()
 
-    def _make_item(self, value: Any) -> QStandardItem:
+    def _make_item(self, value: Any, field_name: str) -> QStandardItem:
         styled = value if isinstance(value, StyledValue) else StyledValue(value=value)
-        item = QStandardItem(_display_value(styled.value))
+        item = QStandardItem(_generated_display_value(field_name, styled.value, styled.context))
         if styled.category is not None and styled.color_key is not None:
             item.setForeground(self.theme.color(styled.category, styled.color_key))
             item.setData(styled.category, Qt.UserRole + 2)
@@ -630,8 +698,8 @@ def _set_power_domains_table(
                 domain.name,
                 StyledValue(domain.assignment, ASSIGNMENT_CATEGORY, domain.assignment),
                 _styled_group_names(domain.group_names, groups_by_name),
-                *(domain.bias.get(key) for key in bias_keys),
-                *(timing.get(key) for key in timing_keys),
+                *(StyledValue(domain.bias.get(key), context=domain.bias) for key in bias_keys),
+                *(StyledValue(timing.get(key), context=timing) for key in timing_keys),
             ]
         )
     table.set_rows(headers, rows)
@@ -650,7 +718,7 @@ class DeviceStatesView(QWidget):
         self.state_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self.state_list.currentRowChanged.connect(self._state_selected)
 
-        self.summary = ObjectTree()
+        self.summary = ObjectTree(generated_formatting=True)
         self.power_domains = GeneratedItemsTable(theme)
         self.power_on = GeneratedItemsTable(theme)
         self.power_off = GeneratedItemsTable(theme)
@@ -776,7 +844,7 @@ class TestPlansView(QWidget):
         self.plan_list.setSelectionMode(QAbstractItemView.SingleSelection)
         self.plan_list.currentRowChanged.connect(self._plan_selected)
 
-        self.summary = ObjectTree()
+        self.summary = ObjectTree(generated_formatting=True)
         self.groups = GeneratedItemsTable(theme)
         self.stress_points = GeneratedItemsTable(theme)
         self.stress_device_state = GeneratedItemsTable(theme)
@@ -952,7 +1020,14 @@ class TestPlansView(QWidget):
                 for name in parameter_names:
                     value = stress_point.values.get(name)
                     if issue is not None and isinstance(value, (int, float)) and not isinstance(value, bool):
-                        value = StyledValue(value, foreground=QColor("#EF5350"), tooltip=tooltip)
+                        value = StyledValue(
+                            value,
+                            foreground=QColor("#EF5350"),
+                            tooltip=tooltip,
+                            context=stress_point.values,
+                        )
+                    else:
+                        value = StyledValue(value, context=stress_point.values)
                     parameter_values.append(value)
                 self._stress_point_contexts.append((stress_point.values, issue))
                 rows.append(
@@ -1012,8 +1087,6 @@ class TestPlansView(QWidget):
                 )
                 requests_by_assignment.setdefault(assignment, []).extend(pair)
         else:
-            # No single stress source can execute the plan. Show the failing requested
-            # configurations against each candidate bus independently.
             for point_index, (values, issue) in enumerate(self._stress_point_contexts):
                 if issue is None:
                     continue
@@ -1086,7 +1159,7 @@ class TestPlansView(QWidget):
 
 
 class GenerationViews(QWidget):
-    """Single central generated-data view selected from the Project tree."""
+    """Own and refresh the generated-data widgets used by ADS dock tabs."""
 
     VIEW_NAMES = ("Pins", "Groups", "Device States", "Hardware Envelopes", "Test Plans")
 
@@ -1094,24 +1167,18 @@ class GenerationViews(QWidget):
         super().__init__(parent)
         self.theme = theme
         self._snapshot: GenerationSnapshot | None = None
-        self.stack = QStackedWidget()
         self.pins = GeneratedItemsTable(theme)
         self.groups = GeneratedItemsTable(theme)
         self.device_states = DeviceStatesView(theme)
         self.hardware_envelopes = PowerEnvelopeComparisonView(theme)
         self.test_plans = TestPlansView(theme)
-        for view in (
-            self.pins,
-            self.groups,
-            self.device_states,
-            self.hardware_envelopes,
-            self.test_plans,
-        ):
-            self.stack.addWidget(view)
-
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.stack)
+        self._views = {
+            "Pins": self.pins,
+            "Groups": self.groups,
+            "Device States": self.device_states,
+            "Hardware Envelopes": self.hardware_envelopes,
+            "Test Plans": self.test_plans,
+        }
         self.theme.changed.connect(self._theme_changed)
 
     def set_snapshot(self, snapshot: GenerationSnapshot) -> None:
@@ -1140,12 +1207,12 @@ class GenerationViews(QWidget):
         if self._snapshot is not None:
             self.set_snapshot(self._snapshot)
 
+    def view(self, name: str) -> QWidget | None:
+        return self._views.get(name)
+
     def show_collection(self, name: str) -> None:
-        try:
-            index = self.VIEW_NAMES.index(name)
-        except ValueError:
-            return
-        self.stack.setCurrentIndex(index)
+        """Compatibility shim; ADS owns generated-view selection now."""
+        return None
 
     def _set_pins(self, pins: Sequence[GeneratedPin]) -> None:
         parameter_names = sorted({key for pin in pins for key in pin.parameters})
@@ -1154,9 +1221,9 @@ class GenerationViews(QWidget):
         for pin in pins:
             pin_type = pin.parameters.get("pin_type", "")
             parameter_values = [
-                StyledValue(pin.parameters.get(name), TYPE_CATEGORY, pin_type)
+                StyledValue(pin.parameters.get(name), TYPE_CATEGORY, pin_type, context=pin.parameters)
                 if name == "pin_type"
-                else pin.parameters.get(name)
+                else StyledValue(pin.parameters.get(name), context=pin.parameters)
                 for name in parameter_names
             ]
             rows.append(
@@ -1191,7 +1258,7 @@ class GenerationViews(QWidget):
                     StyledValue(", ".join(names), segments=tuple(pin_segments)),
                     len(group.pin_ids),
                     group.bias_spec,
-                    *(group.parameters.get(name) for name in parameter_names),
+                    *(StyledValue(group.parameters.get(name), context=group.parameters) for name in parameter_names),
                     group.generation_rule_id,
                     group.id,
                 ]
@@ -1199,7 +1266,6 @@ class GenerationViews(QWidget):
         self.groups.set_rows(headers, rows)
 
 
-# Backwards-compatible name while callers migrate to the structured views.
 GenerationTables = GenerationViews
 
 

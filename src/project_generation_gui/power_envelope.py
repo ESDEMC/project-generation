@@ -3,6 +3,7 @@ from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
 import pyqtgraph as pg
+from quantiphy import Quantity
 from qtpy import QtCore, QtGui, QtWidgets
 
 from project_generation.definition.models import PowerResourceDefinition
@@ -38,7 +39,11 @@ class PowerEnvelopeRegion:
 
     @property
     def name(self) -> str:
-        return f"{self.assignment} {self.mode}: {self.max_abs_voltage_v:g} V @ {self.max_abs_current_a:g} A"
+        return (
+            f"{self.assignment} {self.mode}: "
+            f"{Quantity(self.max_abs_voltage_v, 'V').render(prec=4)} @ "
+            f"{Quantity(self.max_abs_current_a, 'A').render(prec=4)}"
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -97,7 +102,7 @@ class AxisMap:
     def _format(value: float, unit: str) -> str:
         if value == 0:
             return "0"
-        return f"{value:g} {unit}"
+        return Quantity(value, unit).render(prec=4)
 
 
 def regions_from_power_resources(
@@ -367,15 +372,12 @@ class PowerEnvelopeComparisonView(QtWidgets.QWidget):
         for index, region in enumerate(ordered):
             bus_color = QtGui.QColor(self._theme.color(ASSIGNMENT_CATEGORY, region.assignment))
             if region.mode == EnvelopeMode.DC:
-                # Keep the assignment hue, but make DC and pulse capability visually distinct.
-                # DC uses a substantially lighter fill with a solid bus-colored outline.
                 region_color = bus_color.lighter(175)
                 outline_color = QtGui.QColor(bus_color)
                 fill_alpha = 70
                 pen_width = 2
                 pen_style = _solid_line_style()
             else:
-                # Pulse uses a substantially darker fill and a heavier dashed outline.
                 region_color = bus_color.darker(150)
                 outline_color = region_color.darker(115)
                 fill_alpha = 115
@@ -432,8 +434,6 @@ class PowerEnvelopeComparisonView(QtWidgets.QWidget):
                 else "#EF5350"
             )
 
-            # Put a contrasting halo under the connector so it stays visible over
-            # both DC/PULSE envelope fills and the plot grid.
             halo = self.plot.plot(
                 [x0, x1],
                 [y0, y1],
@@ -459,7 +459,6 @@ class PowerEnvelopeComparisonView(QtWidgets.QWidget):
             y = y_map.to_plot(item.current_a)
 
             if item.marker == "pulse":
-                # Match the PULSE envelope border: darker bus color, heavier dashed stroke.
                 outline_color = bus_color.darker(150).darker(115)
                 pen = QtGui.QPen(outline_color)
                 pen.setCosmetic(True)
@@ -500,7 +499,8 @@ class PowerEnvelopeComparisonView(QtWidgets.QWidget):
             label = item.label or f"Configuration {index + 1}"
             tooltip = item.tooltip or label
             marker.setToolTip(
-                f"{tooltip}\nVoltage: {item.voltage_v:g} V\nCurrent: {item.current_a:g} A"
+                f"{tooltip}\nVoltage: {Quantity(item.voltage_v, 'V').render(prec=4)}"
+                f"\nCurrent: {Quantity(item.current_a, 'A').render(prec=4)}"
             )
             marker.setZValue(1100 if selected else 1000)
             self.plot.addItem(marker)
@@ -597,9 +597,6 @@ def requested_configuration_from_bias(
     assignment: str,
     label: str,
 ) -> RequestedConfiguration | None:
-    # Generated device-state domains use the neutral ``mode`` / ``level``
-    # representation.  Accept the adapted latch-up names as a fallback so this
-    # helper remains useful at either side of the adapter boundary.
     level = bias.get("level", bias.get("bias_level"))
     if level is None:
         return None

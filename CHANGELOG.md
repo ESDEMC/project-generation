@@ -2,7 +2,8 @@
 ## Unreleased
 
 - Use Qt Advanced Docking System for the application workspace and persist/restore window geometry and dock layout.
-- Present generated Pins, Groups, Device States, Hardware Envelopes, and Test Plans in one central generated view selected from the Project tree.
+- Open generated Pins, Groups, Device States, Hardware Envelopes, and Test Plans as individual ADS tabs outside the document workspace.
+- Isolate source-document tabs in a dedicated nested ADS manager so only documents occupy the central document workspace and tool/generated docks cannot enter it.
 - Update the REALIS negative signal voltage sweep to 0.25x and 0.5x of the voltage span.
 # Changelog
 - Exposed each generated group's authored bias as `group.bias` in test-plan rule context for SIGNAL and SUPPLY generation.

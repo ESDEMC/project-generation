@@ -5,10 +5,11 @@ from typing import Iterable
 from qtpy.QtCore import QObject, QSettings, Qt, Signal
 from qtpy.QtGui import QColor
 
-from project_generation_gui.preferences import EditorPreferences, THEMES
+from project_generation_gui.preferences import ApplicationPreferences, EditorPreferences, THEMES
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QColorDialog,
+    QCheckBox,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -317,10 +318,12 @@ class ColorSettingsDialog(QDialog):
         parent: QWidget | None = None,
         *,
         editor_preferences: EditorPreferences | None = None,
+        application_preferences: ApplicationPreferences | None = None,
     ) -> None:
         super().__init__(parent)
         self.theme = theme
         self.editor_preferences = editor_preferences
+        self.application_preferences = application_preferences
         self.setWindowTitle("Project Generation Settings")
         self.resize(620, 520)
 
@@ -369,6 +372,16 @@ class ColorSettingsDialog(QDialog):
         colors_layout.addLayout(button_row)
 
         tabs = QTabWidget()
+        if application_preferences is not None:
+            general_page = QWidget()
+            general_form = QFormLayout(general_page)
+            self.open_exported_folder_checkbox = QCheckBox("Open exported folder when export completes")
+            self.open_exported_folder_checkbox.setChecked(application_preferences.open_folder_after_export)
+            self.open_exported_folder_checkbox.toggled.connect(
+                application_preferences.set_open_folder_after_export
+            )
+            general_form.addRow("Export", self.open_exported_folder_checkbox)
+            tabs.addTab(general_page, "General")
         if editor_preferences is not None:
             editor_page = QWidget()
             editor_form = QFormLayout(editor_page)
