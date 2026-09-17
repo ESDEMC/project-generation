@@ -23,19 +23,38 @@ class GroupGenerator:
         self.namespace = uuid.uuid5(_PROJECT_GENERATION_NAMESPACE, f"{definition.project.name}:groups")
 
     def generate(self) -> list[GeneratedGroup]:
+        groups = list(self.iter_generate())
+        self._validate_unique_names(groups)
+        return groups
+
+    def generate_best_effort(self) -> tuple[list[GeneratedGroup], ProjectGenerationError | None]:
+        groups: list[GeneratedGroup] = []
+        try:
+            for group in self.iter_generate():
+                groups.append(group)
+            self._validate_unique_names(groups)
+        except ProjectGenerationError as error:
+            return groups, error
+        except Exception as error:
+            return groups, ProjectGenerationError(str(error), code="group.generation_failed")
+        return groups, None
+
+    def iter_generate(self):
         if self.definition.groups.external:
-            return []
+            return
 
         by_designator = {pin.designator: pin for pin in self.pins}
-        groups = [self._compile_explicit_group(group, by_designator) for group in self.definition.groups.explicit]
+        for group in self.definition.groups.explicit:
+            yield self._compile_explicit_group(group, by_designator)
         for rule in self.definition.groups.generation:
-            groups.extend(self._compile_rule(rule))
+            yield from self._iter_rule(rule)
 
+    @staticmethod
+    def _validate_unique_names(groups: list[GeneratedGroup]) -> None:
         names = [group.name for group in groups]
         duplicates = sorted({name for name in names if names.count(name) > 1})
         if duplicates:
             raise ProjectGenerationError(f"Duplicate generated group names: {', '.join(duplicates)}")
-        return groups
 
     def _compile_explicit_group(
         self,
@@ -61,6 +80,9 @@ class GroupGenerator:
         )
 
     def _compile_rule(self, rule: GroupGenerationRule) -> list[GeneratedGroup]:
+        return list(self._iter_rule(rule))
+
+    def _iter_rule(self, rule: GroupGenerationRule):
         selected = [pin for pin in self.pins if matches(rule.select.where, pin.context())]
         buckets: dict[tuple[Any, ...], list[GeneratedPin]] = {}
         for pin in selected:
@@ -68,7 +90,6 @@ class GroupGenerator:
             key = tuple(resolve_group_by_value(field, pin_context, rule.id) for field in rule.group_by)
             buckets.setdefault(key, []).append(pin)
 
-        generated: list[GeneratedGroup] = []
         for key, bucket in buckets.items():
             partition = build_partition_context(rule.group_by, key)
             context = {
@@ -84,8 +105,7 @@ class GroupGenerator:
             parameters = values.pop("parameters", {})
             if values:
                 parameters = {**parameters, **values}
-            generated.append(
-                GeneratedGroup(
+            yield GeneratedGroup(
                     id=uuid.uuid5(self.namespace, name),
                     name=name,
                     group_type=str(group_type),
@@ -94,5 +114,3 @@ class GroupGenerator:
                     parameters=parameters,
                     generation_rule_id=rule.id,
                 )
-            )
-        return generated

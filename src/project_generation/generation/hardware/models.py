@@ -186,8 +186,15 @@ class BiasedPulseStress:
     @classmethod
     def from_stress_point(cls, values: Mapping[str, Any]) -> "BiasedPulseStress":
         mode = SourceMode(str(values.get("source_mode") or "voltage").upper())
-        compliance = values.get("compliance", values.get("compliance_limit"))
-        compliance_value = abs(float(compliance)) if compliance is not None else None
+        legacy_limit = values.get("compliance", values.get("compliance_limit"))
+        base_limit = values.get("base_limit", values.get("bias_compliance", values.get("bias_compliance_limit", legacy_limit)))
+        peak_limit = values.get("peak_limit", legacy_limit)
+        base_limit_value = abs(float(base_limit)) if base_limit is not None else None
+        peak_limit_value = abs(float(peak_limit)) if peak_limit is not None else None
+        base_level = values.get("base_level", values.get("base", values.get("bias_level", 0.0)))
+        peak_level = values.get("peak_level", values.get("peak"))
+        if peak_level is None:
+            raise ValueError("biased-pulse stress requires peak_level")
         pulse_width = values.get("pulse_width", values.get("hold_time"))
         if pulse_width is None:
             raise ValueError("biased-pulse stress requires pulse_width")
@@ -199,8 +206,8 @@ class BiasedPulseStress:
         if duty_cycle_value is not None and not 0 < duty_cycle_value <= 1:
             raise ValueError("duty_cycle must be greater than zero and no greater than one")
         return cls(
-            bias=OperatingPoint(mode=mode, level=float(values.get("base", 0.0)), compliance=compliance_value),
-            peak=OperatingPoint(mode=mode, level=float(values["peak"]), compliance=compliance_value),
+            bias=OperatingPoint(mode=mode, level=float(base_level), compliance=base_limit_value),
+            peak=OperatingPoint(mode=mode, level=float(peak_level), compliance=peak_limit_value),
             pulse_width=pulse_width,
             duty_cycle=duty_cycle_value,
         )

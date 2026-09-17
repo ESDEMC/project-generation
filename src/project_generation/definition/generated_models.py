@@ -171,6 +171,7 @@ class SourceFieldMapping(BaseModel):
     from_: str = Field(..., alias='from', title='From')
     mapping: str | None = Field(None, title='Mapping')
     formatter: str | None = Field(None, title='Formatter')
+    scale: float | None = Field(None, title='Scale')
 
 
 class TestGroupsDefinition(BaseModel):

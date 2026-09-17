@@ -17,6 +17,7 @@ from .diagnostics import (
 )
 from .generation.models import GeneratedProject
 from .generation.processor import ProjectGenerationProcessor
+from .generation.snapshot import GenerationSnapshot, GenerationStageResult, GenerationStageStatus
 from .version import get_package_version
 
 __version__ = get_package_version()
@@ -54,6 +55,9 @@ def generate_project(
 __all__ = [
     "GeneratedProject",
     "GenerationDiagnostics",
+    "GenerationSnapshot",
+    "GenerationStageResult",
+    "GenerationStageStatus",
     "ProjectGenerationDefinition",
     "PowerResourceCandidateDiagnostic",
     "PowerResourceResolutionError",

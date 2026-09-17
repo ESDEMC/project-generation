@@ -12,21 +12,23 @@ from project_generation.definition.models import (
     TestPlanRuleDefinition,
 )
 from project_generation.diagnostics import (
+    DiagnosticSeverity,
+    GenerationDiagnostic,
     ProjectGenerationError,
     StressSupplyCandidateDiagnostic,
-    StressSupplyResolutionError,
     StressSupplyResolutionIssue,
 )
 from project_generation.generation.hardware import BiasedPulseStress, SourceSwitchStressStrategy
 from project_generation.generation.device_states import DeviceStateGenerator
 from project_generation.generation.groups import GroupGenerator
 from project_generation.generation.sources import load_source_records
-from project_generation.generation.snapshot import GenerationSnapshot
+from project_generation.generation.snapshot import GenerationSnapshot, GenerationStageResult, GenerationStageStatus
 from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
     GeneratedPin,
     GeneratedProject,
+    GeneratedStressHardwareIssue,
     GeneratedTestGroup,
     GeneratedTestPlan,
     GeneratedStressSupplyAssignment,
@@ -120,6 +122,174 @@ class ProjectGenerationProcessor:
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
             generated_project=generated_project,
+            stages=(
+                GenerationStageResult(name="pins", status=GenerationStageStatus.COMPLETE, produced_count=len(pins)),
+                GenerationStageResult(name="groups", status=GenerationStageStatus.COMPLETE, produced_count=len(groups)),
+                GenerationStageResult(name="device_states", status=GenerationStageStatus.COMPLETE, produced_count=len(device_states)),
+                GenerationStageResult(name="test_plans", status=GenerationStageStatus.COMPLETE, produced_count=len(test_plans)),
+            ),
+            diagnostics=self._stress_hardware_diagnostics(test_plans),
+        )
+
+    def process_best_effort(
+        self,
+        definition: ProjectGenerationDefinition,
+        *,
+        base_directory: str | pathlib.Path | None = None,
+    ) -> GenerationSnapshot:
+        """Generate as far as possible while preserving partial stage results.
+
+        A failed stage retains items produced before the first failure. Dependent later stages are
+        marked not attempted. Strict ``process`` and ``process_with_snapshot`` behavior is unchanged.
+        """
+        if definition.definition_directory is not None:
+            base_directory = definition.definition_directory
+        elif base_directory is None:
+            base_directory = pathlib.Path.cwd()
+        else:
+            base_directory = pathlib.Path(base_directory)
+
+        power_resources = self._load_power_resources(definition, base_directory)
+        definition = definition.model_copy(update={"power_resources": power_resources})
+        project_name, project_metadata = self._load_project_metadata(definition, base_directory)
+        effective_project = definition.project.model_copy(update={"name": project_name, "metadata": project_metadata})
+        effective_definition = definition.model_copy(update={"project": effective_project})
+        dut_name = self._resolve_dut_name(effective_definition)
+        if effective_definition.dut is not None:
+            effective_definition = effective_definition.model_copy(
+                update={"dut": effective_definition.dut.model_copy(update={"name": dut_name})}
+            )
+
+        pins: list[GeneratedPin] = []
+        groups: list[GeneratedGroup] = []
+        device_states: list[GeneratedDeviceState] = []
+        test_plans: list[GeneratedTestPlan] = []
+        stages: list[GenerationStageResult] = []
+        diagnostics = []
+
+        def failed_stage(name: str, error: Exception, produced_count: int) -> GenerationSnapshot:
+            diagnostic = self._diagnostic_for_exception(error, code=f"{name}.generation_failed")
+            diagnostics.append(diagnostic)
+            stages.append(
+                GenerationStageResult(
+                    name=name,
+                    status=GenerationStageStatus.FAILED,
+                    produced_count=produced_count,
+                    diagnostic=diagnostic,
+                )
+            )
+            remaining = ("pins", "groups", "device_states", "test_plans")
+            start = remaining.index(name) + 1
+            stages.extend(
+                GenerationStageResult(name=stage, status=GenerationStageStatus.NOT_ATTEMPTED)
+                for stage in remaining[start:]
+            )
+            return self._partial_snapshot(
+                effective_definition,
+                project_name,
+                project_metadata,
+                pins,
+                groups,
+                device_states,
+                test_plans,
+                stages,
+                diagnostics,
+            )
+
+        try:
+            pins = self._load_pins(effective_definition, base_directory)
+        except Exception as error:
+            return failed_stage("pins", error, len(pins))
+        stages.append(GenerationStageResult(name="pins", status=GenerationStageStatus.COMPLETE, produced_count=len(pins)))
+
+        groups, group_error = GroupGenerator(effective_definition, pins).generate_best_effort()
+        if group_error is not None:
+            return failed_stage("groups", group_error, len(groups))
+        stages.append(GenerationStageResult(name="groups", status=GenerationStageStatus.COMPLETE, produced_count=len(groups)))
+
+        device_states, state_error = DeviceStateGenerator(effective_definition, groups).generate_best_effort()
+        if state_error is not None:
+            return failed_stage("device_states", state_error, len(device_states))
+        stages.append(
+            GenerationStageResult(name="device_states", status=GenerationStageStatus.COMPLETE, produced_count=len(device_states))
+        )
+
+        try:
+            test_plan_request = GenerateTestPlansRequest(
+                definition=effective_definition,
+                groups=tuple(groups),
+                device_states=tuple(device_states),
+            )
+            test_plans = self._generate_test_plans(test_plan_request)
+            test_plans = self._resolve_stress_supplies(effective_definition, test_plans)
+            diagnostics.extend(self._stress_hardware_diagnostics(test_plans))
+        except Exception as error:
+            return failed_stage("test_plans", error, len(test_plans))
+        stages.append(
+            GenerationStageResult(name="test_plans", status=GenerationStageStatus.COMPLETE, produced_count=len(test_plans))
+        )
+
+        snapshot = self._partial_snapshot(
+            effective_definition,
+            project_name,
+            project_metadata,
+            pins,
+            groups,
+            device_states,
+            test_plans,
+            stages,
+            diagnostics,
+        )
+        try:
+            ValidateGeneratedProjectRequest(definition=effective_definition, project=snapshot.generated_project).validate()
+        except Exception as error:
+            diagnostic = self._diagnostic_for_exception(error, code="project.validation_failed")
+            diagnostics.append(diagnostic)
+            return replace(snapshot, diagnostics=tuple(diagnostics))
+        return snapshot
+
+    @staticmethod
+    def _diagnostic_for_exception(error: Exception, *, code: str):
+        if isinstance(error, ProjectGenerationError):
+            return error.diagnostic
+        from project_generation.diagnostics import DiagnosticSeverity, GenerationDiagnostic
+
+        return GenerationDiagnostic(
+            severity=DiagnosticSeverity.ERROR,
+            code=code,
+            message=str(error),
+        )
+
+    @staticmethod
+    def _partial_snapshot(
+        definition: ProjectGenerationDefinition,
+        project_name: str,
+        project_metadata: Mapping[str, Any],
+        pins: list[GeneratedPin],
+        groups: list[GeneratedGroup],
+        device_states: list[GeneratedDeviceState],
+        test_plans: list[GeneratedTestPlan],
+        stages: list[GenerationStageResult],
+        diagnostics: list[Any],
+    ) -> GenerationSnapshot:
+        generated_project = GeneratedProject(
+            name=project_name,
+            metadata=project_metadata,
+            dut_name=definition.dut.name if definition.dut else None,
+            pins=tuple(pins),
+            groups=tuple(groups),
+            device_states=tuple(device_states),
+            test_plans=tuple(test_plans),
+        )
+        return GenerationSnapshot(
+            definition=definition,
+            pins=tuple(pins),
+            groups=tuple(groups),
+            device_states=tuple(device_states),
+            test_plans=tuple(test_plans),
+            generated_project=generated_project,
+            stages=tuple(stages),
+            diagnostics=tuple(diagnostics),
         )
 
     def _resolve_dut_name(self, definition: ProjectGenerationDefinition) -> str | None:
@@ -355,6 +525,10 @@ class ProjectGenerationProcessor:
                     raise ProjectGenerationError(f'Test plan rule "{rule.id}" stress_parameters must be an object')
 
                 context = candidate_context(candidate, values=values, group=group_record)
+                context["project"] = {
+                    "name": definition.project.name,
+                    "metadata": dict(definition.project.metadata),
+                }
                 try:
                     stress_points = tuple(expand_stress_parameters(stress_definitions, context))
                 except ValueError as error:
@@ -363,13 +537,29 @@ class ProjectGenerationProcessor:
                     ) from error
 
                 generated_group = group_by_name[group_record.name]
-                test_groups.append(
-                    GeneratedTestGroup(
-                        group_id=generated_group.id,
-                        group_name=generated_group.name,
-                        stress_points=stress_points,
+                test_type = str(values.get("test_type") or candidate.values.get("test_type") or "").upper()
+                if test_type == "SIGNAL":
+                    # Signal latch-up stresses are single-pin stresses. Keep the
+                    # electrical group as context, but emit one generated test
+                    # group per pin so downstream adapters cannot accidentally
+                    # stress the entire signal group at once.
+                    for pin_id in generated_group.pin_ids:
+                        test_groups.append(
+                            GeneratedTestGroup(
+                                group_id=generated_group.id,
+                                group_name=generated_group.name,
+                                stress_points=stress_points,
+                                pin_ids=(pin_id,),
+                            )
+                        )
+                else:
+                    test_groups.append(
+                        GeneratedTestGroup(
+                            group_id=generated_group.id,
+                            group_name=generated_group.name,
+                            stress_points=stress_points,
+                        )
                     )
-                )
 
             if not test_groups:
                 continue
@@ -440,8 +630,8 @@ class ProjectGenerationProcessor:
         except (TypeError, ValueError) as error:
             raise ProjectGenerationError(f"Invalid temperature_control value: {error}") from error
 
-    @staticmethod
     def _resolve_stress_supplies(
+        self,
         definition: ProjectGenerationDefinition,
         test_plans: list[GeneratedTestPlan],
     ) -> list[GeneratedTestPlan]:
@@ -455,7 +645,6 @@ class ProjectGenerationProcessor:
 
         strategy = SourceSwitchStressStrategy()
         resolved: list[GeneratedTestPlan] = []
-        issues: list[StressSupplyResolutionIssue] = []
 
         for plan in test_plans:
             compatible_names = set(hardware_stress_resources)
@@ -468,7 +657,7 @@ class ProjectGenerationProcessor:
                     except (KeyError, TypeError, ValueError):
                         # Not every test family is necessarily a biased-pulse stress. Only apply this
                         # strategy to stress definitions that provide a peak.
-                        if "peak" not in stress_point.values:
+                        if "peak" not in stress_point.values and "peak_level" not in stress_point.values:
                             continue
                         raise ProjectGenerationError(
                             f'Test plan "{plan.name}" has an invalid biased-pulse stress point',
@@ -503,8 +692,7 @@ class ProjectGenerationProcessor:
                         )
 
             if point_diagnostics:
-                issues.extend(point_diagnostics)
-                resolved.append(plan)
+                resolved.append(replace(plan, hardware_issues=self._generated_stress_hardware_issues(point_diagnostics)))
                 continue
 
             if plan.test_groups and any(group.stress_points for group in plan.test_groups):
@@ -521,16 +709,14 @@ class ProjectGenerationProcessor:
                         )
                         for name in sorted(hardware_stress_resources)
                     )
-                    issues.append(
-                        StressSupplyResolutionIssue(
-                            plan_name=plan.name,
-                            group_name=first_group.group_name,
-                            stress_point_index=0,
-                            stress=first_group.stress_points[0].values,
-                            candidates=candidates,
-                        )
+                    issue = StressSupplyResolutionIssue(
+                        plan_name=plan.name,
+                        group_name=first_group.group_name,
+                        stress_point_index=0,
+                        stress=first_group.stress_points[0].values,
+                        candidates=candidates,
                     )
-                    resolved.append(plan)
+                    resolved.append(replace(plan, hardware_issues=self._generated_stress_hardware_issues((issue,))))
                     continue
 
                 resource_name = sorted(compatible_names)[0]
@@ -546,9 +732,49 @@ class ProjectGenerationProcessor:
             else:
                 resolved.append(plan)
 
-        if issues:
-            raise StressSupplyResolutionError(tuple(issues))
         return resolved
+
+
+    @staticmethod
+    def _generated_stress_hardware_issues(
+        issues: Iterable[StressSupplyResolutionIssue],
+    ) -> tuple[GeneratedStressHardwareIssue, ...]:
+        return tuple(
+            GeneratedStressHardwareIssue(
+                group_name=issue.group_name,
+                stress_point_index=issue.stress_point_index,
+                stress=dict(issue.stress),
+                reasons=tuple(
+                    f"{candidate.resource}: {candidate.reason or 'not compatible'}"
+                    for candidate in issue.candidates
+                    if not candidate.accepted
+                ),
+            )
+            for issue in issues
+        )
+
+    @staticmethod
+    def _stress_hardware_diagnostics(test_plans: Iterable[GeneratedTestPlan]) -> tuple[GenerationDiagnostic, ...]:
+        diagnostics: list[GenerationDiagnostic] = []
+        for plan in test_plans:
+            for issue in plan.hardware_issues:
+                diagnostics.append(
+                    GenerationDiagnostic(
+                        severity=DiagnosticSeverity.WARNING,
+                        code="hardware.stress_supply_unsupported",
+                        message=(
+                            f'Test plan "{plan.name}" stress point is outside configured hardware capability'
+                        ),
+                        location=(
+                            f"test_plans.{plan.name}.{issue.group_name}.stress_points[{issue.stress_point_index}]"
+                        ),
+                        context={
+                            "stress": dict(issue.stress),
+                            "reasons": list(issue.reasons),
+                        },
+                    )
+                )
+        return tuple(diagnostics)
 
 
     @staticmethod

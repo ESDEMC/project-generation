@@ -22,7 +22,7 @@ dev = [
     "jsonschema>=4",
 ]
 excel = ["openpyxl>=3.1"]
-gui = ["qtpy>=2.4", "PySide6"]
+gui = ["qtpy>=2.4", "PySide6", "Pygments>=2.18", "pyqtgraph>=0.13.7"]
 
 [project.scripts]
 project-generation-gui = "project_generation_gui.main:main"

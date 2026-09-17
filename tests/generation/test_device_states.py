@@ -69,18 +69,18 @@ def test_group_bias_specs_generate_power_domains() -> None:
     state = generated.device_states[0]
 
     assert [(domain.group_names, domain.assignment) for domain in state.power_domains] == [
+        ((), "DC1"),
         (("A",), "DC2"),
         (("B",), "DC3"),
-        ((), "DC1"),
     ]
-    assert state.power_domains[0].bias == {"level": 3.3, "mode": "VOLTAGE", "compliance_limit": 0.02}
+    assert state.power_domains[1].bias == {"level": 3.3, "mode": "VOLTAGE", "compliance_limit": 0.02}
 
 
 def test_stress_bus_is_added_to_device_state_and_power_sequences() -> None:
     generated = ProjectGenerationProcessor().process(_definition(a_bias={"level": 3.3}))
     state = generated.device_states[0]
 
-    stress_bus = state.power_domains[-1]
+    stress_bus = next(domain for domain in state.power_domains if domain.assignment == "DC1")
     assert stress_bus.name == "stress_bus"
     assert stress_bus.assignment == "DC1"
     assert stress_bus.group_ids == ()
@@ -121,7 +121,7 @@ def test_same_voltage_ganging_creates_one_domain() -> None:
             state={"allocation": {"ganging_policy": "same_voltage", "reserve": ["DC1"]}},
         )
     )
-    domain = generated.device_states[0].power_domains[0]
+    domain = next(item for item in generated.device_states[0].power_domains if item.group_names == ("A", "B"))
 
     assert domain.group_names == ("A", "B")
     assert domain.assignment == "DC2"
@@ -256,7 +256,7 @@ def test_compliance_limit_is_not_inferred_from_group_type() -> None:
         _definition(a_bias={"level": 3.3})
     )
 
-    domain = generated.device_states[0].power_domains[0]
+    domain = next(item for item in generated.device_states[0].power_domains if item.group_names)
     assert domain.bias == {"level": 3.3, "mode": "VOLTAGE"}
 
 
@@ -297,3 +297,56 @@ def test_state_inheritance_keeps_declared_group_compliance_limits() -> None:
 
     assert child_domains[("A",)].bias["compliance_limit"] == pytest.approx(0.2)
     assert child_domains[("B",)].bias["compliance_limit"] == pytest.approx(0.02)
+
+def test_automatic_power_domain_names_use_electrical_level() -> None:
+    generated = ProjectGenerationProcessor().process(
+        _definition(
+            a_bias={"level": 28.0, "compliance_limit": 0.2},
+            b_bias={"level": 5.5, "compliance_limit": 0.2},
+        )
+    )
+
+    domains = [domain for domain in generated.device_states[0].power_domains if domain.group_names]
+
+    assert [(domain.name, domain.group_names) for domain in domains] == [
+        ("28V0", ("A",)),
+        ("5V5", ("B",)),
+    ]
+
+
+def test_ground_and_floating_domains_are_named_by_mode_and_have_no_compliance() -> None:
+    generated = ProjectGenerationProcessor().process(
+        _definition(
+            a_bias={"mode": "GROUND", "compliance_limit": 0.2},
+            b_bias={"mode": "FLOATING", "compliance_limit": 0.2},
+            resources={},
+            state={"allocation": {"ganging_policy": "same_voltage"}},
+        )
+    )
+    state = generated.device_states[0]
+
+    assert [(domain.name, domain.assignment, domain.bias) for domain in state.power_domains] == [
+        ("GROUND", "GROUND", {"mode": "GROUND"}),
+        ("FLOATING", "FLOATING", {"mode": "FLOATING"}),
+    ]
+    assert state.power_on_sequence == ()
+    assert state.power_off_sequence == ()
+
+
+def test_power_domains_are_canonically_sorted_by_assignment() -> None:
+    from project_generation.generation.models import GeneratedDeviceState, GeneratedPowerDomain
+    import uuid
+
+    def domain(assignment: str) -> GeneratedPowerDomain:
+        return GeneratedPowerDomain(name=assignment, group_ids=(), group_names=(), assignment=assignment, bias={})
+
+    state = GeneratedDeviceState(
+        id=uuid.uuid4(),
+        name="active",
+        extends=None,
+        power_domains=(domain("FLOATING"), domain("DC10"), domain("GROUND"), domain("AUX"), domain("DC2")),
+        power_on_sequence=(),
+        power_off_sequence=(),
+    )
+
+    assert [item.assignment for item in state.power_domains] == ["DC2", "DC10", "AUX", "GROUND", "FLOATING"]

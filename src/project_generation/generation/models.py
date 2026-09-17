@@ -43,7 +43,12 @@ class GeneratedGroup:
         }
 
     def as_group_record(self) -> GroupRecord:
-        return GroupRecord(name=self.name, group_type=self.group_type, parameters=self.parameters)
+        return GroupRecord(
+            name=self.name,
+            group_type=self.group_type,
+            parameters=self.parameters,
+            bias=self.bias_spec,
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -68,6 +73,17 @@ class GeneratedPowerSequenceStep:
     after: str | None
 
 
+def _power_domain_assignment_sort_key(domain: GeneratedPowerDomain) -> tuple[int, int, str]:
+    assignment = domain.assignment.upper()
+    if assignment.startswith("DC") and assignment[2:].isdigit():
+        return 0, int(assignment[2:]), assignment
+    if assignment == "GROUND":
+        return 2, 0, assignment
+    if assignment == "FLOATING":
+        return 3, 0, assignment
+    return 1, 0, assignment
+
+
 @dataclass(frozen=True, kw_only=True)
 class GeneratedDeviceState:
     id: uuid.UUID
@@ -77,12 +93,18 @@ class GeneratedDeviceState:
     power_on_sequence: tuple[GeneratedPowerSequenceStep, ...]
     power_off_sequence: tuple[GeneratedPowerSequenceStep, ...]
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "power_domains", tuple(sorted(self.power_domains, key=_power_domain_assignment_sort_key)))
+
 
 @dataclass(frozen=True, kw_only=True)
 class GeneratedTestGroup:
     group_id: uuid.UUID
     group_name: str
     stress_points: tuple[StressPoint, ...]
+    # None means the whole generated group. SIGNAL plans use a one-pin subset so
+    # each stress is applied to exactly one signal pin at a time.
+    pin_ids: tuple[uuid.UUID, ...] | None = None
 
 
 
@@ -100,6 +122,14 @@ class GeneratedTemperatureControl:
 
 
 @dataclass(frozen=True, kw_only=True)
+class GeneratedStressHardwareIssue:
+    group_name: str
+    stress_point_index: int
+    stress: Mapping[str, Any]
+    reasons: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, kw_only=True)
 class GeneratedStressSupplyAssignment:
     resource: str
     strategy: str
@@ -114,6 +144,7 @@ class GeneratedTestPlan:
     device_state_id: uuid.UUID | None
     test_groups: tuple[GeneratedTestGroup, ...]
     stress_supply: GeneratedStressSupplyAssignment | None = None
+    hardware_issues: tuple[GeneratedStressHardwareIssue, ...] = ()
     temperature_control: GeneratedTemperatureControl | None = None
     generation_rule_id: str | None = None
 

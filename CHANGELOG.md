@@ -1,4 +1,7 @@
 # Changelog
+- Exposed each generated group's authored bias as `group.bias` in test-plan rule context for SIGNAL and SUPPLY generation.
+
+- Improved stress-pair plot visibility with high-contrast connector/marker halos and explicit foreground layering.
 
 ## Unreleased
 

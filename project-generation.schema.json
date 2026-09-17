@@ -1010,6 +1010,18 @@
           ],
           "default": null,
           "title": "Formatter"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scale"
         }
       },
       "required": [

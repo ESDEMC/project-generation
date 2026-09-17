@@ -620,6 +620,21 @@ Regardless of declaration style, the compiler emits explicit stress parameters f
 }
 ```
 
+#### Absolute span as the base
+
+Use `from_span` when the series is relative to the absolute difference between two values rather than either endpoint.
+
+```json
+{
+  "stress_voltage": {
+    "from_span": ["group.v_max", "group.v_min"],
+    "multiply_by": [-0.5, -0.75]
+  }
+}
+```
+
+The base is `abs(first - second)`. The normal series operation is then applied to that base.
+
 #### Relative factor or offset ranges
 
 ```json
@@ -923,3 +938,18 @@ Version 1 should defer:
 20. JSON Schema validates structure; Python validates semantics.
 21. Every significant compiler pass emits structured diagnostics.
 22. Representative examples are part of the specification and acceptance suite.
+
+### Identity relative stress value
+
+A relative stress value may reference a source without specifying an operation. In that case the resolved source value is used unchanged. This is useful when one stress parameter is fixed at the group's operating value while another parameter is expanded into a series.
+
+```yaml
+stress_parameters:
+  base:
+    from: group.v_max
+  peak:
+    from: group.v_max
+    multiply_by: [1.0, 1.5]
+```
+
+Here `base` is `group.v_max` for every generated point, while `peak` expands into the configured series.

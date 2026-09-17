@@ -12,10 +12,15 @@ class PowerSequenceResolver:
         event: str,
         default_order: str,
     ) -> tuple[GeneratedPowerSequenceStep, ...]:
-        by_name = {domain.name: domain for domain in power_domains}
-        if len(by_name) != len(power_domains):
+        sequenced_domains = [domain for domain in power_domains if domain.assignment not in {"GROUND", "FLOATING"}]
+        by_name = {domain.name: domain for domain in sequenced_domains}
+        if len(by_name) != len(sequenced_domains):
             duplicates = sorted(
-                {domain.name for domain in power_domains if sum(item.name == domain.name for item in power_domains) > 1}
+                {
+                    domain.name
+                    for domain in sequenced_domains
+                    if sum(item.name == domain.name for item in sequenced_domains) > 1
+                }
             )
             raise ProjectGenerationError(
                 f'Device state "{state_name}" has duplicate power-domain names: {", ".join(duplicates)}'
@@ -23,7 +28,7 @@ class PowerSequenceResolver:
 
         dependencies: dict[str, str | None] = {}
         has_explicit_timing = False
-        for domain in power_domains:
+        for domain in sequenced_domains:
             timing = (domain.timing.get(event) or {}) if domain.timing else {}
             has_explicit_timing = has_explicit_timing or bool(timing)
             after = timing.get("after")
@@ -43,7 +48,7 @@ class PowerSequenceResolver:
         if default_order == "reverse_power_on" and not has_explicit_timing:
             power_on = cls.resolve(
                 state_name=state_name,
-                power_domains=power_domains,
+                power_domains=sequenced_domains,
                 event="power_on",
                 default_order="declaration",
             )
@@ -51,7 +56,7 @@ class PowerSequenceResolver:
         else:
             ordered = cls._dependency_order(
                 state_name=state_name,
-                power_domains=power_domains,
+                power_domains=sequenced_domains,
                 event=event,
                 dependencies=dependencies,
             )

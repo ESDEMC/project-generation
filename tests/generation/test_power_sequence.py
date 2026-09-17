@@ -188,3 +188,32 @@ def test_circular_power_off_sequence_reference_fails() -> None:
 
     with pytest.raises(ProjectGenerationError, match="circular power-off timing dependency"):
         ProjectGenerationProcessor().process(definition)
+
+def test_ground_and_floating_domains_are_not_power_sequence_steps() -> None:
+    definition = _definition(
+        [
+            {
+                "name": "ground",
+                "groups": ["GND"],
+                "assignment": "GROUND",
+                "bias": {"mode": "GROUND"},
+            },
+            {
+                "name": "supply",
+                "groups": ["SUPPLY"],
+                "assignment": "DC2",
+                "bias": {"mode": "VOLTAGE", "level": 5.0},
+            },
+            {
+                "name": "floating",
+                "groups": ["NC"],
+                "assignment": "FLOATING",
+                "bias": {"mode": "FLOATING"},
+            },
+        ]
+    )
+
+    state = ProjectGenerationProcessor().process(definition).device_states[0]
+
+    assert [step.domain_name for step in state.power_on_sequence] == ["supply"]
+    assert [step.domain_name for step in state.power_off_sequence] == ["supply"]

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from project_generation import ProjectGenerationDefinition, ProjectGenerationProcessor, StressSupplyResolutionError
+from project_generation import ProjectGenerationDefinition, ProjectGenerationProcessor
 
 
 def _definition() -> ProjectGenerationDefinition:
@@ -64,26 +64,29 @@ def test_source_switch_uses_dc_for_bias_and_pulse_for_stress(tmp_path: Path) -> 
     assert project.test_plans[0].stress_supply.strategy == "source_switch"
 
 
-def test_source_switch_rejects_pre_post_bias_outside_dc_envelope(tmp_path: Path) -> None:
+def test_source_switch_marks_pre_post_bias_outside_dc_envelope(tmp_path: Path) -> None:
     _write_hardware(tmp_path / "hardware.yaml", dc_voltage=4.0)
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(_definition(), base_directory=tmp_path)
+    project = ProjectGenerationProcessor().process(_definition(), base_directory=tmp_path)
 
-    candidate = captured.value.issues[0].candidates[0]
-    assert candidate.reason == "pre/post bias: requested voltage 5 exceeds DC maximum 4"
-    assert "pre/post bias" in captured.value.format_user_report()
+    plan = project.test_plans[0]
+    assert plan.stress_supply is None
+    assert len(plan.hardware_issues) == 1
+    assert plan.hardware_issues[0].reasons == (
+        "DC1: pre/post bias: requested voltage 5 exceeds DC maximum 4",
+    )
 
 
-def test_source_switch_rejects_peak_outside_pulse_envelope(tmp_path: Path) -> None:
+def test_source_switch_marks_peak_outside_pulse_envelope(tmp_path: Path) -> None:
     _write_hardware(tmp_path / "hardware.yaml", pulse_voltage=20.0)
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(_definition(), base_directory=tmp_path)
+    project = ProjectGenerationProcessor().process(_definition(), base_directory=tmp_path)
 
-    candidate = captured.value.issues[0].candidates[0]
-    assert candidate.reason == "stress pulse: requested peak voltage 30 exceeds PULSE maximum 20"
-    assert captured.value.context["issues"][0]["stress"]["peak"] == 30.0
+    issue = project.test_plans[0].hardware_issues[0]
+    assert issue.stress["peak"] == 30.0
+    assert issue.reasons == (
+        "DC1: stress pulse: requested peak voltage 30 exceeds PULSE maximum 20",
+    )
 
 
 def test_biased_pulse_requires_pulse_width(tmp_path: Path) -> None:
@@ -108,29 +111,27 @@ def test_legacy_hold_time_is_accepted_at_input_boundary(tmp_path: Path) -> None:
     assert project.test_plans[0].stress_supply is not None
 
 
-def test_source_switch_rejects_pulse_width_below_pulse_envelope(tmp_path: Path) -> None:
+def test_source_switch_marks_pulse_width_below_pulse_envelope(tmp_path: Path) -> None:
     definition = _definition()
     definition.test_plans[0].test_groups[0].stress_points[0]["pulse_width"] = 0.0001
     _write_hardware(tmp_path / "hardware.yaml")
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
+    project = ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
 
-    assert captured.value.issues[0].candidates[0].reason == (
-        "stress pulse: requested pulse width 0.0001 is below PULSE minimum 0.0002"
+    assert project.test_plans[0].hardware_issues[0].reasons == (
+        "DC1: stress pulse: requested pulse width 0.0001 is below PULSE minimum 0.0002",
     )
 
 
-def test_source_switch_rejects_pulse_width_above_pulse_envelope(tmp_path: Path) -> None:
+def test_source_switch_marks_pulse_width_above_pulse_envelope(tmp_path: Path) -> None:
     definition = _definition()
     definition.test_plans[0].test_groups[0].stress_points[0]["pulse_width"] = 0.2
     _write_hardware(tmp_path / "hardware.yaml", max_pulse_width=0.1)
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
+    project = ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
 
-    assert captured.value.issues[0].candidates[0].reason == (
-        "stress pulse: requested pulse width 0.2 exceeds PULSE maximum 0.1"
+    assert project.test_plans[0].hardware_issues[0].reasons == (
+        "DC1: stress pulse: requested pulse width 0.2 exceeds PULSE maximum 0.1",
     )
 
 
@@ -168,11 +169,10 @@ metadata:
         encoding="utf-8",
     )
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
+    project = ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
 
-    assert captured.value.issues[0].candidates[0].reason == (
-        "stress pulse: no PULSE power envelope supports peak voltage 200 with current compliance 1 and pulse width 0.01"
+    assert project.test_plans[0].hardware_issues[0].reasons == (
+        "DC1: stress pulse: no PULSE power envelope supports peak voltage 200 with current compliance 1 and pulse width 0.01",
     )
 
 
@@ -190,12 +190,10 @@ def test_real_hardware_rejects_requirement_split_across_pulse_ranges() -> None:
     point.update({"peak": 200.0, "compliance": 1.0, "pulse_width": 0.01})
     example = Path(__file__).parents[2] / "examples" / "sources" / "hardware_config"
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(definition, base_directory=example)
+    project = ProjectGenerationProcessor().process(definition, base_directory=example)
 
-    reason = captured.value.issues[0].candidates[0].reason
-    assert reason == (
-        "stress pulse: no PULSE power envelope supports peak voltage 200 with current compliance 1 and pulse width 0.01"
+    assert project.test_plans[0].hardware_issues[0].reasons == (
+        "DC1: stress pulse: no PULSE power envelope supports peak voltage 200 with current compliance 1 and pulse width 0.01",
     )
 
 
@@ -204,9 +202,52 @@ def test_real_hardware_rejects_pulse_below_200_microseconds() -> None:
     definition.test_plans[0].test_groups[0].stress_points[0]["pulse_width"] = 0.0001
     example = Path(__file__).parents[2] / "examples" / "sources" / "hardware_config"
 
-    with pytest.raises(StressSupplyResolutionError) as captured:
-        ProjectGenerationProcessor().process(definition, base_directory=example)
+    project = ProjectGenerationProcessor().process(definition, base_directory=example)
 
-    reason = captured.value.issues[0].candidates[0].reason
+    reason = project.test_plans[0].hardware_issues[0].reasons[0]
     assert "pulse width 0.0001" in reason
     assert "PULSE" in reason
+
+
+def test_unsupported_stress_is_generated_and_reported_as_warning(tmp_path: Path) -> None:
+    _write_hardware(tmp_path / "hardware.yaml", pulse_voltage=20.0)
+
+    snapshot = ProjectGenerationProcessor().process_with_snapshot(_definition(), base_directory=tmp_path)
+
+    plan = snapshot.test_plans[0]
+    assert plan.test_groups[0].stress_points[0].values["peak"] == 30.0
+    assert plan.hardware_issues
+    assert snapshot.stage("test_plans").status.value == "complete"
+    assert [diagnostic.code for diagnostic in snapshot.diagnostics] == ["hardware.stress_supply_unsupported"]
+    assert snapshot.diagnostics[0].severity.value == "warning"
+
+
+def test_base_and_peak_limits_are_checked_against_different_envelopes(tmp_path: Path) -> None:
+    definition = _definition()
+    point = definition.test_plans[0].test_groups[0].stress_points[0]
+    point.clear()
+    point.update(
+        {
+            "source_mode": "voltage",
+            "base_level": 5.0,
+            "base_limit": 0.5,
+            "peak_level": 30.0,
+            "peak_limit": 0.75,
+            "pulse_width": 0.01,
+        }
+    )
+    _write_hardware(tmp_path / "hardware.yaml", dc_voltage=20.0, pulse_voltage=100.0, pulse_current=0.6)
+
+    project = ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
+
+    issue = project.test_plans[0].hardware_issues[0]
+    assert issue.reasons == (
+        "DC1: stress pulse: requested peak current compliance 0.75 exceeds PULSE maximum 0.6 at peak voltage 30",
+    )
+
+    point["base_level"] = 25.0
+    point["peak_limit"] = 0.5
+    project = ProjectGenerationProcessor().process(definition, base_directory=tmp_path)
+    assert project.test_plans[0].hardware_issues[0].reasons == (
+        "DC1: pre/post bias: requested voltage 25 exceeds DC maximum 20",
+    )

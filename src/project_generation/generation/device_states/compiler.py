@@ -33,6 +33,17 @@ class DeviceStateGenerator:
     def generate(self) -> list[GeneratedDeviceState]:
         return [self._generate_state(name) for name in self.definition.device_states]
 
+    def generate_best_effort(self) -> tuple[list[GeneratedDeviceState], ProjectGenerationError | None]:
+        states: list[GeneratedDeviceState] = []
+        try:
+            for name in self.definition.device_states:
+                states.append(self._generate_state(name))
+        except ProjectGenerationError as error:
+            return states, error
+        except Exception as error:
+            return states, ProjectGenerationError(str(error), code="device_state.generation_failed")
+        return states, None
+
     def _generate_state(self, name: str) -> GeneratedDeviceState:
         if name in self._resolved:
             return self._resolved[name]
@@ -135,6 +146,9 @@ class DeviceStateGenerator:
             normalized["mode"] = "VOLTAGE"
         if "mode" in normalized:
             normalized["mode"] = str(normalized["mode"]).upper()
+        if normalized.get("mode") in _PSEUDO_RESOURCES:
+            normalized.pop("compliance_limit", None)
+            normalized.pop("compliance", None)
         return normalized
 
     def _resolve_explicit_domains(self, state_name: str, state_definition: Any) -> list[GeneratedPowerDomain]:
@@ -222,7 +236,7 @@ class DeviceStateGenerator:
 
             domains.append(
                 GeneratedPowerDomain(
-                    name=self._automatic_domain_name(index, gang, domains),
+                    name=self._automatic_domain_name(index, bias, domains),
                     group_ids=tuple(group.id for group in domain_groups),
                     group_names=tuple(gang),
                     assignment=assignment,
@@ -358,10 +372,17 @@ class DeviceStateGenerator:
     @staticmethod
     def _automatic_domain_name(
         index: int,
-        group_names: tuple[str, ...],
+        bias: Mapping[str, Any],
         existing: list[GeneratedPowerDomain],
     ) -> str:
-        base = "_".join(group_names) or f"domain_{index}"
+        mode = str(bias.get("mode", "")).upper()
+        if mode in _PSEUDO_RESOURCES:
+            base = mode
+        elif mode == "VOLTAGE" and bias.get("level") is not None:
+            base = DeviceStateGenerator._voltage_domain_name(float(bias["level"]))
+        else:
+            base = mode or f"domain_{index}"
+
         existing_names = {domain.name for domain in existing}
         if base not in existing_names:
             return base
@@ -369,3 +390,10 @@ class DeviceStateGenerator:
         while f"{base}_{suffix}" in existing_names:
             suffix += 1
         return f"{base}_{suffix}"
+
+    @staticmethod
+    def _voltage_domain_name(level: float) -> str:
+        value = f"{level:.3f}".rstrip("0").rstrip(".")
+        if "." not in value:
+            value += ".0"
+        return value.replace("-", "N").replace(".", "V")

@@ -505,6 +505,8 @@ against the connected resource's hardware envelope. A real source cannot be assi
 
 Compliance is part of each group's `bias_spec`; the generator does not infer a current limit from `group_type`. This keeps the electrical policy in the generation definition:
 
+When generating test plans, that authored group bias is available through the `group.bias` context. For example, `group.bias.compliance_limit` resolves the group's authored compliance requirement for both SIGNAL and SUPPLY rules. This is the group requirement before device-state ganging or hardware allocation.
+
 ```json
 {
   "group_type": "POWER",

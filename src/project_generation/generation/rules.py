@@ -12,13 +12,16 @@ class GroupRecord:
     name: str
     group_type: str
     parameters: Mapping[str, Any] = field(default_factory=dict)
+    bias: Mapping[str, Any] = field(default_factory=dict)
 
     def context(self) -> dict[str, Any]:
         parameters = dict(self.parameters)
+        bias = dict(self.bias)
         return {
             "name": self.name,
             "group_type": self.group_type,
             "parameters": parameters,
+            "bias": bias,
             **parameters,
         }
 
@@ -162,13 +165,27 @@ def resolve_parameter_series(definition: Any, context: Mapping[str, Any]) -> Any
         return list(definition["values"])
     if "range" in definition:
         return generate_range(definition["range"])
-    if "from" not in definition:
+    source_modes = [key for key in ("from", "from_span") if key in definition]
+    if not source_modes:
         return definition
+    if len(source_modes) != 1:
+        raise ValueError("A relative stress series must define exactly one source")
 
-    base = resolve_path(context, definition["from"])
+    if source_modes[0] == "from":
+        base = resolve_path(context, definition["from"])
+    else:
+        span = definition["from_span"]
+        if not isinstance(span, (list, tuple)) or len(span) != 2:
+            raise ValueError("from_span must contain exactly two paths")
+        first = resolve_path(context, span[0])
+        second = resolve_path(context, span[1])
+        base = abs(first - second)
+
     modes = [key for key in ("add", "multiply_by", "offset_range", "factor_range") if key in definition]
-    if len(modes) != 1:
-        raise ValueError("A relative stress series must define exactly one operation")
+    if not modes:
+        return base
+    if len(modes) > 1:
+        raise ValueError("A relative stress series may define at most one operation")
     mode = modes[0]
     operand = definition[mode]
     if mode == "add":

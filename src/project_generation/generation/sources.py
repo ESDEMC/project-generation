@@ -91,10 +91,12 @@ def apply_record_mapping(
             source_path = field_mapping
             value_mapping_name = None
             formatter_name = None
+            scale = None
         else:
             source_path = get_aliased_field_value(field_mapping, "from")
             value_mapping_name = field_mapping.mapping
             formatter_name = field_mapping.formatter
+            scale = field_mapping.scale
 
         value = resolve_required_path(record, source_path, "source mapping")
         if value_mapping_name:
@@ -103,6 +105,13 @@ def apply_record_mapping(
             except KeyError as error:
                 raise ProjectGenerationError(
                     f'Value "{value}" is not present in mapping "{value_mapping_name}"'
+                ) from error
+        if scale is not None:
+            try:
+                value = float(value) * scale
+            except (TypeError, ValueError) as error:
+                raise ProjectGenerationError(
+                    f'Source field "{source_path}" with value {value!r} cannot be scaled by {scale:g}'
                 ) from error
         if formatter_name:
             try:

@@ -212,7 +212,7 @@ class ValidateGeneratedProjectRequest:
                         owner=plan.name,
                     )
 
-            seen_groups: set[uuid.UUID] = set()
+            seen_groups: set[tuple[uuid.UUID, tuple[uuid.UUID, ...] | None]] = set()
             for test_group in plan.test_groups:
                 group = groups_by_id.get(test_group.group_id)
                 if group is None or group.name != test_group.group_name:
@@ -222,14 +222,32 @@ class ValidateGeneratedProjectRequest:
                         location=f"generated_project.test_plans.{plan.name}.test_groups",
                         owner=plan.name,
                     )
-                if test_group.group_id in seen_groups:
+                subset = tuple(test_group.pin_ids) if test_group.pin_ids is not None else None
+                key = (test_group.group_id, subset)
+                if key in seen_groups:
                     raise ProjectGenerationError(
                         f'Test plan "{plan.name}" contains duplicate test group "{test_group.group_name}"',
                         code="generated_project.duplicate_test_group",
                         location=f"generated_project.test_plans.{plan.name}.test_groups",
                         owner=plan.name,
                     )
-                seen_groups.add(test_group.group_id)
+                seen_groups.add(key)
+                if test_group.pin_ids is not None:
+                    if not test_group.pin_ids:
+                        raise ProjectGenerationError(
+                            f'Test plan "{plan.name}" group "{test_group.group_name}" has an empty pin subset',
+                            code="generated_project.empty_test_group_pin_subset",
+                            location=f"generated_project.test_plans.{plan.name}.test_groups",
+                            owner=plan.name,
+                        )
+                    unknown_pins = set(test_group.pin_ids) - set(group.pin_ids)
+                    if unknown_pins:
+                        raise ProjectGenerationError(
+                            f'Test plan "{plan.name}" group "{test_group.group_name}" references pins outside the generated group',
+                            code="generated_project.invalid_test_group_pin_subset",
+                            location=f"generated_project.test_plans.{plan.name}.test_groups",
+                            owner=plan.name,
+                        )
                 if not test_group.stress_points:
                     raise ProjectGenerationError(
                         f'Test plan "{plan.name}" group "{test_group.group_name}" does not contain stress points',

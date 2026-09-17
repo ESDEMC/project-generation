@@ -192,7 +192,13 @@ class LatchUpProjectCoreAdapter:
         states: Mapping[str, Bindings.DeviceState],
         bindings: Bindings,
     ) -> Bindings.LatchUpTestPlan:
-        test_groups = [copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))]) for item in plan.test_groups]
+        test_groups = []
+        for item in plan.test_groups:
+            group = copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))])
+            if item.pin_ids is not None:
+                wanted = {str(pin_id) for pin_id in item.pin_ids}
+                group.pins = [pin for pin in group.pins if str(pin) in wanted]
+            test_groups.append(group)
         test_pins = [pin for group in test_groups for pin in group.pins]
         metadata = {
             "generation_rule_id": plan.generation_rule_id,
@@ -242,7 +248,10 @@ def _build_stress_plan(plan: GeneratedTestPlan, dut: Bindings.Dut, b: Bindings) 
         if not test_group.stress_points:
             continue
         group_id = b.PinGroupID(test_group.group_id)
-        descriptor = descriptor_by_id[group_id]
+        descriptor = copy.deepcopy(descriptor_by_id[group_id])
+        if test_group.pin_ids is not None:
+            wanted = {str(pin_id) for pin_id in test_group.pin_ids}
+            descriptor.pins = [pin for pin in descriptor.pins if str(pin.pin_id) in wanted]
         parameters = [
             _stress_parameters(point.values, plan_name=plan.name, group_name=test_group.group_name, b=b)
             for point in test_group.stress_points
@@ -260,8 +269,10 @@ def require_source_mode(source_mode: str) -> typing.Literal["voltage", "current"
 
 def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name: str, b: Bindings) -> Any:
     source_mode = require_source_mode(values.get("source_mode", "voltage").lower())
-    peak = values.get("peak", values.get("stress_voltage", values.get("stress_current")))
-    compliance = values.get("compliance_limit", values.get("compliance"))
+    peak = values.get("peak_level", values.get("peak", values.get("stress_voltage", values.get("stress_current"))))
+    legacy_limit = values.get("compliance_limit", values.get("compliance"))
+    peak_limit = values.get("peak_limit", legacy_limit)
+    base_limit = values.get("base_limit", values.get("bias_compliance_limit", values.get("bias_compliance", legacy_limit)))
     if peak is None:
         raise ProjectGenerationError(
             f'Stress point for group "{group_name}" in plan "{plan_name}" does not define a stress level',
@@ -270,7 +281,7 @@ def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name:
             owner=plan_name,
             context={"group": group_name, "values": dict(values)},
         )
-    if compliance is None:
+    if peak_limit is None:
         raise ProjectGenerationError(
             f'Stress point for group "{group_name}" in plan "{plan_name}" does not define compliance',
             code="adapter.missing_stress_compliance",
@@ -279,8 +290,9 @@ def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name:
             context={"group": group_name, "values": dict(values)},
         )
 
-    base = float(values.get("base", values.get("bias_level", 0.0)))
-    compliance = float(compliance)
+    base = float(values.get("base_level", values.get("base", values.get("bias_level", 0.0))))
+    peak_limit = float(peak_limit)
+    base_limit = float(base_limit) if base_limit is not None else peak_limit
     pulse_width_value = values.get("pulse_width", values.get("hold_time"))
     if pulse_width_value is None:
         raise ProjectGenerationError(
@@ -300,17 +312,15 @@ def _stress_parameters(values: Mapping[str, Any], *, plan_name: str, group_name:
             context={"group": group_name, "values": dict(values)},
         )
     pulse_delay = float(values.get("pulse_delay", 0.0))
-    bias_compliance = float(values.get("bias_compliance_limit", values.get("bias_compliance", compliance)))
-
     bias_parameters = b.LatchUpBiasParameters(
-        bias_level=float(values.get("bias_level", base)),
+        bias_level=base,
         source_mode=source_mode,
-        compliance_limit=bias_compliance,
+        compliance_limit=base_limit,
     )
     pulse_parameters = b.LatchUpPulseParameters(
         base=base,
         peak=float(peak),
-        compliance_limit=compliance,
+        compliance_limit=peak_limit,
         source_mode=source_mode,
         pulse_width=pulse_width,
         pulse_delay=pulse_delay,

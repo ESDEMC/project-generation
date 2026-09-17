@@ -26,7 +26,9 @@ sources:
       metadata.verifier_board: VerifierBoard
       metadata.operator: Operator
       metadata.temperature: Temperature
-      metadata.stress_current: StressCurrent
+      metadata.stress_current:
+        from: StressCurrent
+        scale: 0.001
       metadata.program_name: ProgramName
   realis_pins:
     type: json
@@ -209,18 +211,39 @@ test_plan_generation:
       values:
       - value: POSITIVE
         set:
-          stress_parameters.peak:
+          stress_parameters.peak_level:
+            from: project.metadata.stress_current
+          stress_parameters.base_limit:
+            from: group.v_max
+            multiply_by:
+            - 1.0
+            - 1.5
+          stress_parameters.peak_limit:
             from: group.v_max
             multiply_by:
             - 1.0
             - 1.5
       - value: NEGATIVE
         set:
-          stress_parameters.peak:
-            from: group.v_min
+          stress_parameters.peak_level:
+            from: project.metadata.stress_current
             multiply_by:
-            - 1.0
-            - 1.5
+            - -1.0
+            - -1.0
+          stress_parameters.base_limit:
+            from_span:
+            - group.v_max
+            - group.v_min
+            multiply_by:
+            - -0.5
+            - -0.75
+          stress_parameters.peak_limit:
+            from_span:
+            - group.v_max
+            - group.v_min
+            multiply_by:
+            - -0.5
+            - -0.75
     - name: logic_level
       values:
       - value: HIGH
@@ -254,9 +277,8 @@ test_plan_generation:
         cool_temperature: 24.0
         timeout: 900.0
       stress_parameters:
-        source_mode: voltage
-        base: 0.0
-        compliance: 0.12
+        source_mode: current
+        base_level: 0.0
         pulse_width: 0.01
   - id: supply_tests
     groups:
@@ -299,11 +321,14 @@ test_plan_generation:
         timeout: 900.0
       stress_parameters:
         source_mode: voltage
-        base: 0.0
-        peak:
+        base_level:
+          from: group.v_max
+        base_limit:
+          from: group.bias.compliance_limit
+        peak_level:
           from: group.v_max
           multiply_by:
           - 1.0
           - 1.5
-        compliance: 0.2
+        peak_limit: 0.2
         pulse_width: 0.01

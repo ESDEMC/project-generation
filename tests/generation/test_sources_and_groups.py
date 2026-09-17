@@ -81,6 +81,21 @@ def test_record_mapping_builds_nested_targets() -> None:
     assert mapped == {"designator": "7", "parameters": {"pin_type": "INPUT", "v_max": 5.5}}
 
 
+
+def test_record_mapping_can_scale_source_values() -> None:
+    from project_generation.definition.models import SourceFieldMapping
+
+    mapped = apply_record_mapping(
+        {"StressCurrent": 150},
+        {
+            "metadata.stress_current": SourceFieldMapping.model_validate(
+                {"from": "StressCurrent", "scale": 0.001}
+            )
+        },
+    )
+
+    assert mapped["metadata"]["stress_current"] == pytest.approx(0.15)
+
 def test_simple_json_selector() -> None:
     assert select_json_records({"device": {"pins": [{"pin": 1}, {"pin": 2}]}}, "$.device.pins[*]") == [
         {"pin": 1},
@@ -181,3 +196,71 @@ def test_conditional_group_by_omits_voltage_for_ground_and_nc() -> None:
     assert len(generated.groups[1].pin_ids) == 2
     assert "v_max" not in generated.groups[0].parameters
     assert "v_max" not in generated.groups[1].parameters
+
+
+def test_best_effort_snapshot_keeps_pins_and_groups_before_first_group_failure() -> None:
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {"name": "best effort"},
+            "dut": {
+                "name": "DUT",
+                "pins": {
+                    "source": {
+                        "type": "inline",
+                        "records": [
+                            {"designator": "1", "name": "A"},
+                            {"designator": "2", "name": "B"},
+                        ],
+                    }
+                },
+            },
+            "groups": {
+                "explicit": [
+                    {"name": "GOOD", "group_type": "INPUT", "pins": ["1"]},
+                    {"name": "BAD", "group_type": "OUTPUT", "pins": ["99"]},
+                    {"name": "NEVER", "group_type": "INPUT", "pins": ["2"]},
+                ]
+            },
+        }
+    )
+
+    snapshot = ProjectGenerationProcessor().process_best_effort(definition)
+
+    assert [pin.designator for pin in snapshot.pins] == ["1", "2"]
+    assert [group.name for group in snapshot.groups] == ["GOOD"]
+    assert snapshot.stage("pins").status.value == "complete"
+    assert snapshot.stage("groups").status.value == "failed"
+    assert snapshot.stage("groups").produced_count == 1
+    assert snapshot.stage("groups").diagnostic.code == "group.unknown_pins"
+    assert snapshot.stage("device_states").status.value == "not_attempted"
+    assert snapshot.stage("test_plans").status.value == "not_attempted"
+    assert snapshot.generated_project.pins == snapshot.pins
+    assert snapshot.generated_project.groups == snapshot.groups
+    assert snapshot.diagnostics[0].code == "group.unknown_pins"
+
+
+def test_strict_generation_still_fails_on_group_error() -> None:
+    definition = ProjectGenerationDefinition.model_validate(
+        {
+            "schema_version": "1.0",
+            "project": {"name": "strict"},
+            "dut": {
+                "name": "DUT",
+                "pins": {
+                    "source": {
+                        "type": "inline",
+                        "records": [{"designator": "1", "name": "A"}],
+                    }
+                },
+            },
+            "groups": {
+                "explicit": [
+                    {"name": "BAD", "group_type": "INPUT", "pins": ["99"]},
+                ]
+            },
+        }
+    )
+
+    with pytest.raises(ProjectGenerationError, match="unknown pin designators"):
+        ProjectGenerationProcessor().process(definition)
