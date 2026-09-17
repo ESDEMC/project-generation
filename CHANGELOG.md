@@ -1,5 +1,8 @@
 
+- Make adapter-board pin mapping optional with an identity fallback controlled by `pin_map.mappings[].on_missing`.
 ## Unreleased
+
+- Added generated `PinMap.csv` artifacts with direct device-to-tester mapping or optional intermediate location mapping through an input source.
 
 - Use Qt Advanced Docking System for the application workspace and persist/restore window geometry and dock layout.
 - Open generated Pins, Groups, Device States, Hardware Envelopes, and Test Plans as individual ADS tabs outside the document workspace.
@@ -45,3 +48,9 @@
 ### Fixed
 
 - Restored flattened group parameters in device-state rule context after the processor split. This includes `group.v_max`.
+
+- Added persistent GUI sessions with recent-session reopening and last-session restore.
+- Added a configurable default export path with per-session export-directory persistence.
+- Restored session input bindings, open documents, dirty working copies, generated views, active document, and central dock state where possible.
+
+- Made adapter-board pin-map CSV input optional with definition-controlled identity fallback.

@@ -1321,6 +1321,61 @@
       ],
       "title": "GroupByFieldDefinition",
       "type": "object"
+    },
+    "PinMapMappingDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "string",
+          "title": "Source"
+        },
+        "from": {
+          "type": "string",
+          "title": "From"
+        },
+        "to": {
+          "type": "string",
+          "title": "To"
+        },
+        "on_missing": {
+          "enum": [
+            "error",
+            "identity"
+          ],
+          "default": "error",
+          "title": "On Missing",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "from",
+        "to"
+      ],
+      "title": "PinMapMappingDefinition",
+      "type": "object"
+    },
+    "PinMapDefinition": {
+      "additionalProperties": false,
+      "properties": {
+        "location": {
+          "type": "string",
+          "title": "Location"
+        },
+        "mappings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PinMapMappingDefinition"
+          },
+          "default": [],
+          "title": "Mappings"
+        }
+      },
+      "required": [
+        "location"
+      ],
+      "title": "PinMapDefinition",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -1389,6 +1444,17 @@
       "anyOf": [
         {
           "$ref": "#/$defs/DutDefinition"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "pin_map": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PinMapDefinition"
         },
         {
           "type": "null"
