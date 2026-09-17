@@ -1,3 +1,4 @@
+import csv
 import pathlib
 import re
 from collections.abc import Mapping
@@ -30,6 +31,16 @@ def safe_file_name(value: str) -> str:
     return normalized.strip("._") or "project"
 
 
+class PinMapCsvWriter:
+    @staticmethod
+    def write(entries, path: pathlib.Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(("Pin", "Location"))
+            writer.writerows((entry.pin, entry.location) for entry in entries)
+
+
 def write_latchup_project_package(
     generated: GeneratedProject,
     output_directory: str | pathlib.Path,
@@ -55,6 +66,13 @@ def write_latchup_project_package(
         relative_path=f"{package_name}.LuDut",
         writer=JsonDocumentCodec(type(artifacts.dut)),
     )
+    if generated.pin_map:
+        package.stage(
+            "pin_map",
+            generated.pin_map,
+            relative_path="PinMap.csv",
+            writer=PinMapCsvWriter(),
+        )
     for test_plan in artifacts.test_plans:
         package.stage(
             "latch_up_test_plan",

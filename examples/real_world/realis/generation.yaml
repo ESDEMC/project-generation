@@ -42,6 +42,20 @@ sources:
         mapping: realis_pin_type
       parameters.v_max: VoltageLevelMax
       parameters.v_min: VoltageLevelMin
+      parameters.socket_pin: VerifierChannel
+  adapter_board:
+    type: csv
+    path: '{adapter_board}'
+    mapping:
+      socket: Socket
+      location: Location
+pin_map:
+  location: parameters.socket_pin
+  mappings:
+  - source: adapter_board
+    from: socket
+    to: location
+    on_missing: identity
 hardware:
   source: hardware.yaml
 project:

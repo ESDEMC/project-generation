@@ -134,6 +134,35 @@ dut:
 
 The reference sees the effective project context, including values loaded through `project.source`.
 
+## Pin map
+
+`pin_map` generates a `PinMap.csv` artifact with `Pin` and `Location` columns. `location` is resolved against each generated pin. If the value is already the tester location, no additional mapping is required.
+
+```yaml
+pin_map:
+  location: parameters.tester_location
+```
+
+When a device connects through an intermediate socket or fixture location, one or more mapping sources can translate that value before export. The mapping input may be optional. With `on_missing: identity`, leaving the adapter-board input unset keeps the original socket/location value unchanged. Supplying the CSV applies the socket-to-tester mapping.
+
+```yaml
+sources:
+  adapter_board:
+    type: csv
+    path: '{adapter_board}'
+    mapping:
+      socket: Socket
+      location: Location
+
+pin_map:
+  location: parameters.socket_pin
+  mappings:
+  - source: adapter_board
+    from: socket
+    to: location
+    on_missing: identity
+```
+
 ## Named mappings
 
 Mappings translate customer values into the values used by generation rules. For example, customer exports might use several labels for the same pin type:

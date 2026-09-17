@@ -22,6 +22,12 @@ class GeneratedPin:
 
 
 @dataclass(frozen=True, kw_only=True)
+class GeneratedPinMapEntry:
+    pin: str
+    location: str
+
+
+@dataclass(frozen=True, kw_only=True)
 class GeneratedGroup:
     id: uuid.UUID
     name: str
@@ -158,5 +164,6 @@ class GeneratedProject:
     groups: tuple[GeneratedGroup, ...]
     device_states: tuple[GeneratedDeviceState, ...]
     test_plans: tuple[GeneratedTestPlan, ...]
+    pin_map: tuple[GeneratedPinMapEntry, ...] = ()
 
 

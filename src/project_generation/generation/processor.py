@@ -1,4 +1,5 @@
 import pathlib
+import traceback
 import uuid
 from dataclasses import replace
 from typing import Any, Iterable, Mapping
@@ -22,11 +23,13 @@ from project_generation.generation.hardware import BiasedPulseStress, SourceSwit
 from project_generation.generation.device_states import DeviceStateGenerator
 from project_generation.generation.groups import GroupGenerator
 from project_generation.generation.sources import load_source_records
+from project_generation.generation.pin_map import generate_pin_map
 from project_generation.generation.snapshot import GenerationSnapshot, GenerationStageResult, GenerationStageStatus
 from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
     GeneratedPin,
+    GeneratedPinMapEntry,
     GeneratedProject,
     GeneratedStressHardwareIssue,
     GeneratedTestGroup,
@@ -93,6 +96,7 @@ class ProjectGenerationProcessor:
                 update={"dut": effective_definition.dut.model_copy(update={"name": dut_name})}
             )
         pins = self._load_pins(effective_definition, base_directory)
+        pin_map = generate_pin_map(effective_definition, pins, base_directory=base_directory)
         groups = GroupGenerator(effective_definition, pins).generate()
         device_states = DeviceStateGenerator(effective_definition, groups).generate()
         test_plan_request = GenerateTestPlansRequest(
@@ -107,6 +111,7 @@ class ProjectGenerationProcessor:
             metadata=project_metadata,
             dut_name=effective_definition.dut.name if effective_definition.dut else None,
             pins=tuple(pins),
+            pin_map=tuple(pin_map),
             groups=tuple(groups),
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
@@ -118,12 +123,14 @@ class ProjectGenerationProcessor:
         return GenerationSnapshot(
             definition=effective_definition,
             pins=tuple(pins),
+            pin_map=tuple(pin_map),
             groups=tuple(groups),
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
             generated_project=generated_project,
             stages=(
                 GenerationStageResult(name="pins", status=GenerationStageStatus.COMPLETE, produced_count=len(pins)),
+                GenerationStageResult(name="pin_map", status=GenerationStageStatus.COMPLETE, produced_count=len(pin_map)),
                 GenerationStageResult(name="groups", status=GenerationStageStatus.COMPLETE, produced_count=len(groups)),
                 GenerationStageResult(name="device_states", status=GenerationStageStatus.COMPLETE, produced_count=len(device_states)),
                 GenerationStageResult(name="test_plans", status=GenerationStageStatus.COMPLETE, produced_count=len(test_plans)),
@@ -161,6 +168,7 @@ class ProjectGenerationProcessor:
             )
 
         pins: list[GeneratedPin] = []
+        pin_map: tuple[GeneratedPinMapEntry, ...] = ()
         groups: list[GeneratedGroup] = []
         device_states: list[GeneratedDeviceState] = []
         test_plans: list[GeneratedTestPlan] = []
@@ -178,7 +186,7 @@ class ProjectGenerationProcessor:
                     diagnostic=diagnostic,
                 )
             )
-            remaining = ("pins", "groups", "device_states", "test_plans")
+            remaining = ("pins", "pin_map", "groups", "device_states", "test_plans")
             start = remaining.index(name) + 1
             stages.extend(
                 GenerationStageResult(name=stage, status=GenerationStageStatus.NOT_ATTEMPTED)
@@ -189,6 +197,7 @@ class ProjectGenerationProcessor:
                 project_name,
                 project_metadata,
                 pins,
+                pin_map,
                 groups,
                 device_states,
                 test_plans,
@@ -201,6 +210,12 @@ class ProjectGenerationProcessor:
         except Exception as error:
             return failed_stage("pins", error, len(pins))
         stages.append(GenerationStageResult(name="pins", status=GenerationStageStatus.COMPLETE, produced_count=len(pins)))
+
+        try:
+            pin_map = generate_pin_map(effective_definition, pins, base_directory=base_directory)
+        except Exception as error:
+            return failed_stage("pin_map", error, len(pin_map))
+        stages.append(GenerationStageResult(name="pin_map", status=GenerationStageStatus.COMPLETE, produced_count=len(pin_map)))
 
         groups, group_error = GroupGenerator(effective_definition, pins).generate_best_effort()
         if group_error is not None:
@@ -234,6 +249,7 @@ class ProjectGenerationProcessor:
             project_name,
             project_metadata,
             pins,
+            pin_map,
             groups,
             device_states,
             test_plans,
@@ -252,6 +268,7 @@ class ProjectGenerationProcessor:
     def _diagnostic_for_exception(error: Exception, *, code: str):
         if isinstance(error, ProjectGenerationError):
             return error.diagnostic
+        traceback.print_exception(error)
         from project_generation.diagnostics import DiagnosticSeverity, GenerationDiagnostic
 
         return GenerationDiagnostic(
@@ -266,6 +283,7 @@ class ProjectGenerationProcessor:
         project_name: str,
         project_metadata: Mapping[str, Any],
         pins: list[GeneratedPin],
+        pin_map: tuple[GeneratedPinMapEntry, ...],
         groups: list[GeneratedGroup],
         device_states: list[GeneratedDeviceState],
         test_plans: list[GeneratedTestPlan],
@@ -277,6 +295,7 @@ class ProjectGenerationProcessor:
             metadata=project_metadata,
             dut_name=definition.dut.name if definition.dut else None,
             pins=tuple(pins),
+            pin_map=tuple(pin_map),
             groups=tuple(groups),
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
@@ -284,6 +303,7 @@ class ProjectGenerationProcessor:
         return GenerationSnapshot(
             definition=definition,
             pins=tuple(pins),
+            pin_map=tuple(pin_map),
             groups=tuple(groups),
             device_states=tuple(device_states),
             test_plans=tuple(test_plans),
@@ -539,10 +559,6 @@ class ProjectGenerationProcessor:
                 generated_group = group_by_name[group_record.name]
                 test_type = str(values.get("test_type") or candidate.values.get("test_type") or "").upper()
                 if test_type == "SIGNAL":
-                    # Signal latch-up stresses are single-pin stresses. Keep the
-                    # electrical group as context, but emit one generated test
-                    # group per pin so downstream adapters cannot accidentally
-                    # stress the entire signal group at once.
                     for pin_id in generated_group.pin_ids:
                         test_groups.append(
                             GeneratedTestGroup(
@@ -655,8 +671,6 @@ class ProjectGenerationProcessor:
                     try:
                         stress = BiasedPulseStress.from_stress_point(stress_point.values)
                     except (KeyError, TypeError, ValueError):
-                        # Not every test family is necessarily a biased-pulse stress. Only apply this
-                        # strategy to stress definitions that provide a peak.
                         if "peak" not in stress_point.values and "peak_level" not in stress_point.values:
                             continue
                         raise ProjectGenerationError(
@@ -697,8 +711,6 @@ class ProjectGenerationProcessor:
 
             if plan.test_groups and any(group.stress_points for group in plan.test_groups):
                 if not compatible_names:
-                    # Individual points may each be supportable by different supplies, but a plan must
-                    # resolve one stress source that can execute the whole stress series.
                     first_group = next(group for group in plan.test_groups if group.stress_points)
                     candidates = tuple(
                         StressSupplyCandidateDiagnostic(

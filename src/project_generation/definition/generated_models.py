@@ -408,6 +408,25 @@ class TestPlanGenerationDefinition(BaseModel):
     )
 
 
+class PinMapMappingDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+        populate_by_name=True,
+    )
+    source: str = Field(..., title='Source')
+    from_: str = Field(..., alias='from', title='From')
+    to: str = Field(..., title='To')
+    on_missing: Literal['error', 'identity'] = Field('error', title='On Missing')
+
+
+class PinMapDefinition(BaseModel):
+    model_config = ConfigDict(
+        extra='forbid',
+    )
+    location: str = Field(..., title='Location')
+    mappings: list[PinMapMappingDefinition] | None = Field([], title='Mappings', validate_default=True)
+
+
 class DutDefinition(BaseModel):
     model_config = ConfigDict(
         extra='forbid',
@@ -431,6 +450,7 @@ class ProjectGenerationDefinition(BaseModel):
         Field({}, title='Sources', validate_default=True)
     )
     dut: DutDefinition | None = None
+    pin_map: PinMapDefinition | None = None
     groups: GroupsDefinition | None = Field({}, validate_default=True)
     hardware: HardwareDefinition | None = None
     power_resources: dict[str, PowerResourceDefinition] | None = Field(

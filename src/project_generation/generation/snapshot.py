@@ -7,6 +7,7 @@ from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
     GeneratedPin,
+    GeneratedPinMapEntry,
     GeneratedProject,
     GeneratedTestPlan,
 )
@@ -32,6 +33,7 @@ class GenerationSnapshot:
 
     definition: ProjectGenerationDefinition
     pins: tuple[GeneratedPin, ...]
+    pin_map: tuple[GeneratedPinMapEntry, ...]
     groups: tuple[GeneratedGroup, ...]
     device_states: tuple[GeneratedDeviceState, ...]
     test_plans: tuple[GeneratedTestPlan, ...]

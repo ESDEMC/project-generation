@@ -16,6 +16,7 @@ class LatchUpProject(DataClassJSONMixin):
     output_directory: pathlib.Path = pathlib.Path("Output")
     test_directory: pathlib.Path = pathlib.Path("Testing")
     dut_path: pathlib.Path | None = None
+    pin_map: pathlib.Path | None = None
     leakage_path: pathlib.Path | None = None
     test_plans: list[pathlib.Path] = field(default_factory=list)
     leakage_test_plans: list[pathlib.Path] = field(default_factory=list)

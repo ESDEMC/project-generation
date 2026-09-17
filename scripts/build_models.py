@@ -25,6 +25,8 @@ REQUIRED_MODEL_CLASSES = {
     "InlineSource",
     "JsonSource",
     "NameFieldDefinition",
+    "PinMapDefinition",
+    "PinMapMappingDefinition",
     "ProjectGenerationDefinition",
     "SourceFieldMapping",
     "TestPlanRuleDefinition",

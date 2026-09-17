@@ -42,16 +42,36 @@ def replace_source_paths(
 
 def source_path_directives(definition: ProjectGenerationDefinition) -> tuple[str, ...]:
     """Return unique ``str.format`` field names used by file-backed source paths."""
+    return tuple(_source_path_directive_requirements(definition))
+
+
+def optional_source_path_directives(definition: ProjectGenerationDefinition) -> tuple[str, ...]:
+    requirements = _source_path_directive_requirements(definition)
+    return tuple(name for name, required in requirements.items() if not required)
+
+
+def required_source_path_directives(definition: ProjectGenerationDefinition) -> tuple[str, ...]:
+    requirements = _source_path_directive_requirements(definition)
+    return tuple(name for name, required in requirements.items() if required)
+
+
+def _source_path_directive_requirements(definition: ProjectGenerationDefinition) -> dict[str, bool]:
     formatter = string.Formatter()
-    directives: list[str] = []
-    for source in definition.sources.values():
+    optional_sources = {
+        mapping.source
+        for mapping in (definition.pin_map.mappings if definition.pin_map is not None else ())
+        if mapping.on_missing == "identity"
+    }
+    requirements: dict[str, bool] = {}
+    for source_name, source in definition.sources.items():
         source_path = getattr(source, "path", None)
         if not source_path:
             continue
+        required = source_name not in optional_sources
         for _, field_name, _, _ in formatter.parse(source_path):
-            if field_name and field_name not in directives:
-                directives.append(field_name)
-    return tuple(directives)
+            if field_name:
+                requirements[field_name] = requirements.get(field_name, False) or required
+    return requirements
 
 
 def bind_input_files(
@@ -78,7 +98,8 @@ def bind_input_files(
     if unknown:
         raise KeyError(f"Unknown input directives: {', '.join(unknown)}")
 
-    missing = sorted(directives - set(bindings))
+    required_directives = set(required_source_path_directives(definition))
+    missing = sorted(required_directives - set(bindings))
     if missing:
         raise KeyError(f"Missing input directives: {', '.join(missing)}")
 
@@ -86,6 +107,13 @@ def bind_input_files(
     sources = dict(definition.sources)
     for name, source in sources.items():
         source_path = getattr(source, "path", None)
-        if source_path and any(field in directives for _, field, _, _ in string.Formatter().parse(source_path) if field):
+        if not source_path:
+            continue
+        fields = tuple(
+            field
+            for _, field, _, _ in string.Formatter().parse(source_path)
+            if field
+        )
+        if fields and all(field in values for field in fields):
             sources[name] = source.model_copy(update={"path": source_path.format_map(values)})
     return definition.model_copy(update={"sources": sources})

@@ -28,6 +28,8 @@ class ProjectPackageBuilder:
         self._staged.append((role, value, path, writer))
         if role == "dut":
             self.project.dut_path = path
+        elif role == "pin_map":
+            self.project.pin_map = path
         elif role == "leakage_config":
             self.project.leakage_path = path
         elif role == "latch_up_test_plan":

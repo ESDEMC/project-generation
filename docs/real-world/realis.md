@@ -12,6 +12,7 @@ examples/real_world/realis/
 ├── README.md                Example-specific guidance
 ├── generation.yaml          Shared source mappings and generation rules
 ├── generate_projects.py     Batch generation and packaging script
+├── adapter-board.csv       Socket-to-tester location mapping
 └── input/                   REALIS JSON exports
 ```
 
@@ -39,7 +40,7 @@ python examples/real_world/realis/generate_projects.py path/to/device.json \
 
 ## Input substitution
 
-The shared definition declares source paths using `{input_file}`:
+The shared definition declares `{input_file}` for the required REALIS export and `{adapter_board}` for an optional socket-to-tester mapping:
 
 ```yaml
 sources:
@@ -51,10 +52,12 @@ sources:
     type: json
     path: "{input_file}"
     select: $.EsdPins[*]
+  adapter_board:
+    type: csv
+    path: "{adapter_board}"
 ```
 
-`generate_projects.py` replaces this token with the current input file before calling the processor. This is script-level behavior, not an
-implicit feature of `process_project_definition()`.
+`generate_projects.py` always binds the REALIS input. `--adapter-board` is optional. When it is omitted, the definition's `on_missing: identity` policy leaves `VerifierChannel` unchanged; when supplied, the adapter CSV translates that socket location to the tester location. The GUI exposes both directives, but only the REALIS input is required.
 
 ## Project metadata mapping
 
@@ -87,6 +90,8 @@ mapping:
   parameters.v_max: VoltageLevelMax
   parameters.v_min: VoltageLevelMin
 ```
+
+The REALIS pin record also maps `VerifierChannel` to `parameters.socket_pin`. The pin map optionally resolves that socket pin through the adapter-board CSV and generates `PinMap.csv` with `Pin` and `Location` columns. If no adapter board is selected, the configured identity fallback writes `VerifierChannel` directly as `Location`. A socket layer is optional in the general model: a definition may point `pin_map.location` directly at a tester-location field and omit `mappings`.
 
 The `realis_pin_type` mapping normalizes customer labels before the generation rules use them.
 

@@ -1,6 +1,6 @@
 import copy
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Mapping
 
 from project_generation.infrastructure.latchup_project import (
@@ -251,7 +251,10 @@ def _build_stress_plan(plan: GeneratedTestPlan, dut: Bindings.Dut, b: Bindings) 
         descriptor = copy.deepcopy(descriptor_by_id[group_id])
         if test_group.pin_ids is not None:
             wanted = {str(pin_id) for pin_id in test_group.pin_ids}
-            descriptor.pins = [pin for pin in descriptor.pins if str(pin.pin_id) in wanted]
+            descriptor = replace(
+                descriptor,
+                pins=[pin for pin in descriptor.pins if str(pin.pin_id) in wanted],
+            )
         parameters = [
             _stress_parameters(point.values, plan_name=plan.name, group_name=test_group.group_name, b=b)
             for point in test_group.stress_points
