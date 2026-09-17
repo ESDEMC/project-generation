@@ -1,18 +1,20 @@
 from html import escape
 from pathlib import Path
 
-from qtpy.QtCore import QCoreApplication, QEvent, QEventLoop, QSettings, Qt, QTimer, QUrl
+from qtpy.QtCore import QCoreApplication, QEvent, QEventLoop, Qt, QTimer, QUrl
 from qtpy.QtGui import QAction, QDesktopServices
 import PySide6QtAds as QtAds
 
 from qtpy.QtWidgets import (
     QAbstractItemView,
+    QCheckBox,
     QFileDialog,
     QInputDialog,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QTableWidget,
     QTableWidgetItem,
@@ -26,6 +28,7 @@ from .colors import ColorSettingsDialog, ColorTheme
 from .documents import TextDocument
 from .preferences import ApplicationPreferences, EditorPreferences, install_application_style
 from .session import ProjectSession
+from .session_state import SessionState, SessionStore
 from .widgets import (
     GenerationViews,
     ObjectTree,
@@ -61,6 +64,9 @@ class MainWindow(QMainWindow):
         elif application_preferences.parent() is None:
             application_preferences.setParent(self)
         self.application_preferences = application_preferences
+        self.session_store = SessionStore(self.application_preferences.settings)
+        self._session_export_directory: Path | None = None
+        self._restoring_session = False
         self._editors: dict[Path, TextEditor] = {}
         self._document_docks: dict[Path, QtAds.CDockWidget] = {}
         self._current_editor: TextEditor | None = None
@@ -69,7 +75,7 @@ class MainWindow(QMainWindow):
         self._regenerate_timer.setInterval(300)
         self._regenerate_timer.timeout.connect(self._auto_regenerate)
 
-        self._layout_settings = QSettings("project-generation", "project-generation-gui")
+        self._layout_settings = self.application_preferences.settings
         self._docking_state_key = "docking/state"
 
         self.project_tree = QTreeWidget()
@@ -111,10 +117,25 @@ class MainWindow(QMainWindow):
         central_layout.setContentsMargins(0, 0, 0, 0)
         central_layout.addWidget(self.central_dock_manager)
 
-        self.document_workspace_dock = QtAds.CDockWidget("Central Workspace")
+        self.document_workspace_dock = self._configure_dock(QtAds.CDockWidget("Central Workspace"))
         self.document_workspace_dock.setObjectName("CentralWorkspaceDock")
         self.document_workspace_dock.setWidget(self.central_workspace)
         self.dock_manager.setCentralWidget(self.document_workspace_dock)
+
+        self.sessions_view = QTreeWidget()
+        self.sessions_view.setColumnCount(3)
+        self.sessions_view.setHeaderLabels(["Session", "Definition", "Export Path"])
+        self.sessions_view.header().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.sessions_view.header().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.sessions_view.header().setSectionResizeMode(2, QHeaderView.Stretch)
+        self.sessions_view.itemActivated.connect(self._recent_session_activated)
+        self.sessions_dock = self._configure_dock(QtAds.CDockWidget("Recent Sessions"))
+        self.sessions_dock.setObjectName("RecentSessionsDock")
+        self.sessions_dock.setWidget(self.sessions_view)
+        self.central_dock_manager.addDockWidget(
+            QtAds.DockWidgetArea.CenterDockWidgetArea,
+            self.sessions_dock,
+        )
 
         self.project_dock = self._add_dock(
             "Project", self.project_tree, QtAds.DockWidgetArea.LeftDockWidgetArea
@@ -142,17 +163,23 @@ class MainWindow(QMainWindow):
         self._set_export_status("")
 
         self._create_actions()
-        QTimer.singleShot(0, self._restore_layout)
+        self._refresh_recent_sessions()
+        QTimer.singleShot(0, self._restore_startup_state)
+
+    @staticmethod
+    def _configure_dock(dock: QtAds.CDockWidget) -> QtAds.CDockWidget:
+        dock.setFeature(QtAds.CDockWidget.DockWidgetFloatable, False)
+        return dock
 
     def _add_dock(self, title: str, widget: QWidget, area) -> QtAds.CDockWidget:
-        dock = QtAds.CDockWidget(title)
+        dock = self._configure_dock(QtAds.CDockWidget(title))
         dock.setObjectName(title.replace(" ", "") + "Dock")
         dock.setWidget(widget)
         self.dock_manager.addDockWidget(area, dock)
         return dock
 
     def _add_dock_tab(self, title: str, widget: QWidget, dock_area) -> QtAds.CDockWidget:
-        dock = QtAds.CDockWidget(title)
+        dock = self._configure_dock(QtAds.CDockWidget(title))
         dock.setObjectName(title.replace(" ", "") + "Dock")
         dock.setWidget(widget)
         self.dock_manager.addDockWidgetTabToArea(dock, dock_area)
@@ -180,9 +207,10 @@ class MainWindow(QMainWindow):
             self.central_dock_manager.addDockWidgetTabToArea(dock, dock_area)
 
     def _show_editor(self, editor: TextEditor) -> QtAds.CDockWidget:
+        self.sessions_dock.toggleView(False)
         dock = self._document_docks.get(editor.path)
         if dock is None:
-            dock = QtAds.CDockWidget(editor.path.name)
+            dock = self._configure_dock(QtAds.CDockWidget(editor.path.name))
             dock.setObjectName(self._document_dock_object_name(editor.path))
             dock.setWidget(editor)
             self._document_docks[editor.path] = dock
@@ -198,6 +226,184 @@ class MainWindow(QMainWindow):
     def _document_dock_object_name(path: Path) -> str:
         safe = "_".join(part for part in path.parts if part).replace(":", "")
         return f"DocumentDock_{safe}"
+
+    def _restore_startup_state(self) -> None:
+        self._restore_layout()
+        if self.session.definition_document is None and self.application_preferences.restore_last_session:
+            state = self.session_store.last()
+            if state is not None and Path(state.definition_path).is_file():
+                self._restore_session(state)
+        if self.session.definition_document is None:
+            self._show_recent_sessions_workspace()
+
+    def _capture_session_state(self) -> SessionState | None:
+        definition_document = self.session.definition_document
+        if definition_document is None:
+            return None
+        active_paths = {document.path for document in self.session.active_documents()}
+        open_documents = tuple(
+            str(path)
+            for path, dock in self._document_docks.items()
+            if path in active_paths and not dock.isClosed()
+        )
+        generated_views = tuple(
+            name for name, dock in self._generated_docks.items() if not dock.isClosed()
+        )
+        dirty_documents = tuple(
+            (str(document.path), document.text)
+            for document in self.session.documents.documents()
+            if document.dirty
+        )
+        current_document = None
+        if self._current_editor is not None and self._current_editor.path in active_paths:
+            current_document = str(self._current_editor.path)
+        return SessionState(
+            definition_path=str(definition_document.path),
+            input_bindings=tuple(
+                (directive, str(path)) for directive, path in self.session.input_bindings.items()
+            ),
+            open_documents=open_documents,
+            generated_views=generated_views,
+            dirty_documents=dirty_documents,
+            current_document=current_document,
+            export_directory=(
+                str(self._session_export_directory) if self._session_export_directory is not None else None
+            ),
+        )
+
+    def _save_session_state(self) -> None:
+        if self._restoring_session:
+            return
+        state = self._capture_session_state()
+        if state is None:
+            return
+        self.session_store.save(state, self.central_dock_manager.saveState())
+        self._refresh_recent_sessions()
+
+    def _clear_central_session_views(self) -> None:
+        remove_dock = getattr(self.central_dock_manager, "removeDockWidget", None)
+        for dock in (*self._document_docks.values(), *self._generated_docks.values()):
+            if callable(remove_dock):
+                remove_dock(dock)
+                dock.deleteLater()
+            elif not dock.isClosed():
+                dock.toggleView(False)
+        self._document_docks.clear()
+        self._generated_docks.clear()
+        self._editors.clear()
+        self._current_editor = None
+        self.sessions_dock.toggleView(False)
+
+    def _restore_session(self, state: SessionState) -> None:
+        definition_path = Path(state.definition_path)
+        if not definition_path.is_file():
+            self.statusBar().showMessage(f"Session file no longer exists: {definition_path}")
+            self._refresh_recent_sessions()
+            return
+        self._save_session_state()
+        self._restoring_session = True
+        try:
+            self._clear_central_session_views()
+            self.session.open_definition(definition_path)
+            dirty_documents = {Path(path).resolve(): text for path, text in state.dirty_documents}
+            if self.session.definition_document.path in dirty_documents:
+                self.session.definition_document.text = dirty_documents[
+                    self.session.definition_document.path
+                ]
+                self.session.regenerate(report_missing_inputs=False)
+
+            valid_directives = set(self.session.input_directives())
+            for directive, raw_path in state.input_bindings:
+                input_path = Path(raw_path)
+                if directive not in valid_directives or not input_path.is_file():
+                    continue
+                resolved = input_path.resolve()
+                self.session.input_bindings[directive] = resolved
+                self.session.documents.open(resolved)
+
+            self.session.regenerate(report_missing_inputs=False)
+            for path, text in dirty_documents.items():
+                document = self.session.documents.get(path)
+                if document is not None:
+                    document.text = text
+            self.session.regenerate(report_missing_inputs=False)
+            self._session_export_directory = (
+                Path(state.export_directory) if state.export_directory else None
+            )
+            self._sync_documents()
+
+            for raw_path in state.open_documents:
+                document = self.session.documents.get(Path(raw_path))
+                if document is not None:
+                    self._show_editor(self._ensure_editor(document))
+            if not state.open_documents and self.session.definition_document is not None:
+                self._show_editor(self._ensure_editor(self.session.definition_document))
+
+            for collection in state.generated_views:
+                self._show_generated_items(collection)
+
+            central_state = self.session_store.central_state(definition_path)
+            if central_state is not None:
+                self.central_dock_manager.restoreState(central_state)
+
+            if state.current_document:
+                editor = self._editors.get(Path(state.current_document).resolve())
+                if editor is not None:
+                    self._show_editor(editor)
+            self._refresh_views()
+        finally:
+            self._restoring_session = False
+        self._save_session_state()
+
+    def _show_recent_sessions_workspace(self) -> None:
+        self._refresh_recent_sessions()
+        self.sessions_dock.toggleView(True)
+
+    def _refresh_recent_sessions(self) -> None:
+        states = self.session_store.recent()
+        if hasattr(self, "sessions_view"):
+            self.sessions_view.clear()
+            for state in states:
+                definition_path = Path(state.definition_path)
+                item = QTreeWidgetItem(
+                    [
+                        definition_path.stem,
+                        str(definition_path),
+                        state.export_directory or "",
+                    ]
+                )
+                item.setData(0, Qt.UserRole, state.definition_path)
+                if not definition_path.is_file():
+                    item.setDisabled(True)
+                self.sessions_view.addTopLevelItem(item)
+        if hasattr(self, "recent_sessions_menu"):
+            self.recent_sessions_menu.clear()
+            available = [state for state in states if Path(state.definition_path).is_file()]
+            if not available:
+                action = self.recent_sessions_menu.addAction("No Recent Sessions")
+                action.setEnabled(False)
+                return
+            for state in available:
+                path = Path(state.definition_path)
+                action = self.recent_sessions_menu.addAction(f"{path.name} — {path.parent}")
+                action.setToolTip(str(path))
+                action.triggered.connect(
+                    lambda _checked=False, session_state=state: self._restore_session(session_state)
+                )
+            self.recent_sessions_menu.addSeparator()
+            clear_action = self.recent_sessions_menu.addAction("Clear Recent Sessions")
+            clear_action.triggered.connect(self._clear_recent_sessions)
+
+    def _clear_recent_sessions(self) -> None:
+        self.session_store.clear_recent()
+        self._refresh_recent_sessions()
+
+    def _recent_session_activated(self, item: QTreeWidgetItem, _column: int = 0) -> None:
+        path = item.data(0, Qt.UserRole)
+        if path:
+            state = self.session_store.state_for(path)
+            if state is not None:
+                self._restore_session(state)
 
     def _restore_layout(self) -> None:
         geometry = self._layout_settings.value("window/geometry")
@@ -219,6 +425,7 @@ class MainWindow(QMainWindow):
         self._layout_settings.sync()
 
     def closeEvent(self, event) -> None:
+        self._save_session_state()
         self._save_layout()
         super().closeEvent(event)
 
@@ -250,6 +457,7 @@ class MainWindow(QMainWindow):
 
         file_menu = self.menuBar().addMenu("File")
         file_menu.addAction(open_action)
+        self.recent_sessions_menu = file_menu.addMenu("Recent Sessions")
         file_menu.addAction(input_action)
         file_menu.addSeparator()
         file_menu.addAction(save_action)
@@ -282,22 +490,53 @@ class MainWindow(QMainWindow):
         toolbar.addAction(save_action)
         toolbar.addAction(regenerate_action)
         toolbar.addAction(self.export_action)
+        toolbar.addSeparator()
+        self.overwrite_existing_checkbox = QCheckBox("Overwrite existing project")
+        toolbar.addWidget(self.overwrite_existing_checkbox)
 
     def export_project_dialog(self) -> None:
         if self.session.definition_document is None:
             self.statusBar().showMessage("Open a generation definition before exporting")
             return
-        start = str(self.session.definition_document.path.parent)
-        output_directory = QFileDialog.getExistingDirectory(self, "Export Project", start)
+        start_path = self._session_export_directory or self.application_preferences.default_export_path
+        if not start_path.exists():
+            start_path = self.session.definition_document.path.parent
+        output_directory = QFileDialog.getExistingDirectory(self, "Export Project", str(start_path))
         if not output_directory:
             return
+        self._session_export_directory = Path(output_directory).resolve()
+        self._save_session_state()
+
+        try:
+            project_directory = self.session.export_project_directory(output_directory)
+        except Exception:
+            self._refresh_views()
+            self.problems_dock.toggleView(True)
+            self._set_export_status("Export failed")
+            self.statusBar().showMessage("Export failed — see Problems")
+            return
+
+        overwrite = self.overwrite_existing_checkbox.isChecked()
+        if project_directory.exists() and not overwrite:
+            answer = QMessageBox.question(
+                self,
+                "Overwrite Existing Project?",
+                f'The project already exists:\n{project_directory}\n\nOverwrite everything in this project?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No,
+            )
+            if answer != QMessageBox.Yes:
+                self._set_export_status("Export cancelled")
+                self.statusBar().showMessage("Export cancelled")
+                return
+            overwrite = True
 
         self._set_export_status("Exporting…")
         self.statusBar().showMessage("Exporting…")
         self.export_action.setEnabled(False)
         QCoreApplication.processEvents(QEventLoop.ExcludeUserInputEvents)
         try:
-            project_path = self.session.export_project(output_directory)
+            project_path = self.session.export_project(output_directory, overwrite=overwrite)
         except Exception:
             self._refresh_views()
             self.problems_dock.toggleView(True)
@@ -313,6 +552,7 @@ class MainWindow(QMainWindow):
             f'Exported: <a href="{QUrl.fromLocalFile(str(export_folder)).toString()}">{escape(str(export_folder))}</a>'
         )
         self.statusBar().showMessage(f"Exported project to {project_path}")
+        self._save_session_state()
         if self.application_preferences.open_folder_after_export:
             self._open_folder(export_folder)
 
@@ -363,19 +603,34 @@ class MainWindow(QMainWindow):
 
         current = self.session.input_bindings.get(directive)
         start_directory = str(current.parent if current is not None else self.session.definition_document.path.parent)
-        path, _ = QFileDialog.getOpenFileName(self, f"Select input for {{{directive}}}", start_directory, "All files (*)")
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            f"Select input for {{{directive}}}",
+            start_directory,
+            "All files (*)",
+        )
         if not path:
             return
         self.session.set_input_file(directive, Path(path))
         self._sync_documents()
         self._refresh_views()
+        self._save_session_state()
 
     def open_definition(self, path: Path) -> None:
-        self.session.open_definition(path)
+        resolved = path.resolve()
+        saved_state = self.session_store.state_for(resolved)
+        if saved_state is not None:
+            self._restore_session(saved_state)
+            return
+        self._save_session_state()
+        self._clear_central_session_views()
+        self.session.open_definition(resolved)
+        self._session_export_directory = None
         self._sync_documents()
         if self.session.definition_document is not None:
             self._show_editor(self._ensure_editor(self.session.definition_document))
         self._refresh_views()
+        self._save_session_state()
 
     def _sync_documents(self) -> None:
         for document in self.session.active_documents():
@@ -385,6 +640,10 @@ class MainWindow(QMainWindow):
     def _ensure_editor(self, document: TextDocument) -> TextEditor:
         editor = self._editors.get(document.path)
         if editor is not None:
+            if editor.toPlainText() != document.text:
+                editor.blockSignals(True)
+                editor.setPlainText(document.text)
+                editor.blockSignals(False)
             return editor
         editor = TextEditor(document.path, document.text)
         editor.set_font_size(self.editor_preferences.font_size)
@@ -402,20 +661,24 @@ class MainWindow(QMainWindow):
         self.session.regenerate(report_missing_inputs=False)
         self._sync_documents()
         self._refresh_views()
+        self._save_session_state()
 
     def _regenerate(self) -> None:
         self.session.regenerate(report_missing_inputs=True)
         self._sync_documents()
         self._refresh_views()
+        self._save_session_state()
 
     def save_current(self) -> None:
         if self._current_editor is not None:
             self.session.save(self._current_editor.path)
             self._update_tab_titles()
+            self._save_session_state()
 
     def save_all(self) -> None:
         self.session.save_all()
         self._update_tab_titles()
+        self._save_session_state()
 
     def _refresh_views(self) -> None:
         self._refresh_problems()
@@ -504,6 +767,7 @@ class MainWindow(QMainWindow):
 
             for name, stage_name, count in (
                 ("Pins", "pins", len(snapshot.pins)),
+                ("Pin Map", "pin_map", len(getattr(snapshot, "pin_map", ()))),
                 ("Groups", "groups", len(snapshot.groups)),
                 ("Device States", "device_states", len(snapshot.device_states)),
                 (
@@ -606,13 +870,14 @@ class MainWindow(QMainWindow):
         if collection is None:
             return
 
+        self.sessions_dock.toggleView(False)
         view = self.generation_tables.view(collection)
         if view is None:
             return
 
         dock = self._generated_docks.get(collection)
         if dock is None:
-            dock = QtAds.CDockWidget(collection)
+            dock = self._configure_dock(QtAds.CDockWidget(collection))
             dock.setObjectName("Generated" + collection.replace(" ", "") + "Dock")
             dock.setWidget(view)
             self._add_central_dock(dock)
@@ -621,6 +886,7 @@ class MainWindow(QMainWindow):
                 self.panels_menu.addAction(dock.toggleViewAction())
 
         dock.toggleView(True)
+        self._save_session_state()
 
     def _update_tab_titles(self) -> None:
         for editor in self._editors.values():

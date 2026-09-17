@@ -97,10 +97,13 @@ def test_realis_project_metadata_is_loaded_from_input() -> None:
 
     definition = load_project_definition(EXAMPLE_DIRECTORY / "generation.yaml")
     input_path = next((EXAMPLE_DIRECTORY / "input").glob("L8550_*.json")).resolve()
+    source_paths = {
+        "{input_file}": input_path,
+    }
     token_sources = {
-        name: source.model_copy(update={"path": str(input_path)})
+        name: source.model_copy(update={"path": str(source_paths[source.path])})
         for name, source in definition.sources.items()
-        if getattr(source, "path", None) == "{input_file}"
+        if getattr(source, "path", None) in source_paths
     }
     definition = definition.model_copy(update={"sources": {**definition.sources, **token_sources}})
 

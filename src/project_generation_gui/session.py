@@ -1,4 +1,5 @@
 import json
+import shutil
 import tempfile
 import traceback
 from dataclasses import dataclass
@@ -8,7 +9,11 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
-from project_generation.application.workflows import bind_input_files, source_path_directives
+from project_generation.application.workflows import (
+    bind_input_files,
+    required_source_path_directives,
+    source_path_directives,
+)
 from project_generation.definition.models import ProjectGenerationDefinition
 from project_generation.definition.validation import validate_project_definition
 from project_generation.diagnostics import ProjectGenerationError
@@ -60,8 +65,21 @@ class ProjectSession:
     def save_all(self) -> None:
         self.documents.save_all()
 
-    def export_project(self, output_directory: str | Path) -> Path:
-        """Strictly generate and write the current in-memory working copy."""
+    def export_project_directory(self, output_directory: str | Path) -> Path:
+        self.regenerate()
+        if self.definition is None or self.snapshot is None or any(
+            item.severity.lower() == "error" for item in self.diagnostics
+        ):
+            raise ProjectGenerationError(
+                "Cannot export while the current working copy has errors",
+                code="export.validation_failed",
+            )
+
+        from project_generation.infrastructure.latchup_project.writer import safe_file_name
+
+        return Path(output_directory).resolve() / safe_file_name(self.snapshot.generated_project.name)
+
+    def export_project(self, output_directory: str | Path, *, overwrite: bool = False) -> Path:
         self.regenerate()
         if self.definition is None or any(item.severity.lower() == "error" for item in self.diagnostics):
             raise ProjectGenerationError(
@@ -70,9 +88,17 @@ class ProjectSession:
             )
 
         try:
-            from project_generation.infrastructure.latchup_project.writer import LatchUpProjectWriter
+            from project_generation.infrastructure.latchup_project.writer import LatchUpProjectWriter, safe_file_name
 
             generated = self._process_working_copy_strict(self.definition)
+            project_directory = Path(output_directory).resolve() / safe_file_name(generated.name)
+            if project_directory.exists():
+                if not overwrite:
+                    raise FileExistsError(project_directory)
+                if project_directory.is_dir():
+                    shutil.rmtree(project_directory)
+                else:
+                    project_directory.unlink()
             return LatchUpProjectWriter().write(generated, output_directory)
         except Exception as error:
             if not isinstance(error, ProjectGenerationError):
@@ -164,7 +190,7 @@ class ProjectSession:
             return
 
         missing_inputs = tuple(
-            name for name in source_path_directives(definition) if name not in self.input_bindings
+            name for name in required_source_path_directives(definition) if name not in self.input_bindings
         )
         if missing_inputs:
             self.snapshot = None

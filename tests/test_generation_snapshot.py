@@ -1,9 +1,10 @@
 from project_generation.definition.models import ProjectGenerationDefinition
 from project_generation.generation.processor import ProjectGenerationProcessor
+from tests.support.paths import EXPLICIT_PROJECT
 
 
 def test_process_with_snapshot_exposes_generation_stages() -> None:
-    definition = ProjectGenerationDefinition.load("examples/basics/explicit_project/generation.json")
+    definition = ProjectGenerationDefinition.load(EXPLICIT_PROJECT)
     processor = ProjectGenerationProcessor()
 
     snapshot = processor.process_with_snapshot(definition)

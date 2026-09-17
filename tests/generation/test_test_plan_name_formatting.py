@@ -9,7 +9,13 @@ from tests.support.paths import REALIS
 def test_realis_test_plan_names_use_mapped_dimension_tokens() -> None:
     definition = load_project_definition(REALIS / "generation.yaml")
     input_path = sorted((REALIS / "input").glob("*.json"))[0]
-    definition = replace_source_paths(definition, {"realis_project": input_path, "realis_pins": input_path})
+    definition = replace_source_paths(
+        definition,
+        {
+            "realis_project": input_path,
+            "realis_pins": input_path,
+        },
+    )
 
     project = ProjectGenerationProcessor().process(definition, base_directory=REALIS)
     signal_plans = [plan for plan in project.test_plans if plan.test_type == "SIGNAL"]

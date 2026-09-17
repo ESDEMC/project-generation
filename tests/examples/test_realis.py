@@ -15,12 +15,7 @@ from tests.support.paths import REALIS
 
 EXAMPLE = REALIS / "generate_projects.py"
 INPUT = REALIS / "input"
-INCOMPATIBLE_WITH_EXAMPLE_HARDWARE: set[str] = {
-    "L8550_BTS80035-SSPL-4ES.239e42b1-c4d0-4c9d-b5e4-6a7114015857.json",
-    "S9191_TLE9190QVW.9565843d-0c03-4bc1-b227-2f1801d44f9f.json",
-    "S9300_TLE9321ES.2e5a42eb-b3cd-4ae4-8256-7662877864a6.json",
-    "U0019_TLE9954QSA40-33.7447a625-3c92-4d3c-a489-899ceb0b25ed.json",
-}
+INCOMPATIBLE_WITH_EXAMPLE_HARDWARE: set[str] = set()
 
 
 def load_example_module():
@@ -33,7 +28,10 @@ def load_example_module():
 
 def process_realis_definition(module, input_path: pathlib.Path):
     definition = load_project_definition(module.DEFAULT_DEFINITION_PATH)
-    definition = bind_input_files(definition, {"input_file": input_path.resolve()})
+    definition = bind_input_files(
+        definition,
+        {"input_file": input_path.resolve()},
+    )
     return ProjectGenerationProcessor().process(
         definition,
         base_directory=module.DEFAULT_DEFINITION_PATH.resolve().parent,

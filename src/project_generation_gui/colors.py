@@ -13,11 +13,13 @@ from qtpy.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
     QLabel,
+    QLineEdit,
     QSpinBox,
     QPushButton,
     QTableWidget,
@@ -375,12 +377,33 @@ class ColorSettingsDialog(QDialog):
         if application_preferences is not None:
             general_page = QWidget()
             general_form = QFormLayout(general_page)
+
+            self.default_export_path_edit = QLineEdit(str(application_preferences.default_export_path))
+            self.default_export_path_edit.editingFinished.connect(
+                lambda: application_preferences.set_default_export_path(self.default_export_path_edit.text())
+            )
+            browse_export_path = QPushButton("Browse…")
+            browse_export_path.clicked.connect(self._browse_default_export_path)
+            export_path_row = QWidget()
+            export_path_layout = QHBoxLayout(export_path_row)
+            export_path_layout.setContentsMargins(0, 0, 0, 0)
+            export_path_layout.addWidget(self.default_export_path_edit, 1)
+            export_path_layout.addWidget(browse_export_path)
+            general_form.addRow("Default export path", export_path_row)
+
             self.open_exported_folder_checkbox = QCheckBox("Open exported folder when export completes")
             self.open_exported_folder_checkbox.setChecked(application_preferences.open_folder_after_export)
             self.open_exported_folder_checkbox.toggled.connect(
                 application_preferences.set_open_folder_after_export
             )
-            general_form.addRow("Export", self.open_exported_folder_checkbox)
+            general_form.addRow("", self.open_exported_folder_checkbox)
+
+            self.restore_last_session_checkbox = QCheckBox("Restore last session on startup")
+            self.restore_last_session_checkbox.setChecked(application_preferences.restore_last_session)
+            self.restore_last_session_checkbox.toggled.connect(
+                application_preferences.set_restore_last_session
+            )
+            general_form.addRow("Sessions", self.restore_last_session_checkbox)
             tabs.addTab(general_page, "General")
         if editor_preferences is not None:
             editor_page = QWidget()
@@ -406,6 +429,19 @@ class ColorSettingsDialog(QDialog):
         layout.addWidget(tabs)
         layout.addWidget(buttons)
         self._populate()
+
+    def _browse_default_export_path(self) -> None:
+        if self.application_preferences is None:
+            return
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Default Export Path",
+            self.default_export_path_edit.text(),
+        )
+        if not path:
+            return
+        self.default_export_path_edit.setText(path)
+        self.application_preferences.set_default_export_path(path)
 
     def _populate(self) -> None:
         selected = self._selected_mapping()

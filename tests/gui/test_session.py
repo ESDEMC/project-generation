@@ -2,9 +2,10 @@ import json
 from pathlib import Path
 
 from project_generation_gui.session import ProjectSession
+from tests.support.paths import JSON_PIN_SOURCE
 
 
-EXAMPLE = Path("examples/sources/json_pin_source")
+EXAMPLE = JSON_PIN_SOURCE.parent
 
 
 def test_regeneration_uses_unsaved_source_text_without_modifying_disk(tmp_path) -> None:
@@ -40,8 +41,10 @@ def test_realis_input_binding_uses_unsaved_working_copy_without_saving(tmp_path:
     definition_path = tmp_path / "generation.yaml"
     hardware_path = tmp_path / "hardware.yaml"
     input_path = tmp_path / "device.json"
+    pin_map_path = tmp_path / "adapter-board.csv"
     shutil.copy(REALIS / "generation.yaml", definition_path)
     shutil.copy(REALIS / "hardware.yaml", hardware_path)
+    shutil.copy(REALIS / "adapter-board.csv", pin_map_path)
 
     source_input = next((REALIS / "input").glob("*.json"))
     shutil.copy(source_input, input_path)
@@ -49,10 +52,16 @@ def test_realis_input_binding_uses_unsaved_working_copy_without_saving(tmp_path:
     session = ProjectSession()
     session.open_definition(definition_path)
 
-    assert session.input_directives() == ("input_file",)
+    assert session.input_directives() == ("input_file", "adapter_board")
+    assert not any(diagnostic.code == "INPUT_FILE_NOT_SET" for diagnostic in session.diagnostics)
+    assert session.snapshot is None
+
+    session.regenerate()
     assert any(diagnostic.code == "INPUT_FILE_NOT_SET" for diagnostic in session.diagnostics)
 
     session.set_input_file("input_file", input_path)
+    assert session.snapshot is not None
+    session.set_input_file("adapter_board", pin_map_path)
     assert session.snapshot is not None
 
     original_bytes = input_path.read_bytes()
@@ -62,6 +71,36 @@ def test_realis_input_binding_uses_unsaved_working_copy_without_saving(tmp_path:
     session.regenerate()
 
     assert input_path.read_bytes() == original_bytes
+
+
+def test_quiet_regeneration_waits_for_required_inputs_without_reporting_an_error(tmp_path: Path) -> None:
+    import shutil
+
+    from tests.support.paths import REALIS
+
+    definition_path = tmp_path / "generation.yaml"
+    hardware_path = tmp_path / "hardware.yaml"
+    input_path = tmp_path / "device.json"
+    pin_map_path = tmp_path / "adapter-board.csv"
+    shutil.copy(REALIS / "generation.yaml", definition_path)
+    shutil.copy(REALIS / "hardware.yaml", hardware_path)
+    shutil.copy(REALIS / "adapter-board.csv", pin_map_path)
+    shutil.copy(next((REALIS / "input").glob("*.json")), input_path)
+
+    session = ProjectSession()
+    session.open_definition(definition_path)
+
+    assert session.snapshot is None
+    assert not any(diagnostic.code == "INPUT_FILE_NOT_SET" for diagnostic in session.diagnostics)
+
+    session.regenerate(report_missing_inputs=False)
+    assert session.snapshot is None
+    assert not any(diagnostic.code == "INPUT_FILE_NOT_SET" for diagnostic in session.diagnostics)
+
+    session.set_input_file("input_file", input_path)
+    assert session.snapshot is not None
+    session.set_input_file("adapter_board", pin_map_path)
+    assert session.snapshot is not None
 
 
 def test_definition_syntax_error_precedes_schema_validation(tmp_path) -> None:

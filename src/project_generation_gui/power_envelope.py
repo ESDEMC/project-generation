@@ -3,11 +3,11 @@ from enum import StrEnum
 from typing import Any, Mapping, Sequence
 
 import pyqtgraph as pg
-from quantiphy import Quantity
 from qtpy import QtCore, QtGui, QtWidgets
 
 from project_generation.definition.models import PowerResourceDefinition
 from project_generation_gui.colors import ASSIGNMENT_CATEGORY, ColorTheme
+from project_generation_gui.display_formatting import format_quantity
 
 
 class EnvelopeMode(StrEnum):
@@ -41,8 +41,8 @@ class PowerEnvelopeRegion:
     def name(self) -> str:
         return (
             f"{self.assignment} {self.mode}: "
-            f"{Quantity(self.max_abs_voltage_v, 'V').render(prec=4)} @ "
-            f"{Quantity(self.max_abs_current_a, 'A').render(prec=4)}"
+            f"{format_quantity(self.max_abs_voltage_v, 'V')} @ "
+            f"{format_quantity(self.max_abs_current_a, 'A')}"
         )
 
 
@@ -102,7 +102,7 @@ class AxisMap:
     def _format(value: float, unit: str) -> str:
         if value == 0:
             return "0"
-        return Quantity(value, unit).render(prec=4)
+        return format_quantity(value, unit)
 
 
 def regions_from_power_resources(
@@ -499,8 +499,8 @@ class PowerEnvelopeComparisonView(QtWidgets.QWidget):
             label = item.label or f"Configuration {index + 1}"
             tooltip = item.tooltip or label
             marker.setToolTip(
-                f"{tooltip}\nVoltage: {Quantity(item.voltage_v, 'V').render(prec=4)}"
-                f"\nCurrent: {Quantity(item.current_a, 'A').render(prec=4)}"
+                f"{tooltip}\nVoltage: {format_quantity(item.voltage_v, 'V')}"
+                f"\nCurrent: {format_quantity(item.current_a, 'A')}"
             )
             marker.setZValue(1100 if selected else 1000)
             self.plot.addItem(marker)

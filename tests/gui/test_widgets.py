@@ -53,9 +53,6 @@ def test_yaml_pygments_tokens_fall_back_to_parent_style(qtbot) -> None:
         if value
     }
 
-    # YAML emits lexer-specific descendants that are not necessarily explicit
-    # entries in a Pygments style. Every emitted token must still resolve via
-    # its nearest styled parent without raising KeyError.
     for token_type in token_types:
         editor._search_highlighter._format_for_token(token_type)
 
@@ -93,8 +90,6 @@ def test_text_editor_find_highlights_all_matches_and_moves_cursor_to_navigation_
     assert editor.textCursor().selectionStart() == 23
     assert editor.textCursor().selectionEnd() == 28
 
-    # User movement/editing invalidates the navigation position. The next search
-    # anchors from the real editor cursor and then selects that match.
     cursor = editor.textCursor()
     cursor.clearSelection()
     cursor.setPosition(6)
@@ -111,7 +106,6 @@ def test_text_editor_find_highlights_all_matches_and_moves_cursor_to_navigation_
     assert editor.textCursor().selectionStart() == 12
     assert editor.textCursor().selectionEnd() == 17
 
-    # A query with no results clears every search highlight and current match.
     editor.search_edit.setText("not-present")
     assert editor.search_count.text() == "0/0"
     assert editor._search_highlighter._matches == ()
@@ -128,8 +122,6 @@ def test_text_editor_find_keeps_shortcuts_and_uses_document_match_spans(qtbot) -
     editor.show_search()
     editor.search_edit.setText("alpha")
 
-    # QTextDocument.find() defines the matching semantics; the highlighter is
-    # given those exact spans instead of independently re-finding text.
     assert tuple(editor._search_matches) == editor._search_highlighter._matches
     assert len(editor._search_highlighter._matches) == len(editor._search_matches)
 

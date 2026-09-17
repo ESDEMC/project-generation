@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from qtpy.QtCore import QObject, QSettings, Signal
 from qtpy.QtGui import QColor, QPalette
 from qtpy.QtWidgets import QApplication, QStyleFactory
@@ -90,10 +92,28 @@ class ApplicationPreferences(QObject):
         self._settings = settings or QSettings("project-generation", "project-generation-gui")
         value = self._settings.value("export/open_folder_after_export", True)
         self._open_folder_after_export = value if isinstance(value, bool) else str(value).lower() == "true"
+        default_export = self._settings.value("export/default_path", str(Path.home()))
+        self._default_export_path = Path(str(default_export)).expanduser()
+        restore_value = self._settings.value("sessions/restore_last", True)
+        self._restore_last_session = (
+            restore_value if isinstance(restore_value, bool) else str(restore_value).lower() == "true"
+        )
+
+    @property
+    def settings(self) -> QSettings:
+        return self._settings
 
     @property
     def open_folder_after_export(self) -> bool:
         return self._open_folder_after_export
+
+    @property
+    def default_export_path(self) -> Path:
+        return self._default_export_path
+
+    @property
+    def restore_last_session(self) -> bool:
+        return self._restore_last_session
 
     def set_open_folder_after_export(self, enabled: bool) -> None:
         enabled = bool(enabled)
@@ -101,6 +121,25 @@ class ApplicationPreferences(QObject):
             return
         self._open_folder_after_export = enabled
         self._settings.setValue("export/open_folder_after_export", enabled)
+        self.changed.emit()
+
+    def set_default_export_path(self, path: str | Path) -> None:
+        text = str(path).strip()
+        if not text:
+            return
+        resolved = Path(text).expanduser()
+        if resolved == self._default_export_path:
+            return
+        self._default_export_path = resolved
+        self._settings.setValue("export/default_path", str(resolved))
+        self.changed.emit()
+
+    def set_restore_last_session(self, enabled: bool) -> None:
+        enabled = bool(enabled)
+        if enabled == self._restore_last_session:
+            return
+        self._restore_last_session = enabled
+        self._settings.setValue("sessions/restore_last", enabled)
         self.changed.emit()
 
 

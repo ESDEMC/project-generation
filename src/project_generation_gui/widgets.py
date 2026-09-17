@@ -1,4 +1,5 @@
 import json
+from functools import lru_cache
 from dataclasses import dataclass, fields, is_dataclass
 from enum import Enum
 from pathlib import Path
@@ -6,7 +7,6 @@ from typing import Any, Mapping, Sequence
 from uuid import UUID
 
 from pydantic import BaseModel
-from quantiphy import Quantity
 from qtpy.QtCore import QEvent, QModelIndex, QSortFilterProxyModel, Qt, Signal
 from qtpy.QtGui import (
     QColor,
@@ -46,10 +46,12 @@ from project_generation.generation.models import (
     GeneratedDeviceState,
     GeneratedGroup,
     GeneratedPin,
+    GeneratedPinMapEntry,
     GeneratedTestPlan,
 )
 from project_generation.generation.snapshot import GenerationSnapshot
 from project_generation_gui.colors import ASSIGNMENT_CATEGORY, TYPE_CATEGORY, ColorTheme
+from project_generation_gui.display_formatting import format_quantity
 from project_generation_gui.power_envelope import (
     PowerEnvelopeComparisonView,
     PowerEnvelopeGridView,
@@ -203,14 +205,11 @@ class TextEditor(QPlainTextEdit):
 
     def _search_text_changed(self) -> None:
         self._search_navigation_valid = False
-        self._update_search_matches(preserve_current=False)
-        if self._search_matches:
-            self._search_index = self._match_index_from_cursor(1)
-            self._search_navigation_valid = True
-            self._refresh_search_highlights()
-            self._update_search_count()
+        self._update_search_matches(preserve_current=False, initialize_current=True)
 
-    def _update_search_matches(self, *, preserve_current: bool) -> None:
+    def _update_search_matches(
+        self, *, preserve_current: bool, initialize_current: bool = False
+    ) -> None:
         query = self.search_edit.text()
         previous_match = self._current_search_match() if preserve_current else None
         self._search_matches = []
@@ -227,6 +226,10 @@ class TextEditor(QPlainTextEdit):
 
         if previous_match in self._search_matches:
             self._search_index = self._search_matches.index(previous_match)
+            self._search_navigation_valid = True
+        elif initialize_current and self._search_matches:
+            self._search_index = self._match_index_from_cursor(1)
+            self._search_navigation_valid = True
         else:
             self._search_navigation_valid = False
 
@@ -491,6 +494,7 @@ class RichTextDelegate(QStyledItemDelegate):
         painter.restore()
 
 
+@lru_cache(maxsize=256)
 def _title_case_label(value: str) -> str:
     acronyms = {"id": "ID", "dc": "DC", "io": "IO", "vdd": "VDD", "vss": "VSS"}
     parts = []
@@ -510,8 +514,13 @@ def _title_case_label(value: str) -> str:
 
 
 def _quantity_unit(field_name: str, context: Mapping[str, Any] | None = None) -> str | None:
-    key = field_name.split(":")[-1].strip().lower().replace(" ", "_")
     mode = str((context or {}).get("source_mode", (context or {}).get("mode", "voltage"))).lower()
+    return _quantity_unit_for_mode(field_name, mode)
+
+
+@lru_cache(maxsize=256)
+def _quantity_unit_for_mode(field_name: str, mode: str) -> str | None:
+    key = field_name.split(":")[-1].strip().lower().replace(" ", "_")
     if key in {"delay", "timeout", "soak_time", "pulse_width", "rise_time", "fall_time", "duration"}:
         return "s"
     if key in {"temperature", "cool_temperature", "start_tolerance"}:
@@ -531,10 +540,6 @@ def _quantity_unit(field_name: str, context: Mapping[str, Any] | None = None) ->
     if key.endswith("_power") or key in {"power", "wattage"}:
         return "W"
     return None
-
-
-def _format_quantity(value: int | float, unit: str) -> str:
-    return Quantity(value, unit).render(prec=4)
 
 
 def _generated_display_value(
@@ -558,7 +563,7 @@ def _generated_display_value(
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         unit = _quantity_unit(field_name, context)
         if unit is not None:
-            return _format_quantity(value, unit)
+            return format_quantity(value, unit)
     return str(value)
 
 
@@ -1161,19 +1166,21 @@ class TestPlansView(QWidget):
 class GenerationViews(QWidget):
     """Own and refresh the generated-data widgets used by ADS dock tabs."""
 
-    VIEW_NAMES = ("Pins", "Groups", "Device States", "Hardware Envelopes", "Test Plans")
+    VIEW_NAMES = ("Pins", "Pin Map", "Groups", "Device States", "Hardware Envelopes", "Test Plans")
 
     def __init__(self, theme: ColorTheme, parent=None) -> None:
         super().__init__(parent)
         self.theme = theme
         self._snapshot: GenerationSnapshot | None = None
         self.pins = GeneratedItemsTable(theme)
+        self.pin_map = GeneratedItemsTable(theme)
         self.groups = GeneratedItemsTable(theme)
         self.device_states = DeviceStatesView(theme)
         self.hardware_envelopes = PowerEnvelopeComparisonView(theme)
         self.test_plans = TestPlansView(theme)
         self._views = {
             "Pins": self.pins,
+            "Pin Map": self.pin_map,
             "Groups": self.groups,
             "Device States": self.device_states,
             "Hardware Envelopes": self.hardware_envelopes,
@@ -1190,6 +1197,7 @@ class GenerationViews(QWidget):
             [domain.assignment for state in snapshot.device_states for domain in state.power_domains],
         )
         self._set_pins(snapshot.pins)
+        self._set_pin_map(snapshot.pin_map)
         self._set_groups(snapshot.groups, snapshot.pins)
         self.device_states.set_states(snapshot.device_states, snapshot.groups, snapshot.diagnostics)
         self.hardware_envelopes.set_power_resources(snapshot.definition.power_resources or {})
@@ -1235,6 +1243,12 @@ class GenerationViews(QWidget):
                 ]
             )
         self.pins.set_rows(headers, rows)
+
+    def _set_pin_map(self, entries: Sequence[GeneratedPinMapEntry]) -> None:
+        self.pin_map.set_rows(
+            ["Pin", "Location"],
+            [[entry.pin, entry.location] for entry in entries],
+        )
 
     def _set_groups(self, groups: Sequence[GeneratedGroup], pins: Sequence[GeneratedPin]) -> None:
         parameter_names = sorted({key for group in groups for key in group.parameters})

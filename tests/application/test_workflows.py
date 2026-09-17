@@ -20,6 +20,7 @@ def test_replace_source_paths_returns_updated_copy() -> None:
 
     assert updated.sources["realis_project"].path == "device.json"
     assert updated.sources["realis_pins"].path == "device.json"
+    assert updated.sources["adapter_board"].path == "{adapter_board}"
     assert definition.sources["realis_project"].path == "{input_file}"
 
 
@@ -96,20 +97,35 @@ def test_loaded_definition_uses_its_own_directory(tmp_path: pathlib.Path) -> Non
     assert project_path.is_file()
 
 
-def test_source_path_directives_returns_realis_input_file() -> None:
+def test_source_path_directives_returns_realis_input_files() -> None:
     from project_generation.application.workflows import source_path_directives
 
     definition = load_project_definition(REALIS / "generation.yaml")
 
-    assert source_path_directives(definition) == ("input_file",)
+    assert source_path_directives(definition) == ("input_file", "adapter_board")
 
 
 def test_bind_input_files_formats_all_sources_using_directive() -> None:
     from project_generation.application.workflows import bind_input_files
 
     definition = load_project_definition(REALIS / "generation.yaml")
-    updated = bind_input_files(definition, {"input_file": "device.json"})
+    updated = bind_input_files(
+        definition,
+        {"input_file": "device.json", "adapter_board": "adapter-board.csv"},
+    )
 
     assert updated.sources["realis_project"].path == "device.json"
     assert updated.sources["realis_pins"].path == "device.json"
+    assert updated.sources["adapter_board"].path == "adapter-board.csv"
     assert definition.sources["realis_project"].path == "{input_file}"
+    assert definition.sources["adapter_board"].path == "{adapter_board}"
+
+
+def test_bind_input_files_allows_missing_identity_pin_map_input() -> None:
+    from project_generation.application.workflows import bind_input_files, optional_source_path_directives
+
+    definition = load_project_definition(REALIS / "generation.yaml")
+    updated = bind_input_files(definition, {"input_file": "device.json"})
+
+    assert optional_source_path_directives(definition) == ("adapter_board",)
+    assert updated.sources["adapter_board"].path == "{adapter_board}"
