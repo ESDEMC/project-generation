@@ -146,7 +146,7 @@ def test_realis_signal_tests_use_current_source_with_voltage_compliance() -> Non
                 else:
                     span = abs(v_max - v_min)
                     assert peaks == pytest.approx([-stress_current, -stress_current])
-                    expected = [-span * 0.5, -span * 0.75]
+                    expected = [-span * 0.25, -span * 0.5]
                     assert base_limits == pytest.approx(expected)
                     assert peak_limits == pytest.approx(expected)
                     assert all(peak * voltage > 0.0 for peak, voltage in zip(peaks, peak_limits, strict=True))
