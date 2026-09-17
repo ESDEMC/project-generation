@@ -235,15 +235,15 @@ test_plan_generation:
             - group.v_max
             - group.v_min
             multiply_by:
+            - -0.25
             - -0.5
-            - -0.75
           stress_parameters.peak_limit:
             from_span:
             - group.v_max
             - group.v_min
             multiply_by:
+            - -0.25
             - -0.5
-            - -0.75
     - name: logic_level
       values:
       - value: HIGH
