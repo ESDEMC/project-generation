@@ -26,9 +26,13 @@ from qtpy.QtWidgets import (
     QPlainTextEdit,
     QShortcut,
     QSplitter,
+    QStackedWidget,
     QStyledItemDelegate,
     QStyle,
+    QStyleOptionTab,
     QStyleOptionViewItem,
+    QStylePainter,
+    QTabBar,
     QTableView,
     QTabWidget,
     QToolButton,
@@ -312,6 +316,24 @@ class TextEditor(QPlainTextEdit):
         self.search_count.setText(f"{current}/{total}")
 
 
+class StatusTabBar(QTabBar):
+    """Tab bar that can render individual modified tabs in italic."""
+
+    def set_tab_modified(self, index: int, modified: bool) -> None:
+        self.setTabData(index, bool(modified))
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        painter = QStylePainter(self)
+        for index in range(self.count()):
+            option = QStyleOptionTab()
+            self.initStyleOption(option, index)
+            font = self.font()
+            font.setItalic(bool(self.tabData(index)))
+            painter.setFont(font)
+            painter.drawControl(QStyle.CE_TabBarTab, option)
+
+
 class EditorArea(QWidget):
     """Single tabbed central workspace for documents and generated views."""
 
@@ -320,6 +342,7 @@ class EditorArea(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._tabs = QTabWidget(self)
+        self._tabs.setTabBar(StatusTabBar(self._tabs))
         self._tabs.setDocumentMode(True)
         self._tabs.setMovable(True)
         self._tabs.setTabsClosable(True)
@@ -359,6 +382,13 @@ class EditorArea(QWidget):
         index = self._tabs.indexOf(editor)
         if index >= 0:
             self._tabs.setTabText(index, title)
+
+    def set_editor_modified(self, editor: QWidget, modified: bool) -> None:
+        index = self._tabs.indexOf(editor)
+        if index >= 0:
+            tab_bar = self._tabs.tabBar()
+            if isinstance(tab_bar, StatusTabBar):
+                tab_bar.set_tab_modified(index, modified)
 
     def _close_tab(self, index: int) -> None:
         editor = self._tabs.widget(index)
@@ -464,6 +494,46 @@ class RichTextDelegate(QStyledItemDelegate):
             painter.drawText(int(x), int(baseline), segment_text)
             x += width
         painter.restore()
+
+
+def _severity_name(value: Any) -> str:
+    raw = getattr(value, "value", value)
+    return str(raw).lower()
+
+
+def highest_severity(values: Sequence[Any]) -> str | None:
+    severities = {_severity_name(value) for value in values if value is not None}
+    if "error" in severities:
+        return "error"
+    if "warning" in severities:
+        return "warning"
+    return None
+
+
+def severity_icon(widget: QWidget, severity: Any):
+    name = _severity_name(severity)
+    if name == "error":
+        pixmap_name = "SP_MessageBoxCritical"
+    elif name == "warning":
+        pixmap_name = "SP_MessageBoxWarning"
+    else:
+        return None
+
+    standard_pixmap = getattr(QStyle, pixmap_name, None)
+    if standard_pixmap is None and hasattr(QStyle, "StandardPixmap"):
+        standard_pixmap = getattr(QStyle.StandardPixmap, pixmap_name)
+    return widget.style().standardIcon(standard_pixmap)
+
+
+def diagnostic_severity_for_name(diagnostics: Sequence[Any], category: str, name: str) -> str | None:
+    token = f"{category}.{name}"
+    return highest_severity(
+        [
+            diagnostic.severity
+            for diagnostic in diagnostics
+            if token in str(getattr(diagnostic, "location", ""))
+        ]
+    )
 
 
 class GeneratedItemsTable(QTableView):
@@ -606,7 +676,12 @@ class DeviceStatesView(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(splitter)
 
-    def set_states(self, states: Sequence[GeneratedDeviceState], groups: Sequence[GeneratedGroup]) -> None:
+    def set_states(
+        self,
+        states: Sequence[GeneratedDeviceState],
+        groups: Sequence[GeneratedGroup],
+        diagnostics: Sequence[Any] = (),
+    ) -> None:
         self._groups_by_name = {group.name: group for group in groups}
         previous_name = self.current_state_name()
         self._states = tuple(states)
@@ -614,6 +689,9 @@ class DeviceStatesView(QWidget):
         for state in self._states:
             item = QListWidgetItem(state.name)
             item.setToolTip(f"Extends: {state.extends}" if state.extends else state.name)
+            severity = diagnostic_severity_for_name(diagnostics, "device_states", state.name)
+            if severity is not None:
+                item.setIcon(severity_icon(self, severity))
             self.state_list.addItem(item)
 
         if not self._states:
@@ -757,6 +835,7 @@ class TestPlansView(QWidget):
         pins: Sequence[GeneratedPin],
         device_states: Sequence[GeneratedDeviceState],
         power_resources: Mapping[str, Any],
+        diagnostics: Sequence[Any] = (),
     ) -> None:
         previous_name = self.current_plan_name()
         self._plans = tuple(plans)
@@ -770,8 +849,13 @@ class TestPlansView(QWidget):
         self.plan_list.clear()
         for plan in self._plans:
             item = QListWidgetItem(plan.name)
+            diagnostic_severity = diagnostic_severity_for_name(diagnostics, "test_plans", plan.name)
+            severity = highest_severity(
+                [diagnostic_severity, "warning" if plan.hardware_issues else None]
+            )
+            if severity is not None:
+                item.setIcon(severity_icon(self, severity))
             if plan.hardware_issues:
-                item.setForeground(QColor("#EF5350"))
                 issue_text = "\n".join(
                     reason
                     for issue in plan.hardware_issues
@@ -1002,29 +1086,32 @@ class TestPlansView(QWidget):
 
 
 class GenerationViews(QWidget):
-    """Generated-data views chosen according to the structure of each collection."""
+    """Single central generated-data view selected from the Project tree."""
 
-    TAB_NAMES = ("Pins", "Groups", "Device States", "Hardware Envelopes", "Test Plans")
+    VIEW_NAMES = ("Pins", "Groups", "Device States", "Hardware Envelopes", "Test Plans")
 
     def __init__(self, theme: ColorTheme, parent=None) -> None:
         super().__init__(parent)
         self.theme = theme
         self._snapshot: GenerationSnapshot | None = None
-        self.tabs = QTabWidget()
+        self.stack = QStackedWidget()
         self.pins = GeneratedItemsTable(theme)
         self.groups = GeneratedItemsTable(theme)
         self.device_states = DeviceStatesView(theme)
         self.hardware_envelopes = PowerEnvelopeComparisonView(theme)
         self.test_plans = TestPlansView(theme)
-        self.tabs.addTab(self.pins, "Pins")
-        self.tabs.addTab(self.groups, "Groups")
-        self.tabs.addTab(self.device_states, "Device States")
-        self.tabs.addTab(self.hardware_envelopes, "Hardware Envelopes")
-        self.tabs.addTab(self.test_plans, "Test Plans")
+        for view in (
+            self.pins,
+            self.groups,
+            self.device_states,
+            self.hardware_envelopes,
+            self.test_plans,
+        ):
+            self.stack.addWidget(view)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.tabs)
+        layout.addWidget(self.stack)
         self.theme.changed.connect(self._theme_changed)
 
     def set_snapshot(self, snapshot: GenerationSnapshot) -> None:
@@ -1037,7 +1124,7 @@ class GenerationViews(QWidget):
         )
         self._set_pins(snapshot.pins)
         self._set_groups(snapshot.groups, snapshot.pins)
-        self.device_states.set_states(snapshot.device_states, snapshot.groups)
+        self.device_states.set_states(snapshot.device_states, snapshot.groups, snapshot.diagnostics)
         self.hardware_envelopes.set_power_resources(snapshot.definition.power_resources or {})
         self.hardware_envelopes.set_requested_configuration(None)
         self.test_plans.set_plans(
@@ -1046,6 +1133,7 @@ class GenerationViews(QWidget):
             snapshot.pins,
             snapshot.device_states,
             snapshot.definition.power_resources or {},
+            snapshot.diagnostics,
         )
 
     def _theme_changed(self) -> None:
@@ -1054,10 +1142,10 @@ class GenerationViews(QWidget):
 
     def show_collection(self, name: str) -> None:
         try:
-            index = self.TAB_NAMES.index(name)
+            index = self.VIEW_NAMES.index(name)
         except ValueError:
             return
-        self.tabs.setCurrentIndex(index)
+        self.stack.setCurrentIndex(index)
 
     def _set_pins(self, pins: Sequence[GeneratedPin]) -> None:
         parameter_names = sorted({key for pin in pins for key in pin.parameters})

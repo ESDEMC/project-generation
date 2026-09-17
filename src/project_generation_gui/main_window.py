@@ -1,13 +1,15 @@
 from pathlib import Path
 
-from qtpy.QtCore import Qt, QTimer
-from qtpy.QtGui import QAction, QColor
+from qtpy.QtCore import QSettings, Qt, QTimer
+from qtpy.QtGui import QAction
+import PySide6QtAds as QtAds
+
 from qtpy.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
-    QDockWidget,
     QInputDialog,
     QHBoxLayout,
+    QLabel,
     QMainWindow,
     QPushButton,
     QTableWidget,
@@ -22,7 +24,14 @@ from .colors import ColorSettingsDialog, ColorTheme
 from .documents import TextDocument
 from .preferences import EditorPreferences
 from .session import ProjectSession
-from .widgets import EditorArea, GenerationViews, ObjectTree, TextEditor
+from .widgets import (
+    EditorArea,
+    GenerationViews,
+    ObjectTree,
+    TextEditor,
+    highest_severity,
+    severity_icon,
+)
 
 
 class MainWindow(QMainWindow):
@@ -41,7 +50,7 @@ class MainWindow(QMainWindow):
         self._regenerate_timer.setInterval(300)
         self._regenerate_timer.timeout.connect(self._regenerate)
 
-        self.setDockNestingEnabled(True)
+        self._layout_settings = QSettings("project-generation", "project-generation-gui")
 
         self.project_tree = QTreeWidget()
         self.project_tree.setHeaderHidden(True)
@@ -49,7 +58,6 @@ class MainWindow(QMainWindow):
         self.project_tree.itemActivated.connect(self._project_item_activated)
 
         self.editor_area = EditorArea()
-        self.setCentralWidget(self.editor_area)
 
         self.inspector = ObjectTree()
         self.inspector.setHeaderLabels(["Parsed definition", "Value"])
@@ -72,30 +80,67 @@ class MainWindow(QMainWindow):
         self.generation_tables = GenerationViews(self.color_theme)
         self.snapshot_view = ObjectTree()
 
-        self.project_dock = self._add_dock("Project", self.project_tree, Qt.LeftDockWidgetArea)
-        self.inspector_dock = self._add_dock("Parsed Definition", self.inspector, Qt.RightDockWidgetArea)
-        self.problems_dock = self._add_dock("Problems", self.problems_panel, Qt.BottomDockWidgetArea)
-        self.parsed_dock = self._add_dock("Parsed Data", self.parsed_view, Qt.BottomDockWidgetArea)
-        self.snapshot_dock = self._add_dock("Generation Snapshot", self.snapshot_view, Qt.BottomDockWidgetArea)
+        # Qt Advanced Docking System owns the complete workspace layout. The
+        # central editor must be registered before any other dock widgets.
+        self.dock_manager = QtAds.CDockManager(self)
+        self.workspace_dock = QtAds.CDockWidget("Workspace")
+        self.workspace_dock.setObjectName("WorkspaceDock")
+        self.workspace_dock.setWidget(self.editor_area)
+        self.dock_manager.setCentralWidget(self.workspace_dock)
 
-        self.tabifyDockWidget(self.problems_dock, self.parsed_dock)
-        self.tabifyDockWidget(self.problems_dock, self.snapshot_dock)
-        self.problems_dock.raise_()
+        self.project_dock = self._add_dock(
+            "Project", self.project_tree, QtAds.DockWidgetArea.LeftDockWidgetArea
+        )
+        self.inspector_dock = self._add_dock(
+            "Parsed Definition", self.inspector, QtAds.DockWidgetArea.RightDockWidgetArea
+        )
+        self.problems_dock = self._add_dock(
+            "Problems", self.problems_panel, QtAds.DockWidgetArea.BottomDockWidgetArea
+        )
+        bottom_area = self.problems_dock.dockAreaWidget()
+        self.parsed_dock = self._add_dock_tab("Parsed Data", self.parsed_view, bottom_area)
+        self.snapshot_dock = self._add_dock_tab("Generation Snapshot", self.snapshot_view, bottom_area)
 
         self._create_actions()
-        QTimer.singleShot(0, self._collapse_bottom_docks)
+        QTimer.singleShot(0, self._restore_layout)
 
     def _collapse_bottom_docks(self) -> None:
-        self.problems_dock.raise_()
         for dock in (self.problems_dock, self.parsed_dock, self.snapshot_dock):
-            dock.hide()
+            dock.toggleView(False)
 
-    def _add_dock(self, title: str, widget: QWidget, area: int) -> QDockWidget:
-        dock = QDockWidget(title, self)
+    def _add_dock(self, title: str, widget: QWidget, area) -> QtAds.CDockWidget:
+        dock = QtAds.CDockWidget(title)
         dock.setObjectName(title.replace(" ", "") + "Dock")
         dock.setWidget(widget)
-        self.addDockWidget(area, dock)
+        self.dock_manager.addDockWidget(area, dock)
         return dock
+
+    def _add_dock_tab(self, title: str, widget: QWidget, dock_area) -> QtAds.CDockWidget:
+        dock = QtAds.CDockWidget(title)
+        dock.setObjectName(title.replace(" ", "") + "Dock")
+        dock.setWidget(widget)
+        self.dock_manager.addDockWidgetTabToArea(dock, dock_area)
+        return dock
+
+    def _restore_layout(self) -> None:
+        geometry = self._layout_settings.value("window/geometry")
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+        state = self._layout_settings.value("docking/state")
+        if state is not None:
+            self.dock_manager.restoreState(state)
+        else:
+            self._collapse_bottom_docks()
+
+    def _save_layout(self) -> None:
+        self._layout_settings.setValue("window/geometry", self.saveGeometry())
+        self._layout_settings.setValue("docking/state", self.dock_manager.saveState())
+        self._layout_settings.sync()
+
+    def closeEvent(self, event) -> None:
+        self._save_layout()
+        super().closeEvent(event)
 
     def _create_actions(self) -> None:
         open_action = QAction("Open Generation File…", self)
@@ -148,7 +193,6 @@ class MainWindow(QMainWindow):
 
         toolbar = self.addToolBar("Main")
         toolbar.addAction(open_action)
-        toolbar.addAction(input_action)
         toolbar.addAction(save_action)
         toolbar.addAction(regenerate_action)
         toolbar.addAction(export_action)
@@ -165,8 +209,7 @@ class MainWindow(QMainWindow):
             project_path = self.session.export_project(output_directory)
         except Exception:
             self._refresh_views()
-            self.problems_dock.show()
-            self.problems_dock.raise_()
+            self.problems_dock.toggleView(True)
             self.statusBar().showMessage("Export failed — see Problems")
             return
         self._refresh_views()
@@ -275,34 +318,55 @@ class MainWindow(QMainWindow):
         diagnostics = self.session.diagnostics
         self.problems.setRowCount(len(diagnostics))
         for row, diagnostic in enumerate(diagnostics):
-            for column, value in enumerate((diagnostic.severity, diagnostic.code, diagnostic.location, diagnostic.message)):
-                self.problems.setItem(row, column, QTableWidgetItem(value))
+            values = (diagnostic.severity, diagnostic.code, diagnostic.location, diagnostic.message)
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 0:
+                    icon = severity_icon(self, diagnostic.severity)
+                    if icon is not None:
+                        item.setIcon(icon)
+                self.problems.setItem(row, column, item)
         self.problems.resizeColumnsToContents()
 
     def _rebuild_project_tree(self) -> None:
         self.project_tree.clear()
         if self.session.definition_document is None:
             return
-        root = QTreeWidgetItem([self.session.definition_document.path.name])
-        root.setData(0, Qt.UserRole, ("document", str(self.session.definition_document.path)))
+
+        definition_document = self.session.definition_document
+        root = QTreeWidgetItem([self._document_display_name(definition_document)])
+        root.setData(0, Qt.UserRole, ("document", str(definition_document.path)))
+        self._apply_document_item_font(root, definition_document)
+        definition_severity = self._definition_diagnostic_severity()
+        if definition_severity is not None:
+            root.setIcon(0, severity_icon(self, definition_severity))
         self.project_tree.addTopLevelItem(root)
 
         inputs = QTreeWidgetItem(["Input Files"])
         root.addChild(inputs)
         for directive in self.session.input_directives():
             path = self.session.input_bindings.get(directive)
-            label = f"{directive}: {path.name}" if path is not None else f"{directive}: <not set>"
-            item = QTreeWidgetItem([label])
+            item = QTreeWidgetItem([directive])
             item.setToolTip(0, str(path) if path is not None else f"Format directive {{{directive}}}")
             item.setData(0, Qt.UserRole, ("input", directive))
             inputs.addChild(item)
+            severity = self._severity_for_location_token(f"inputs.{directive}")
+            self.project_tree.setItemWidget(
+                item,
+                0,
+                self._input_file_row_widget(directive, path, severity=severity),
+            )
 
         sources = QTreeWidgetItem(["Referenced Files"])
         root.addChild(sources)
         for document in self.session.referenced_documents():
-            item = QTreeWidgetItem([document.path.name])
+            item = QTreeWidgetItem([self._document_display_name(document)])
             item.setToolTip(0, str(document.path))
             item.setData(0, Qt.UserRole, ("document", str(document.path)))
+            self._apply_document_item_font(item, document)
+            severity = self._severity_for_document(document)
+            if severity is not None:
+                item.setIcon(0, severity_icon(self, severity))
             sources.addChild(item)
 
         if self.session.snapshot is not None:
@@ -318,13 +382,7 @@ class MainWindow(QMainWindow):
                 for plan in hardware_issue_plans
             )
 
-            generated_label = "Generated"
-            if hardware_issue_plans:
-                generated_label += " — warnings"
-            generated = QTreeWidgetItem([generated_label])
-            if hardware_issue_plans:
-                generated.setForeground(0, QColor("#EF5350"))
-                generated.setToolTip(0, hardware_issue_text)
+            generated = QTreeWidgetItem(["Generated"])
             generated.setData(0, Qt.UserRole, ("generated-root", ""))
             root.addChild(generated)
 
@@ -343,16 +401,31 @@ class MainWindow(QMainWindow):
                 suffix = ""
                 if stage is not None and stage.status.value != "complete":
                     suffix = f" — {stage.status.value.replace('_', ' ')}"
-                elif stage_name == "test_plans" and hardware_issue_plans:
-                    suffix = " — warnings"
 
                 item = QTreeWidgetItem([f"{name} ({count}){suffix}"])
                 tooltip_parts: list[str] = []
+                severities: list[object] = []
                 if stage is not None and stage.diagnostic is not None:
                     tooltip_parts.append(stage.diagnostic.format())
+                    severities.append(stage.diagnostic.severity)
+                elif stage is not None and stage.status.value == "failed":
+                    severities.append("error")
+
+                if stage_name is not None:
+                    matching = [
+                        diagnostic
+                        for diagnostic in self.session.diagnostics
+                        if self._location_matches_stage(str(diagnostic.location), stage_name)
+                    ]
+                    severities.extend(diagnostic.severity for diagnostic in matching)
+
                 if stage_name == "test_plans" and hardware_issue_plans:
-                    item.setForeground(0, QColor("#EF5350"))
+                    severities.append("warning")
                     tooltip_parts.append(hardware_issue_text)
+
+                severity = highest_severity(severities)
+                if severity is not None:
+                    item.setIcon(0, severity_icon(self, severity))
                 if tooltip_parts:
                     item.setToolTip(0, "\n\n".join(tooltip_parts))
                 item.setData(0, Qt.UserRole, ("generated", name))
@@ -362,13 +435,58 @@ class MainWindow(QMainWindow):
         inputs.setExpanded(True)
         sources.setExpanded(True)
 
+    def _input_file_row_widget(
+        self,
+        directive: str,
+        path: Path | None,
+        *,
+        severity: str | None = None,
+    ) -> QWidget:
+        row = QWidget(self.project_tree)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(2, 0, 2, 0)
+        layout.setSpacing(6)
+
+        if severity is not None:
+            icon_label = QLabel(row)
+            icon_label.setPixmap(severity_icon(self, severity).pixmap(16, 16))
+            layout.addWidget(icon_label)
+
+        document = self.session.documents.get(path) if path is not None else None
+        dirty = bool(document and document.dirty)
+        if path is None:
+            text = f"{directive}: <not set>"
+            tooltip = f"No file is set for {{{directive}}}"
+        else:
+            text = f"{directive}: {path.name}{'*' if dirty else ''}"
+            tooltip = str(path)
+
+        label = QLabel(text, row)
+        label.setObjectName("inputFileLabel")
+        label.setToolTip(tooltip)
+        font = label.font()
+        font.setItalic(dirty)
+        label.setFont(font)
+        layout.addWidget(label, 1)
+
+        browse = QPushButton("Browse…", row)
+        browse.setObjectName(f"inputFileBrowseButton_{directive}")
+        browse.setToolTip(f"Select a file for {{{directive}}}")
+        browse.setFlat(True)
+        browse.clicked.connect(
+            lambda _checked=False, input_directive=directive: self.set_input_file_dialog(
+                directive=input_directive
+            )
+        )
+        layout.addWidget(browse)
+        return row
+
     def _project_item_activated(self, item: QTreeWidgetItem, _column: int = 0) -> None:
         value = item.data(0, Qt.UserRole)
         if not value:
             return
         kind, payload = value
         if kind == "generated-root":
-            self._show_generated_items()
             return
         if kind == "generated":
             self._show_generated_items(payload)
@@ -384,8 +502,9 @@ class MainWindow(QMainWindow):
         if editor is not None:
             if not self.editor_area.contains_editor(editor):
                 document = self.session.documents.get(path)
-                suffix = " ●" if document and document.dirty else ""
-                self.editor_area.add_editor(editor, editor.path.name + suffix)
+                dirty = bool(document and document.dirty)
+                self.editor_area.add_editor(editor, editor.path.name + ("*" if dirty else ""))
+                self.editor_area.set_editor_modified(editor, dirty)
             else:
                 self.editor_area.set_current_editor(editor)
 
@@ -401,8 +520,98 @@ class MainWindow(QMainWindow):
     def _update_tab_titles(self) -> None:
         for editor in self._editors.values():
             document = self.session.documents.get(editor.path)
-            suffix = " ●" if document and document.dirty else ""
-            self.editor_area.set_editor_title(editor, editor.path.name + suffix)
+            dirty = bool(document and document.dirty)
+            self.editor_area.set_editor_title(editor, editor.path.name + ("*" if dirty else ""))
+            self.editor_area.set_editor_modified(editor, dirty)
+        self._update_document_item_states()
+
+    @staticmethod
+    def _document_display_name(document: TextDocument) -> str:
+        return document.path.name + ("*" if document.dirty else "")
+
+    @staticmethod
+    def _apply_document_item_font(item: QTreeWidgetItem, document: TextDocument) -> None:
+        font = item.font(0)
+        font.setItalic(document.dirty)
+        item.setFont(0, font)
+
+    def _update_document_item_states(self) -> None:
+        if self.project_tree.topLevelItemCount() == 0:
+            return
+
+        def visit(item: QTreeWidgetItem) -> None:
+            value = item.data(0, Qt.UserRole)
+            if value:
+                kind, payload = value
+                if kind == "document":
+                    document = self.session.documents.get(Path(payload))
+                    if document is not None:
+                        item.setText(0, self._document_display_name(document))
+                        self._apply_document_item_font(item, document)
+                elif kind == "input":
+                    path = self.session.input_bindings.get(payload)
+                    document = self.session.documents.get(path) if path is not None else None
+                    row = self.project_tree.itemWidget(item, 0)
+                    label = row.findChild(QLabel, "inputFileLabel") if row is not None else None
+                    if label is not None:
+                        dirty = bool(document and document.dirty)
+                        if path is None:
+                            label.setText(f"{payload}: <not set>")
+                        else:
+                            label.setText(f"{payload}: {path.name}{'*' if dirty else ''}")
+                        font = label.font()
+                        font.setItalic(dirty)
+                        label.setFont(font)
+            for index in range(item.childCount()):
+                visit(item.child(index))
+
+        for index in range(self.project_tree.topLevelItemCount()):
+            visit(self.project_tree.topLevelItem(index))
+
+    @staticmethod
+    def _location_matches_stage(location: str, stage_name: str) -> bool:
+        prefixes = (
+            stage_name,
+            f"generated_project.{stage_name}",
+        )
+        return any(
+            location == prefix
+            or location.startswith(prefix + ".")
+            or location.startswith(prefix + "[")
+            for prefix in prefixes
+        )
+
+    def _severity_for_location_token(self, token: str) -> str | None:
+        return highest_severity(
+            [
+                diagnostic.severity
+                for diagnostic in self.session.diagnostics
+                if token in str(diagnostic.location)
+            ]
+        )
+
+    def _severity_for_document(self, document: TextDocument) -> str | None:
+        return highest_severity(
+            [
+                diagnostic.severity
+                for diagnostic in self.session.diagnostics
+                if str(diagnostic.location).startswith(document.path.name)
+            ]
+        )
+
+    def _definition_diagnostic_severity(self) -> str | None:
+        document = self.session.definition_document
+        if document is None:
+            return None
+        severities = []
+        for diagnostic in self.session.diagnostics:
+            location = str(diagnostic.location)
+            if location.startswith(document.path.name):
+                severities.append(diagnostic.severity)
+                continue
+            if diagnostic.code in {"SCHEMA_VALIDATION_ERROR"}:
+                severities.append(diagnostic.severity)
+        return highest_severity(severities)
 
     def _editor_preferences_changed(self) -> None:
         for editor in self._editors.values():

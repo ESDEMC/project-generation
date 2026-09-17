@@ -12,6 +12,7 @@ from project_generation.generation.models import (
     GeneratedPowerDomain,
     GeneratedTestGroup,
     GeneratedTestPlan,
+    GeneratedStressHardwareIssue,
 )
 from project_generation.generation.rules import StressPoint
 from project_generation_gui.colors import ColorTheme
@@ -207,3 +208,28 @@ def test_text_editor_font_size_can_be_changed(qtbot) -> None:
     qtbot.addWidget(editor)
     editor.set_font_size(14)
     assert editor.font().pointSize() == 14
+
+
+def test_test_plan_list_uses_warning_icon_for_hardware_issue(qtbot, tmp_path) -> None:
+    issue = GeneratedStressHardwareIssue(
+        group_name="In5V0",
+        stress_point_index=0,
+        stress={},
+        reasons=("DC1: unsupported",),
+    )
+    plan = GeneratedTestPlan(
+        id=uuid4(),
+        name="Signal I Test",
+        test_type="SIGNAL",
+        dimensions={},
+        device_state=None,
+        device_state_id=None,
+        test_groups=(),
+        hardware_issues=(issue,),
+    )
+    view = TestPlansView(make_theme(tmp_path))
+    qtbot.addWidget(view)
+
+    view.set_plans([plan], [], [], [], {})
+
+    assert not view.plan_list.item(0).icon().isNull()

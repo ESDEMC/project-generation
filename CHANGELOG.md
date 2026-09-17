@@ -1,3 +1,9 @@
+
+## Unreleased
+
+- Use Qt Advanced Docking System for the application workspace and persist/restore window geometry and dock layout.
+- Present generated Pins, Groups, Device States, Hardware Envelopes, and Test Plans in one central generated view selected from the Project tree.
+- Update the REALIS negative signal voltage sweep to 0.25x and 0.5x of the voltage span.
 # Changelog
 - Exposed each generated group's authored bias as `group.bias` in test-plan rule context for SIGNAL and SUPPLY generation.
 
