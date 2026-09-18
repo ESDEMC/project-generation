@@ -120,7 +120,16 @@ groups:
             - IO
             - OUTPUT
             - POWER
-      parameters.v_min: 0.0
+      parameters.v_min:
+        value: 0.0
+        cast: float
+        when:
+          partition.parameters.pin_type:
+            in:
+            - INPUT
+            - IO
+            - OUTPUT
+            - POWER
       bias_spec:
         mode:
         - when:
