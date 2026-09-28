@@ -1,0 +1,235 @@
+{
+  "manufacturer": "Texas Instruments",
+  "device": "ULN2003A",
+  "datasheet": {
+    "document_number": "SLRS027T",
+    "title": "ULN200x, ULQ200x High-Voltage, High-Current Darlington Transistor Arrays",
+    "revision": "March 2025"
+  },
+  "description": "Seven-channel high-voltage, high-current NPN Darlington transistor array with common emitter, open-collector outputs, and common-cathode clamp diodes for inductive loads.",
+  "general_device_information": {
+    "channels": 7,
+    "transistor_type": "NPN Darlington pair",
+    "output_structure": "Open collector",
+    "common_emitter": true,
+    "integrated_flyback_diodes": true,
+    "input_series_resistor": "2.7 kΩ nominal",
+    "logic_compatibility": "TTL and 5 V CMOS; datasheet also describes operation from 3.3 V logic",
+    "single_output_collector_current_rating": "500 mA",
+    "maximum_collector_emitter_voltage": "50 V",
+    "maximum_input_voltage": "30 V",
+    "operating_free_air_temperature": "-40 °C to +70 °C",
+    "junction_temperature_max": "150 °C",
+    "storage_temperature": "-65 °C to +150 °C",
+    "esd_ratings": {
+      "HBM": "±2000 V",
+      "CDM": "±500 V"
+    },
+    "packages": [
+      {
+        "package": "SOIC",
+        "pins": 16,
+        "code": "D",
+        "nominal_size": "9.90 mm × 3.91 mm"
+      },
+      {
+        "package": "PDIP",
+        "pins": 16,
+        "code": "N",
+        "nominal_size": "19.30 mm × 6.35 mm"
+      },
+      {
+        "package": "SOP",
+        "pins": 16,
+        "code": "NS",
+        "nominal_size": "10.30 mm × 5.30 mm"
+      },
+      {
+        "package": "TSSOP",
+        "pins": 16,
+        "code": "PW",
+        "nominal_size": "5.00 mm × 4.40 mm"
+      },
+      {
+        "package": "SOT",
+        "pins": 16,
+        "code": "DYY",
+        "nominal_size": "4.20 mm × 2.00 mm"
+      }
+    ]
+  },
+  "absolute_maximum_ratings": {
+    "collector_emitter_voltage": "50 V",
+    "clamp_diode_reverse_voltage": "50 V",
+    "input_voltage": "30 V",
+    "peak_collector_current": "500 mA",
+    "output_clamp_current": "500 mA",
+    "total_emitter_terminal_current": "-2.5 A",
+    "voltage_reference": "All voltage values are with respect to emitter/substrate terminal E unless otherwise noted."
+  },
+  "socket": {
+    "type": "64-pin ZIF",
+    "ordering": "Z",
+    "placement": "Device pin 1 aligned with ZIF pin 1 at the top/pin-1 end of the socket",
+    "mapping_basis": "16-pin PDIP package"
+  },
+  "pin_voltage_limit_notes": [
+    "pins[*].vmin and pins[*].vmax are numeric operating values used for project generation.",
+    "ULN2003A inputs use 5.0 V as vmax, matching direct 5 V TTL/CMOS operation described by the datasheet.",
+    "Collector outputs and COM use 50.0 V as vmax, matching the specified 0 V to 50 V collector-emitter operating range.",
+    "E is the common emitter/ground reference and uses 0.0 V.",
+    "Absolute-maximum ratings remain separately available under absolute_maximum_ratings."
+  ],
+  "pins": [
+    {
+      "pin_number": 1,
+      "socket_pin": 1,
+      "name": "1B",
+      "description": "Channel 1 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 2,
+      "socket_pin": 2,
+      "name": "2B",
+      "description": "Channel 2 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 3,
+      "socket_pin": 3,
+      "name": "3B",
+      "description": "Channel 3 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 4,
+      "socket_pin": 4,
+      "name": "4B",
+      "description": "Channel 4 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 5,
+      "socket_pin": 5,
+      "name": "5B",
+      "description": "Channel 5 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 6,
+      "socket_pin": 6,
+      "name": "6B",
+      "description": "Channel 6 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 7,
+      "socket_pin": 7,
+      "name": "7B",
+      "description": "Channel 7 Darlington base input",
+      "pintype": "I",
+      "vmax": 5.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 8,
+      "socket_pin": 8,
+      "name": "E",
+      "description": "Common emitter shared by all channels; typically tied to ground",
+      "pintype": "Ground",
+      "vmax": 0.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 9,
+      "socket_pin": 40,
+      "name": "COM",
+      "description": "Common cathode node for flyback diodes; required for inductive loads",
+      "pintype": "Supply",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 10,
+      "socket_pin": 39,
+      "name": "7C",
+      "description": "Channel 7 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 11,
+      "socket_pin": 38,
+      "name": "6C",
+      "description": "Channel 6 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 12,
+      "socket_pin": 37,
+      "name": "5C",
+      "description": "Channel 5 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 13,
+      "socket_pin": 36,
+      "name": "4C",
+      "description": "Channel 4 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 14,
+      "socket_pin": 35,
+      "name": "3C",
+      "description": "Channel 3 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 15,
+      "socket_pin": 34,
+      "name": "2C",
+      "description": "Channel 2 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 16,
+      "socket_pin": 33,
+      "name": "1C",
+      "description": "Channel 1 Darlington collector output",
+      "pintype": "O",
+      "vmax": 50.0,
+      "vmin": 0.0
+    }
+  ],
+  "package": {
+    "type": "PDIP",
+    "pins": 16,
+    "package_code": "N",
+    "nominal_size": "19.30 mm × 6.35 mm"
+  }
+}

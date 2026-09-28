@@ -1,54 +1,29 @@
 schema_version: '1.0'
+
 sources:
-  realis_project:
+  device_project:
     type: json
     path: '{input_file}'
     select: $
-    mapping:
-      name: ProjectName
-      metadata.stress_operation_name: StressOperationName
-      metadata.test_id: TestId
-      metadata.project_id: ProjectId
-      metadata.lab_tracking_number: LabTrackingNo
-      metadata.project_owner: ProjectOwner
-      metadata.department: Department
-      metadata.reason_type: ReasonType
-      metadata.priority: Priority
-      metadata.development_code: DevelopmentCode
-      metadata.product_basic_type: ProdBasicType
-      metadata.sales_code: SalesCode
-      metadata.package: Package
-      metadata.pin_count: PinCount
-      metadata.test_type: TestType
-      metadata.test_sub_type: TestSubType
-      metadata.standard: ActualStandard
-      metadata.machine: Machine
-      metadata.verifier_board: VerifierBoard
-      metadata.operator: Operator
-      metadata.temperature: Temperature
-      metadata.stress_current:
-        from: StressCurrent
-        scale: 0.001
-      metadata.program_name: ProgramName
-  realis_pins:
+  device_pins:
     type: json
     path: '{input_file}'
-    select: $.EsdPins[*]
+    select: $.pins[*]
     mapping:
-      designator: Number
-      name: Name
+      designator: pin_number
+      name: name
       parameters.pin_type:
-        from: PinType
-        mapping: realis_pin_type
-      parameters.v_max: VoltageLevelMax
-      parameters.v_min: VoltageLevelMin
-      parameters.socket_pin: VerifierChannel
+        from: pintype
+        mapping: pin_type_mapping
+      parameters.socket_pin: socket_pin
+      parameters.description: description
   adapter_board:
     type: csv
     path: '{adapter_board}'
     mapping:
       socket: Socket
       location: Location
+
 pin_map:
   location: parameters.socket_pin
   mappings:
@@ -56,21 +31,28 @@ pin_map:
     from: socket
     to: location
     on_missing: identity
+
 hardware:
   source: hardware.yaml
+
 project:
-  source: realis_project
+  source: device_project
+
 mappings:
-  realis_pin_type:
+  pin_type_mapping:
     I: INPUT
     Input: INPUT
     O: OUTPUT
     Output: OUTPUT
     IO: IO
+    P: POWER
     Supply: POWER
+    COM: POWER
     Ground: GROUND
+    GND: GROUND
     not connected: NC
     not tested: NC
+
   group_type_prefix:
     INPUT: In
     OUTPUT: O
@@ -78,22 +60,27 @@ mappings:
     POWER: Su
     GROUND: GND
     NC: NC
+
   logic_level_token:
     HIGH: H
     LOW: L
+
   polarity_token:
     POSITIVE: +
     NEGATIVE: '-'
+
 formatters:
   voltage_token:
     type: decimal_token
     separator: V
     decimal_places: 1
+
 dut:
   name:
     template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
   pins:
-    source: realis_pins
+    source: device_pins
+
 groups:
   generation:
   - id: groups_by_type_and_vmax
@@ -170,6 +157,7 @@ groups:
               - IO
               - OUTPUT
               - POWER
+
 device_states:
   logic_low:
     allocation:
@@ -191,6 +179,7 @@ device_states:
       set:
         bias_spec:
           mode: GROUND
+
   logic_high:
     allocation:
       strategy: voltage_first
@@ -212,6 +201,7 @@ device_states:
         bias_spec:
           level:
             from: group.v_max
+
 test_plan_generation:
   rules:
   - id: signal_tests
@@ -303,6 +293,7 @@ test_plan_generation:
         source_mode: current
         base_level: 0.0
         pulse_width: 0.01
+
   - id: supply_tests
     groups:
       select:

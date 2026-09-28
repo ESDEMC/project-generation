@@ -1,0 +1,353 @@
+{
+  "manufacturer": "Microchip Technology Inc.",
+  "device": "MCP23S17",
+  "datasheet": {
+    "document_number": "DS20001952E",
+    "title": "MCP23017/MCP23S17 16-Bit I/O Expander with Serial Interface",
+    "copyright_years": "2005-2026"
+  },
+  "package": {
+    "type": "SOIC",
+    "pins": 28,
+    "body_width": "7.50 mm",
+    "package_code": "SO"
+  },
+  "description": "16-bit I/O expander with SPI serial interface.",
+  "general_device_information": {
+    "io_width_bits": 16,
+    "port_structure": [
+      "PORTA (8-bit)",
+      "PORTB (8-bit)"
+    ],
+    "serial_interface": "SPI",
+    "maximum_spi_clock": "10 MHz",
+    "io_default_state": "Input",
+    "hardware_address_pins": [
+      "A0",
+      "A1",
+      "A2"
+    ],
+    "maximum_devices_on_bus_from_hardware_addressing": 8,
+    "interrupt_outputs": [
+      "INTA",
+      "INTB"
+    ],
+    "interrupt_output_modes": [
+      "active-high",
+      "active-low",
+      "open-drain"
+    ],
+    "external_reset": true,
+    "polarity_inversion_supported": true,
+    "internal_weak_pullups_supported": true,
+    "operating_voltage": [
+      {
+        "min": "1.8 V",
+        "max": "5.5 V",
+        "temperature_range": "-40 °C to +85 °C"
+      },
+      {
+        "min": "2.7 V",
+        "max": "5.5 V",
+        "temperature_range": "-40 °C to +85 °C"
+      },
+      {
+        "min": "4.5 V",
+        "max": "5.5 V",
+        "temperature_range": "-40 °C to +125 °C"
+      }
+    ],
+    "standby_current_max": "1 µA",
+    "temperature_range_offered": "-40 °C to +125 °C",
+    "aec_q100_option": true
+  },
+  "absolute_maximum_ratings": {
+    "ambient_temperature_under_bias": "-40 °C to +125 °C",
+    "storage_temperature": "-65 °C to +150 °C",
+    "vdd_with_respect_to_vss": {
+      "min": "-0.3 V",
+      "max": "+5.5 V"
+    },
+    "all_other_pins_with_respect_to_vss_except_vdd": {
+      "min": "-0.6 V",
+      "max": "VDD + 0.6 V"
+    },
+    "total_power_dissipation_max": "700 mW",
+    "maximum_current_out_of_vss": "150 mA",
+    "maximum_current_into_vdd": "125 mA",
+    "input_clamp_current": "±20 mA",
+    "output_clamp_current": "±20 mA",
+    "maximum_output_current_sunk_per_output_pin": "25 mA",
+    "maximum_output_current_sourced_per_output_pin": "25 mA",
+    "esd_protection": {
+      "HBM": "4 kV",
+      "MM": "400 V"
+    }
+  },
+  "socket": {
+    "type": "64-pin ZIF",
+    "ordering": "Z",
+    "placement": "SOIC pin 1 aligned with ZIF pin 1 at the top/pin-1 end of the socket",
+    "mapping_basis": "28-pin SOIC package"
+  },
+  "pin_voltage_limit_notes": [
+    "pins[*].vmin and pins[*].vmax are numeric operating values used for project generation.",
+    "MCP23S17 signal pins use the maximum operating supply level of 5.5 V as vmax.",
+    "VDD uses the specified operating range 1.8 V to 5.5 V; VSS is 0 V.",
+    "Absolute-maximum voltage ratings are retained separately under absolute_maximum_ratings."
+  ],
+  "pins": [
+    {
+      "pin_number": 1,
+      "socket_pin": 1,
+      "name": "GPB0",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 2,
+      "socket_pin": 2,
+      "name": "GPB1",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 3,
+      "socket_pin": 3,
+      "name": "GPB2",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 4,
+      "socket_pin": 4,
+      "name": "GPB3",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 5,
+      "socket_pin": 5,
+      "name": "GPB4",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 6,
+      "socket_pin": 6,
+      "name": "GPB5",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 7,
+      "socket_pin": 7,
+      "name": "GPB6",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 8,
+      "socket_pin": 8,
+      "name": "GPB7",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 9,
+      "socket_pin": 9,
+      "name": "VDD",
+      "description": "Power",
+      "pintype": "Supply",
+      "vmax": 5.5,
+      "vmin": 1.8
+    },
+    {
+      "pin_number": 10,
+      "socket_pin": 10,
+      "name": "VSS",
+      "description": "Ground",
+      "pintype": "Ground",
+      "vmax": 0.0,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 11,
+      "socket_pin": 11,
+      "name": "CS",
+      "description": "Chip select input.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 12,
+      "socket_pin": 12,
+      "name": "SCK",
+      "description": "Serial clock input.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 13,
+      "socket_pin": 13,
+      "name": "SI",
+      "description": "Serial data input.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 14,
+      "socket_pin": 14,
+      "name": "SO",
+      "description": "Serial data output.",
+      "pintype": "O",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 15,
+      "socket_pin": 46,
+      "name": "A0",
+      "description": "Hardware address pin. Must be externally biased.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 16,
+      "socket_pin": 45,
+      "name": "A1",
+      "description": "Hardware address pin. Must be externally biased.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 17,
+      "socket_pin": 44,
+      "name": "A2",
+      "description": "Hardware address pin. Must be externally biased.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 18,
+      "socket_pin": 43,
+      "name": "RESET",
+      "description": "Hardware reset. Must be externally biased.",
+      "pintype": "I",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 19,
+      "socket_pin": 42,
+      "name": "INTB",
+      "description": "Interrupt output for PORTB. Can be configured as active-high, active-low or open-drain.",
+      "pintype": "O",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 20,
+      "socket_pin": 41,
+      "name": "INTA",
+      "description": "Interrupt output for PORTA. Can be configured as active-high, active-low or open-drain.",
+      "pintype": "O",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 21,
+      "socket_pin": 40,
+      "name": "GPA0",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 22,
+      "socket_pin": 39,
+      "name": "GPA1",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 23,
+      "socket_pin": 38,
+      "name": "GPA2",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 24,
+      "socket_pin": 37,
+      "name": "GPA3",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 25,
+      "socket_pin": 36,
+      "name": "GPA4",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 26,
+      "socket_pin": 35,
+      "name": "GPA5",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 27,
+      "socket_pin": 34,
+      "name": "GPA6",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    },
+    {
+      "pin_number": 28,
+      "socket_pin": 33,
+      "name": "GPA7",
+      "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
+      "pintype": "IO",
+      "vmax": 5.5,
+      "vmin": 0.0
+    }
+  ]
+}
