@@ -5,6 +5,13 @@ sources:
     type: json
     path: '{input_file}'
     select: $
+    mapping:
+      name: device
+      metadata.product_basic_type: device
+      metadata.sales_code: package.package_code
+      metadata.package: package.type
+      metadata.pin_count: package.pins
+
   device_pins:
     type: json
     path: '{input_file}'
@@ -15,8 +22,11 @@ sources:
       parameters.pin_type:
         from: pintype
         mapping: pin_type_mapping
+      parameters.v_max: vmax
+      parameters.v_min: vmin
       parameters.socket_pin: socket_pin
       parameters.description: description
+
   adapter_board:
     type: csv
     path: '{adapter_board}'
@@ -37,6 +47,9 @@ hardware:
 
 project:
   source: device_project
+  metadata:
+    temperature: 25.0
+    stress_current: 0.1
 
 mappings:
   pin_type_mapping:
@@ -45,6 +58,7 @@ mappings:
     O: OUTPUT
     Output: OUTPUT
     IO: IO
+    I/O: IO
     P: POWER
     Supply: POWER
     COM: POWER
