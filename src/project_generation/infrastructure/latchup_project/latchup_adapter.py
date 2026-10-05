@@ -192,14 +192,19 @@ class LatchUpProjectCoreAdapter:
         states: Mapping[str, Bindings.DeviceState],
         bindings: Bindings,
     ) -> Bindings.LatchUpTestPlan:
-        test_groups = []
+        test_group_map = {}
         for item in plan.test_groups:
-            group = copy.deepcopy(groups_by_id[bindings.PinGroupID(str(item.group_id))])
-            if item.pin_ids is not None:
-                wanted = {str(pin_id) for pin_id in item.pin_ids}
-                group.pins = [pin for pin in group.pins if str(pin) in wanted]
+            test_group_map.setdefault(item.group_id, set())
+            if item.pin_ids:
+                test_group_map[item.group_id].update(item.pin_ids)
+
+        test_groups = []
+        test_pins = []
+        for group, pins in test_group_map.items():
+            group = copy.deepcopy(groups_by_id[bindings.PinGroupID(str(group))])
             test_groups.append(group)
-        test_pins = [pin for group in test_groups for pin in group.pins]
+            test_pins.extend(bindings.PinID(str(pin_id)) for pin_id in pins)
+
         metadata = {
             "generation_rule_id": plan.generation_rule_id,
             "dimensions": dict(plan.dimensions),

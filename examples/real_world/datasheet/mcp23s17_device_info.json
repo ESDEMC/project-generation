@@ -59,8 +59,15 @@
     ],
     "standby_current_max": "1 µA",
     "temperature_range_offered": "-40 °C to +125 °C",
-    "aec_q100_option": true
+    "aec_q100_option": true,
+    "test_configuration": {
+      "hold_in_reset": true,
+      "reset_pin": "RESET",
+      "reset_level": 0.0,
+      "reset_connection": "Ground"
+    }
   },
+  "max_temperature": 150,
   "absolute_maximum_ratings": {
     "ambient_temperature_under_bias": "-40 °C to +125 °C",
     "storage_temperature": "-65 °C to +150 °C",
@@ -85,8 +92,8 @@
     }
   },
   "socket": {
-    "type": "64-pin ZIF",
-    "ordering": "Z",
+    "type": "32-pin ZIF",
+    "ordering": "U",
     "placement": "SOIC pin 1 aligned with ZIF pin 1 at the top/pin-1 end of the socket",
     "mapping_basis": "28-pin SOIC package"
   },
@@ -225,7 +232,7 @@
     },
     {
       "pin_number": 15,
-      "socket_pin": 46,
+      "socket_pin": 19,
       "name": "A0",
       "description": "Hardware address pin. Must be externally biased.",
       "pintype": "I",
@@ -234,7 +241,7 @@
     },
     {
       "pin_number": 16,
-      "socket_pin": 45,
+      "socket_pin": 20,
       "name": "A1",
       "description": "Hardware address pin. Must be externally biased.",
       "pintype": "I",
@@ -243,7 +250,7 @@
     },
     {
       "pin_number": 17,
-      "socket_pin": 44,
+      "socket_pin": 21,
       "name": "A2",
       "description": "Hardware address pin. Must be externally biased.",
       "pintype": "I",
@@ -252,16 +259,16 @@
     },
     {
       "pin_number": 18,
-      "socket_pin": 43,
+      "socket_pin": 22,
       "name": "RESET",
-      "description": "Hardware reset. Must be externally biased.",
-      "pintype": "I",
-      "vmax": 5.5,
+      "description": "Hardware reset input. Intentionally held low (ground) so the MCP23S17 remains continuously in reset during testing.",
+      "pintype": "Ground",
+      "vmax": 0.0,
       "vmin": 0.0
     },
     {
       "pin_number": 19,
-      "socket_pin": 42,
+      "socket_pin": 23,
       "name": "INTB",
       "description": "Interrupt output for PORTB. Can be configured as active-high, active-low or open-drain.",
       "pintype": "O",
@@ -270,7 +277,7 @@
     },
     {
       "pin_number": 20,
-      "socket_pin": 41,
+      "socket_pin": 24,
       "name": "INTA",
       "description": "Interrupt output for PORTA. Can be configured as active-high, active-low or open-drain.",
       "pintype": "O",
@@ -279,7 +286,7 @@
     },
     {
       "pin_number": 21,
-      "socket_pin": 40,
+      "socket_pin": 25,
       "name": "GPA0",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -288,7 +295,7 @@
     },
     {
       "pin_number": 22,
-      "socket_pin": 39,
+      "socket_pin": 26,
       "name": "GPA1",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -297,7 +304,7 @@
     },
     {
       "pin_number": 23,
-      "socket_pin": 38,
+      "socket_pin": 27,
       "name": "GPA2",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -306,7 +313,7 @@
     },
     {
       "pin_number": 24,
-      "socket_pin": 37,
+      "socket_pin": 28,
       "name": "GPA3",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -315,7 +322,7 @@
     },
     {
       "pin_number": 25,
-      "socket_pin": 36,
+      "socket_pin": 29,
       "name": "GPA4",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -324,7 +331,7 @@
     },
     {
       "pin_number": 26,
-      "socket_pin": 35,
+      "socket_pin": 30,
       "name": "GPA5",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -333,7 +340,7 @@
     },
     {
       "pin_number": 27,
-      "socket_pin": 34,
+      "socket_pin": 31,
       "name": "GPA6",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",
@@ -342,7 +349,7 @@
     },
     {
       "pin_number": 28,
-      "socket_pin": 33,
+      "socket_pin": 32,
       "name": "GPA7",
       "description": "Bidirectional I/O pin. Can be enabled for interrupt-on-change and/or internal weak pull-up resistor.",
       "pintype": "IO",

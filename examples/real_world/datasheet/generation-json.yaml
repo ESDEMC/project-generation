@@ -7,11 +7,7 @@ sources:
     select: $
     mapping:
       name: device
-      metadata.product_basic_type: device
-      metadata.sales_code: package.package_code
-      metadata.package: package.type
-      metadata.pin_count: package.pins
-
+      metadata.package_type: package.type
   device_pins:
     type: json
     path: '{input_file}'
@@ -26,7 +22,6 @@ sources:
       parameters.v_min: vmin
       parameters.socket_pin: socket_pin
       parameters.description: description
-
   adapter_board:
     type: csv
     path: '{adapter_board}'
@@ -58,7 +53,6 @@ mappings:
     O: OUTPUT
     Output: OUTPUT
     IO: IO
-    I/O: IO
     P: POWER
     Supply: POWER
     COM: POWER
@@ -91,7 +85,7 @@ formatters:
 
 dut:
   name:
-    template: '{project.metadata.product_basic_type}-{project.metadata.sales_code}'
+    template: '{project.name}-{project.metadata.package_type}'
   pins:
     source: device_pins
 
@@ -238,17 +232,14 @@ test_plan_generation:
       values:
       - value: POSITIVE
         set:
+          stress_parameters.base_level: 0.001
           stress_parameters.peak_level:
             from: project.metadata.stress_current
           stress_parameters.base_limit:
             from: group.v_max
-            multiply_by:
-            - 1.0
-            - 1.5
           stress_parameters.peak_limit:
             from: group.v_max
             multiply_by:
-            - 1.0
             - 1.5
       - value: NEGATIVE
         set:
@@ -256,20 +247,14 @@ test_plan_generation:
             from: project.metadata.stress_current
             multiply_by:
             - -1.0
-            - -1.0
           stress_parameters.base_limit:
-            from_span:
-            - group.v_max
-            - group.v_min
-            multiply_by:
-            - -0.25
-            - -0.5
+            from:
+              group.v_min
           stress_parameters.peak_limit:
             from_span:
             - group.v_max
             - group.v_min
             multiply_by:
-            - -0.25
             - -0.5
     - name: logic_level
       values:
@@ -356,7 +341,6 @@ test_plan_generation:
         peak_level:
           from: group.v_max
           multiply_by:
-          - 1.0
           - 1.5
         peak_limit: 0.2
         pulse_width: 0.01

@@ -173,6 +173,8 @@ def resolve_parameter_series(definition: Any, context: Mapping[str, Any]) -> Any
 
     if source_modes[0] == "from":
         base = resolve_path(context, definition["from"])
+        if base is None:
+            raise ValueError(f"Base value for {definition['from']} not found")
     else:
         span = definition["from_span"]
         if not isinstance(span, (list, tuple)) or len(span) != 2:
@@ -186,6 +188,7 @@ def resolve_parameter_series(definition: Any, context: Mapping[str, Any]) -> Any
         return base
     if len(modes) > 1:
         raise ValueError("A relative stress series may define at most one operation")
+
     mode = modes[0]
     operand = definition[mode]
     if mode == "add":

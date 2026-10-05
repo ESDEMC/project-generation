@@ -246,7 +246,167 @@ class DeviceStateGenerator:
 
         if issues:
             raise PowerResourceResolutionError(tuple(issues))
+
+        if allocation and allocation.strategy == "voltage_first":
+            domains, used = self._split_voltage_domains(
+                domains=domains,
+                automatic_domain_start=len(explicit_domains),
+                reserved=reserved,
+                used=used,
+            )
+            domains = self._assign_grounded_signal_groups_to_spare_resources(
+                domains=domains,
+                automatic_domain_start=len(explicit_domains),
+                reserved=reserved,
+                used=used,
+            )
+
         return domains
+
+    def _split_voltage_domains(
+        self,
+        *,
+        domains: list[GeneratedPowerDomain],
+        automatic_domain_start: int,
+        reserved: set[str],
+        used: set[str],
+    ) -> tuple[list[GeneratedPowerDomain], set[str]]:
+        result = list(domains)
+        index = automatic_domain_start
+        while index < len(result):
+            domain = result[index]
+            mode = str(domain.bias.get("mode", "")).upper()
+            if domain.assignment in _PSEUDO_RESOURCES or mode != "VOLTAGE" or len(domain.group_names) <= 1:
+                index += 1
+                continue
+
+            split_group_names = list(domain.group_names[1:])
+            for group_name in split_group_names:
+                group = self.groups_by_name.get(group_name)
+                if group is None:
+                    continue
+                bias = dict(domain.bias)
+                resource_name = self._first_available_compatible_resource(
+                    bias=bias,
+                    reserved=reserved,
+                    used=used,
+                )
+                if resource_name is None:
+                    break
+
+                remaining_names = tuple(name for name in domain.group_names if name != group_name)
+                remaining_ids = tuple(
+                    group_id
+                    for group_id, name in zip(domain.group_ids, domain.group_names, strict=True)
+                    if name != group_name
+                )
+                domain = GeneratedPowerDomain(
+                    name=domain.name,
+                    group_ids=remaining_ids,
+                    group_names=remaining_names,
+                    assignment=domain.assignment,
+                    bias=dict(domain.bias),
+                    timing=domain.timing,
+                )
+                result[index] = domain
+                result.append(
+                    GeneratedPowerDomain(
+                        name=self._automatic_domain_name(len(result) + 1, bias, result),
+                        group_ids=(group.id,),
+                        group_names=(group_name,),
+                        assignment=resource_name,
+                        bias=bias,
+                    )
+                )
+                used.add(resource_name)
+
+            index += 1
+
+        return result, used
+
+    def _assign_grounded_signal_groups_to_spare_resources(
+        self,
+        *,
+        domains: list[GeneratedPowerDomain],
+        automatic_domain_start: int,
+        reserved: set[str],
+        used: set[str],
+    ) -> list[GeneratedPowerDomain]:
+        result = list(domains[:automatic_domain_start])
+        promoted_domains: list[GeneratedPowerDomain] = []
+
+        for domain in domains[automatic_domain_start:]:
+            if domain.assignment != "GROUND":
+                result.append(domain)
+                continue
+
+            remaining_pairs: list[tuple[uuid.UUID, str]] = []
+            for group_id, group_name in zip(domain.group_ids, domain.group_names, strict=True):
+                group = self.groups_by_name.get(group_name)
+                if not self._is_signal_group(group):
+                    remaining_pairs.append((group_id, group_name))
+                    continue
+
+                bias = {"mode": "VOLTAGE", "level": 0.0}
+                resource_name = self._first_available_compatible_resource(
+                    bias=bias,
+                    reserved=reserved,
+                    used=used,
+                )
+                if resource_name is None:
+                    remaining_pairs.append((group_id, group_name))
+                    continue
+
+                promoted_domains.append(
+                    GeneratedPowerDomain(
+                        name=self._automatic_domain_name(
+                            len(result) + len(promoted_domains) + 1,
+                            bias,
+                            [*result, *promoted_domains],
+                        ),
+                        group_ids=(group_id,),
+                        group_names=(group_name,),
+                        assignment=resource_name,
+                        bias=bias,
+                        timing=domain.timing,
+                    )
+                )
+                used.add(resource_name)
+
+            if remaining_pairs:
+                result.append(
+                    GeneratedPowerDomain(
+                        name=domain.name,
+                        group_ids=tuple(group_id for group_id, _ in remaining_pairs),
+                        group_names=tuple(group_name for _, group_name in remaining_pairs),
+                        assignment=domain.assignment,
+                        bias=dict(domain.bias),
+                        timing=domain.timing,
+                    )
+                )
+
+        result.extend(promoted_domains)
+        return result
+
+    def _first_available_compatible_resource(
+        self,
+        *,
+        bias: Mapping[str, Any],
+        reserved: set[str],
+        used: set[str],
+    ) -> str | None:
+        for resource_name, resource in sorted(self.definition.power_resources.items()):
+            if (resource.role or "BIAS").upper() != "BIAS" or resource_name in reserved or resource_name in used:
+                continue
+            if power_resource_compatibility(resource, bias) is None:
+                return resource_name
+        return None
+
+    @staticmethod
+    def _is_signal_group(group: GeneratedGroup | None) -> bool:
+        if group is None:
+            return False
+        return str(group.group_type).lower() == "signal"
 
     def _add_stress_bus_domains(self, power_domains: list[GeneratedPowerDomain]) -> list[GeneratedPowerDomain]:
         stress_resources = sorted(

@@ -1,0 +1,689 @@
+relay_matrix:
+  relay_matrix:
+    connection: COM5
+    leakage_terminals:
+    - EXT1
+    - DC1
+    manufacturer: ESDEMC
+    matrix_attributes:
+    - 1024
+    - 10
+    - true
+    - 120.0
+    - null
+    matrix_capabilities:
+    - - DC1
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC2
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC3
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC4
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC5
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC6
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    - - DC7
+      - error: false
+        max_current: 15.0
+        max_pin_current: 2.0
+        max_voltage: 350.0
+    model: ES660-P0.1
+    serial: 24B1U01
+    uid: '333839313133511000410023'
+power_supply:
+  hardware_connections:
+  - channel:
+      power_supply_id: 8b64b2b7-cd19-4116-aa0f-3bba937c2057
+      channel_id: 749aee2f-efd7-4a53-a065-b83b485e6f0d
+      channel_num: 1
+      power_supply_address: USB0::0x05E6::0x2450::04440547::0::INSTR
+      channel_name: Ch 1-Rear
+    matrix_assignment: EXT1
+    mode: bias
+  - channel:
+      power_supply_id: 092b2d60-f69d-4846-9dcf-5bc054a66ff4
+      channel_id: 151f42c5-8ce8-4c4a-92b0-298c0b1bb1e0
+      channel_num: 1
+      power_supply_address: Virtual
+      channel_name: Source Switch
+    matrix_assignment: DC1
+    mode: switch
+  - channel:
+      power_supply_id: 1bafc15e-accf-4d92-b4d1-abe8187f341b
+      channel_id: 829bf362-2633-4ab8-85f2-2ab151eb8f02
+      channel_num: 1
+      power_supply_address: COM7:2
+      channel_name: Ch 1
+    matrix_assignment: DC2
+    mode: bias
+  - channel:
+      power_supply_id: d7e42658-d259-4be8-af40-17233dc4bd2e
+      channel_id: 6474ffa1-bbbb-4d3f-9a61-0f3ceeba35f5
+      channel_num: 1
+      power_supply_address: COM7:3
+      channel_name: Ch 1
+    matrix_assignment: DC3
+    mode: bias
+  - channel:
+      power_supply_id: 3c3e7499-b5b8-428a-a797-f403ce6f3552
+      channel_id: 4219a858-358b-4ec0-b2b4-3fbc0cd0892e
+      channel_num: 1
+      power_supply_address: COM7:4
+      channel_name: Ch 1
+    matrix_assignment: DC4
+    mode: bias
+  - channel:
+      power_supply_id: 716c4ebd-c46a-41fb-8e83-3d0f36376951
+      channel_id: 0381752b-e3be-491f-b19d-3ad894ae5555
+      channel_num: 1
+      power_supply_address: USB0::0xFFFF::0x6700::602006010717840005::0::INSTR
+      channel_name: Ch 1
+    matrix_assignment: DC6
+    mode: bias
+  - channel:
+      power_supply_id: 3b31f938-ff66-48cf-aad8-f06c4cef0a3e
+      channel_id: 42403741-7c6a-4965-bf45-f04ae47da35a
+      channel_num: 1
+      power_supply_address: USB0::0xFFFF::0x6700::602006010717720003::0::INSTR
+      channel_name: Ch 1
+    matrix_assignment: DC7
+    mode: bias
+  bridged_power_supplies: []
+  source_switch_connections:
+  - name: Source Switch
+    enabled: true
+    channel_id: 151f42c5-8ce8-4c4a-92b0-298c0b1bb1e0
+    pulse_channel:
+      power_supply_id: 66e43e3b-0bb2-4932-9b3e-61737d1014fd
+      channel_id: b6ff886a-9485-4625-96c5-b687dcf4760e
+      channel_num: 1
+      power_supply_address: USB0::0x03EB::0x2065::ESDEMC_Technology_ES660-PSU-C2-P_25269007_9a192a-0::0::INSTR
+      channel_name: Ch 1-Front
+    bias_channel:
+      power_supply_id: ecf34187-d2ea-4ff2-81f8-b5aacc09f803
+      channel_id: dddd8880-0ab4-4f97-9aee-c2f4d94c2e50
+      channel_num: 1
+      power_supply_address: COM7:1
+      channel_name: Ch 1
+iv_monitor:
+  28F1909:
+    device_config:
+      max_data_length: 100000
+      sampling_rate: 25000
+      data_update_rate: 4
+      single_point_average_capture_time: 0.02
+      calibrate_before_test: false
+      calibration_duration: 1.0
+      offset_calculation_method: mean
+      downsample_config:
+        enabled: false
+        method: decimation_filter
+        args:
+          downsample_average_factor: 1
+          order: null
+          filter_type: fir
+        metadata:
+          default_order: true
+      filter_config:
+        enabled: false
+        method: digital
+        args:
+          name: bessel
+          method: bessel
+          kwargs:
+            order: 4
+            cutoff: 10000.0
+            fs: 25000
+      __type__: DAQ
+    measurements:
+    - measurement_channel_id: 0dd9e041-0fbe-438f-954e-5b1ca0105fdc
+      hardware_channel: 4b6ee70b-751b-4a2d-9d84-23be1b22f4e9
+      number: 1
+      enabled: false
+      name: A1
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC1
+      as_iv_data_source: true
+    - measurement_channel_id: c2fed49f-4315-4b79-803a-0b84ae138fdf
+      hardware_channel: 2d256ccb-6caf-4492-8560-c5f3d3382538
+      number: 2
+      enabled: false
+      name: A2
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC1
+      as_iv_data_source: true
+    - measurement_channel_id: cd0d80fb-ef68-46df-b5b0-dfd885f22e23
+      hardware_channel: 76da3850-65be-452b-a494-c0cd4afc08ca
+      number: 3
+      enabled: false
+      name: A3
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC2
+      as_iv_data_source: true
+    - measurement_channel_id: b9f1018a-0060-4c9a-a5f3-d66fb2be36f5
+      hardware_channel: c639a318-3454-4146-a460-54f951607ef7
+      number: 4
+      enabled: false
+      name: A4
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC2
+      as_iv_data_source: true
+    - measurement_channel_id: 31228579-70ac-494f-a40d-c36bb25e3a79
+      hardware_channel: 30b2f9ef-f694-454d-b68f-76c6a72a40c6
+      number: 5
+      enabled: false
+      name: A5
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC3
+      as_iv_data_source: true
+    - measurement_channel_id: 5f5c7b61-6e49-401f-876d-62e92eaa7b16
+      hardware_channel: 8dd3f387-f28c-4abb-b67a-64bd518d2f53
+      number: 6
+      enabled: false
+      name: A6
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC3
+      as_iv_data_source: true
+    - measurement_channel_id: 50a3fa63-0b17-4be7-a6d2-2d0461497e95
+      hardware_channel: 96392c51-54ba-4687-978c-7a56d6f7aa1b
+      number: 7
+      enabled: false
+      name: A7
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC4
+      as_iv_data_source: true
+    - measurement_channel_id: 519a6846-6169-4ddd-aa07-de40eaa6e736
+      hardware_channel: 42cc7f91-0d17-4503-a3a2-356f4f3fe22a
+      number: 8
+      enabled: false
+      name: A8
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC4
+      as_iv_data_source: true
+    - measurement_channel_id: c852ddc6-95d6-4651-a383-6328c8ac1a27
+      hardware_channel: c8233946-d63d-4539-81b3-b49ef3c24e05
+      number: 9
+      enabled: false
+      name: A9
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC5
+      as_iv_data_source: true
+    - measurement_channel_id: feb5bdd7-906a-4326-babd-0f4978a72a93
+      hardware_channel: a78c2956-3afd-4e78-83fa-a46f41398825
+      number: 10
+      enabled: false
+      name: A10
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC5
+      as_iv_data_source: true
+    - measurement_channel_id: 1d5406cc-ce56-4cd8-a3b4-e430db9f0d47
+      hardware_channel: 1a270446-9a2f-4b5a-b3d6-9bfb126479ab
+      number: 11
+      enabled: false
+      name: A11
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC6
+      as_iv_data_source: true
+    - measurement_channel_id: bc1ad68a-96d3-48ec-9719-1b64f9fbafda
+      hardware_channel: 78350b50-1926-4387-b8f4-181bd413d778
+      number: 12
+      enabled: false
+      name: A12
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC6
+      as_iv_data_source: true
+    - measurement_channel_id: 00064708-2e59-4691-a89c-f1fc23f6cd36
+      hardware_channel: a2b0a7fe-f7f5-4980-8f8d-a490a180246e
+      number: 13
+      enabled: false
+      name: A13
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC7
+      as_iv_data_source: true
+    - measurement_channel_id: 81613ef7-a784-46df-8174-54907c041ab2
+      hardware_channel: b573b4e6-dc0a-45b1-9929-b2230596fa92
+      number: 14
+      enabled: false
+      name: A14
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC7
+      as_iv_data_source: true
+    - measurement_channel_id: 31f7bd13-1c6e-4290-aeaf-2ee3c7001ee7
+      hardware_channel: 628d546c-6d9f-4133-98d7-61ddc69028e0
+      number: 15
+      enabled: false
+      name: A15
+      measurement_type: voltage
+      measurement_factor: 101.0
+      dc_offset: 0.0
+      matrix_assignment: DC8
+      as_iv_data_source: true
+    - measurement_channel_id: 023af64a-bb57-4209-b11e-853a18ed8e85
+      hardware_channel: ec158fcc-e09e-4513-b9b4-53ee0d497d8f
+      number: 16
+      enabled: false
+      name: A16
+      measurement_type: current
+      measurement_factor: 1.0
+      dc_offset: 0.0
+      matrix_assignment: DC8
+      as_iv_data_source: true
+io_controller:
+  controller_connection_info: null
+  method: Full Hardware Controlled
+metadata:
+  power_supply:
+  - matrix_assignment: DC1
+    name: Source Switch [Virtual] - Source Switch
+    power_supply_id: 092b2d60-f69d-4846-9dcf-5bc054a66ff4
+    channel_id: 151f42c5-8ce8-4c4a-92b0-298c0b1bb1e0
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 300
+        max_current: 1
+        min_voltage: 1
+        min_current: 0.001
+      PULSE:
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.1
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: .inf
+        max_duty_cycle: 1.0
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: .inf
+        max_duty_cycle: 1.0
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.2
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.02
+        max_duty_cycle: 0.5
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 0.2
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.1
+        max_duty_cycle: 0.5
+      - output_type: PULSE
+        max_peak_voltage: 300.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.005
+        max_duty_cycle: 0.05
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 1.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.1
+        max_duty_cycle: 0.1
+      - output_type: PULSE
+        max_peak_voltage: 100.0
+        max_base_voltage: 0.0
+        max_peak_current: 3.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.01
+        max_duty_cycle: 0.025
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 3.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.02
+        max_duty_cycle: 0.3
+      - output_type: PULSE
+        max_peak_voltage: 30.0
+        max_base_voltage: 0.0
+        max_peak_current: 10.0
+        max_base_current: 0.0
+        min_pulse_width: 0.0002
+        max_pulse_width: 0.001
+        max_duty_cycle: 0.05
+  - matrix_assignment: DC2
+    name: Ans HL300V1A [COM7:2] - Ch 1
+    power_supply_id: 1bafc15e-accf-4d92-b4d1-abe8187f341b
+    channel_id: 829bf362-2633-4ab8-85f2-2ab151eb8f02
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 300
+        max_current: 1
+        min_voltage: 1
+        min_current: 0.001
+  - matrix_assignment: DC7
+    name: Itech Ltd. IT6723H [USB0::0xFFFF::0x6700::602006010717720003::0::INSTR]
+      - Ch 1
+    power_supply_id: 3b31f938-ff66-48cf-aad8-f06c4cef0a3e
+    channel_id: 42403741-7c6a-4965-bf45-f04ae47da35a
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 300
+        max_current: 10
+        max_power: 850
+  - matrix_assignment: DC4
+    name: Ans HL60V5A [COM7:4] - Ch 1
+    power_supply_id: 3c3e7499-b5b8-428a-a797-f403ce6f3552
+    channel_id: 4219a858-358b-4ec0-b2b4-3fbc0cd0892e
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 60
+        max_current: 5
+        min_voltage: 0.001
+        min_current: 0.0001
+  - matrix_assignment: DC6
+    name: Itech Ltd. IT6723H [USB0::0xFFFF::0x6700::602006010717840005::0::INSTR]
+      - Ch 1
+    power_supply_id: 716c4ebd-c46a-41fb-8e83-3d0f36376951
+    channel_id: 0381752b-e3be-491f-b19d-3ad894ae5555
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 300
+        max_current: 10
+        max_power: 850
+  - matrix_assignment: EXT1
+    name: Keithley Instruments MODEL 2450 [USB0::0x05E6::0x2450::04440547::0::INSTR]
+      - Ch 1-Rear
+    power_supply_id: 8b64b2b7-cd19-4116-aa0f-3bba937c2057
+    channel_id: 749aee2f-efd7-4a53-a065-b83b485e6f0d
+    power_envelopes:
+      DC:
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-08
+        max_voltage: 0.021
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-07
+        max_voltage: 0.021
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-06
+        max_voltage: 0.021
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0e-05
+        max_voltage: 0.021
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.0001
+        max_voltage: 0.021
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.001
+        max_voltage: 0.021
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.01
+        max_voltage: 0.021
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 0.1
+        max_voltage: 0.021
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.02
+        current_range: 1.0
+        max_voltage: 0.021
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-08
+        max_voltage: 0.21
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-07
+        max_voltage: 0.21
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-06
+        max_voltage: 0.21
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0e-05
+        max_voltage: 0.21
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.0001
+        max_voltage: 0.21
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.001
+        max_voltage: 0.21
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.01
+        max_voltage: 0.21
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 0.1
+        max_voltage: 0.21
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 0.2
+        current_range: 1.0
+        max_voltage: 0.21
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-08
+        max_voltage: 2.1
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-07
+        max_voltage: 2.1
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-06
+        max_voltage: 2.1
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0e-05
+        max_voltage: 2.1
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.0001
+        max_voltage: 2.1
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.001
+        max_voltage: 2.1
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.01
+        max_voltage: 2.1
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 0.1
+        max_voltage: 2.1
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 2.0
+        current_range: 1.0
+        max_voltage: 2.1
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-08
+        max_voltage: 21.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-07
+        max_voltage: 21.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-06
+        max_voltage: 21.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0e-05
+        max_voltage: 21.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.0001
+        max_voltage: 21.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.001
+        max_voltage: 21.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.01
+        max_voltage: 21.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 0.1
+        max_voltage: 21.0
+        max_current: 0.105
+      - output_type: DC
+        voltage_range: 20.0
+        current_range: 1.0
+        max_voltage: 21.0
+        max_current: 1.05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-08
+        max_voltage: 210.0
+        max_current: 1.05e-08
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-07
+        max_voltage: 210.0
+        max_current: 1.05e-07
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-06
+        max_voltage: 210.0
+        max_current: 1.05e-06
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 1.0e-05
+        max_voltage: 210.0
+        max_current: 1.05e-05
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.0001
+        max_voltage: 210.0
+        max_current: 0.000105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.001
+        max_voltage: 210.0
+        max_current: 0.00105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.01
+        max_voltage: 210.0
+        max_current: 0.0105
+      - output_type: DC
+        voltage_range: 200.0
+        current_range: 0.1
+        max_voltage: 210.0
+        max_current: 0.105
+  - matrix_assignment: DC3
+    name: Ans HL30V10A [COM7:3] - Ch 1
+    power_supply_id: d7e42658-d259-4be8-af40-17233dc4bd2e
+    channel_id: 6474ffa1-bbbb-4d3f-9a61-0f3ceeba35f5
+    power_envelopes:
+      DC:
+      - output_type: DC
+        max_voltage: 30
+        max_current: 10
+        min_voltage: 0.001
+        min_current: 0.0001

@@ -68,8 +68,8 @@
     "voltage_reference": "All voltage values are with respect to emitter/substrate terminal E unless otherwise noted."
   },
   "socket": {
-    "type": "64-pin ZIF",
-    "ordering": "Z",
+    "type": "32-pin ZIF",
+    "ordering": "U",
     "placement": "Device pin 1 aligned with ZIF pin 1 at the top/pin-1 end of the socket",
     "mapping_basis": "16-pin PDIP package"
   },
@@ -155,7 +155,7 @@
     },
     {
       "pin_number": 9,
-      "socket_pin": 40,
+      "socket_pin": 25,
       "name": "COM",
       "description": "Common cathode node for flyback diodes; required for inductive loads",
       "pintype": "Supply",
@@ -164,7 +164,7 @@
     },
     {
       "pin_number": 10,
-      "socket_pin": 39,
+      "socket_pin": 26,
       "name": "7C",
       "description": "Channel 7 Darlington collector output",
       "pintype": "O",
@@ -173,7 +173,7 @@
     },
     {
       "pin_number": 11,
-      "socket_pin": 38,
+      "socket_pin": 27,
       "name": "6C",
       "description": "Channel 6 Darlington collector output",
       "pintype": "O",
@@ -182,7 +182,7 @@
     },
     {
       "pin_number": 12,
-      "socket_pin": 37,
+      "socket_pin": 28,
       "name": "5C",
       "description": "Channel 5 Darlington collector output",
       "pintype": "O",
@@ -191,7 +191,7 @@
     },
     {
       "pin_number": 13,
-      "socket_pin": 36,
+      "socket_pin": 29,
       "name": "4C",
       "description": "Channel 4 Darlington collector output",
       "pintype": "O",
@@ -200,7 +200,7 @@
     },
     {
       "pin_number": 14,
-      "socket_pin": 35,
+      "socket_pin": 30,
       "name": "3C",
       "description": "Channel 3 Darlington collector output",
       "pintype": "O",
@@ -209,7 +209,7 @@
     },
     {
       "pin_number": 15,
-      "socket_pin": 34,
+      "socket_pin": 31,
       "name": "2C",
       "description": "Channel 2 Darlington collector output",
       "pintype": "O",
@@ -218,7 +218,7 @@
     },
     {
       "pin_number": 16,
-      "socket_pin": 33,
+      "socket_pin": 32,
       "name": "1C",
       "description": "Channel 1 Darlington collector output",
       "pintype": "O",
