@@ -558,24 +558,15 @@ class ProjectGenerationProcessor:
 
                 generated_group = group_by_name[group_record.name]
                 test_type = str(values.get("test_type") or candidate.values.get("test_type") or "").upper()
-                if test_type == "SIGNAL":
-                    for pin_id in generated_group.pin_ids:
-                        test_groups.append(
-                            GeneratedTestGroup(
-                                group_id=generated_group.id,
-                                group_name=generated_group.name,
-                                stress_points=stress_points,
-                                pin_ids=(pin_id,),
-                            )
-                        )
-                else:
-                    test_groups.append(
-                        GeneratedTestGroup(
-                            group_id=generated_group.id,
-                            group_name=generated_group.name,
-                            stress_points=stress_points,
-                        )
+                test_groups.append(
+                    GeneratedTestGroup(
+                        group_id=generated_group.id,
+                        group_name=generated_group.name,
+                        stress_points=stress_points,
+                        pin_ids=generated_group.pin_ids,
+                        simultaneous=test_type == "SUPPLY",
                     )
+                )
 
             if not test_groups:
                 continue
@@ -829,6 +820,8 @@ class ProjectGenerationProcessor:
                     group_id=group.id,
                     group_name=group.name,
                     stress_points=tuple(StressPoint(values=dict(point)) for point in test_group.stress_points),
+                    pin_ids=group.pin_ids,
+                    simultaneous=group.group_type == "POWER",
                 )
             )
         return GeneratedTestPlan(

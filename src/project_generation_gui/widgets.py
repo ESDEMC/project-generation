@@ -1008,41 +1008,42 @@ class TestPlansView(QWidget):
             (issue.group_name, issue.stress_point_index): issue
             for issue in plan.hardware_issues
         }
-        for test_group in plan.test_groups:
-            group = self._groups_by_id.get(test_group.group_id)
-            pins = []
-            if group is not None:
-                pin_ids = test_group.pin_ids if test_group.pin_ids is not None else group.pin_ids
-                pins = [
-                    self._pins_by_id[pin_id].name or self._pins_by_id[pin_id].designator
-                    for pin_id in pin_ids
-                    if pin_id in self._pins_by_id
-                ]
-            for zero_based_index, stress_point in enumerate(test_group.stress_points):
-                issue = issues_by_point.get((test_group.group_name, zero_based_index))
-                tooltip = "\n".join(issue.reasons) if issue is not None else None
-                parameter_values = []
-                for name in parameter_names:
-                    value = stress_point.values.get(name)
-                    if issue is not None and isinstance(value, (int, float)) and not isinstance(value, bool):
-                        value = StyledValue(
-                            value,
-                            foreground=QColor("#EF5350"),
-                            tooltip=tooltip,
-                            context=stress_point.values,
-                        )
-                    else:
-                        value = StyledValue(value, context=stress_point.values)
-                    parameter_values.append(value)
-                self._stress_point_contexts.append((stress_point.values, issue))
-                rows.append(
-                    [
-                        self._colored_group_name(test_group.group_id, test_group.group_name),
-                        zero_based_index + 1,
-                        self._colored_pins(group, pin_ids=test_group.pin_ids),
-                        *parameter_values,
+        for group in plan.test_groups:
+            for test_group in group.iter():
+                group = self._groups_by_id.get(test_group.group_id)
+                pins = []
+                if group is not None:
+                    pin_ids = test_group.pin_ids if test_group.pin_ids is not None else group.pin_ids
+                    pins = [
+                        self._pins_by_id[pin_id].name or self._pins_by_id[pin_id].designator
+                        for pin_id in pin_ids
+                        if pin_id in self._pins_by_id
                     ]
-                )
+                for zero_based_index, stress_point in enumerate(test_group.stress_points):
+                    issue = issues_by_point.get((test_group.group_name, zero_based_index))
+                    tooltip = "\n".join(issue.reasons) if issue is not None else None
+                    parameter_values = []
+                    for name in parameter_names:
+                        value = stress_point.values.get(name)
+                        if issue is not None and isinstance(value, (int, float)) and not isinstance(value, bool):
+                            value = StyledValue(
+                                value,
+                                foreground=QColor("#EF5350"),
+                                tooltip=tooltip,
+                                context=stress_point.values,
+                            )
+                        else:
+                            value = StyledValue(value, context=stress_point.values)
+                        parameter_values.append(value)
+                    self._stress_point_contexts.append((stress_point.values, issue))
+                    rows.append(
+                        [
+                            self._colored_group_name(test_group.group_id, test_group.group_name),
+                            zero_based_index + 1,
+                            self._colored_pins(group, pin_ids=test_group.pin_ids),
+                            *parameter_values,
+                        ]
+                    )
         self.stress_points.set_rows(["Group", "Point", "Pins", *parameter_names], rows)
         self.stress_points.clearSelection()
         self.stress_points.setCurrentIndex(QModelIndex())

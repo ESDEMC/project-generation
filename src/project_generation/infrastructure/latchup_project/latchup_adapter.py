@@ -12,6 +12,9 @@ from project_generation.diagnostics import ProjectGenerationError
 from project_generation.generation.models import GeneratedDeviceState, GeneratedProject, GeneratedTestPlan
 
 
+ADD_ALL_TEST_GROUPS = True
+
+
 class Bindings:
     Designator = dut_module.Designator
     DevicePinType = dut_module.DevicePinType
@@ -214,7 +217,7 @@ class LatchUpProjectCoreAdapter:
             test_plan_id=plan.id,
             name=plan.name,
             test_pins=test_pins,
-            test_groups=test_groups,
+            test_groups=dut.pin_groups.copy() if ADD_ALL_TEST_GROUPS else test_groups,
             device_info=dut.descriptor(),
             test_type=_test_type(plan.test_type, bindings),
             metadata=metadata,
@@ -254,12 +257,6 @@ def _build_stress_plan(plan: GeneratedTestPlan, dut: Bindings.Dut, b: Bindings) 
             continue
         group_id = b.PinGroupID(test_group.group_id)
         descriptor = copy.deepcopy(descriptor_by_id[group_id])
-        if test_group.pin_ids is not None:
-            wanted = {str(pin_id) for pin_id in test_group.pin_ids}
-            descriptor = replace(
-                descriptor,
-                pins=[pin for pin in descriptor.pins if str(pin.pin_id) in wanted],
-            )
         parameters = [
             _stress_parameters(point.values, plan_name=plan.name, group_name=test_group.group_name, b=b)
             for point in test_group.stress_points

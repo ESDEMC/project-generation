@@ -1,6 +1,6 @@
 import uuid
 from dataclasses import dataclass, field
-from typing import Any, Mapping
+from typing import Any, Mapping, Iterable
 
 from project_generation.generation.rules import GroupRecord, StressPoint
 
@@ -108,11 +108,21 @@ class GeneratedTestGroup:
     group_id: uuid.UUID
     group_name: str
     stress_points: tuple[StressPoint, ...]
-    # None means the whole generated group. SIGNAL plans use a one-pin subset so
-    # each stress is applied to exactly one signal pin at a time.
-    pin_ids: tuple[uuid.UUID, ...] | None = None
+    pin_ids: tuple[uuid.UUID, ...]
+    simultaneous: bool = False
 
-
+    def iter(self) -> "Iterable[GeneratedTestGroup]":
+        if self.simultaneous:
+            yield self
+        else:
+            for pin in self.pin_ids:
+                yield GeneratedTestGroup(
+                    group_id=self.group_id,
+                    group_name=self.group_name,
+                    stress_points=self.stress_points,
+                    pin_ids=(pin,),
+                    simultaneous=True,
+                )
 
 
 @dataclass(frozen=True, kw_only=True)
